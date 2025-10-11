@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>シフト作成 - Shift Scheduler Demo</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+<header class="app-header">
+    <h1>シフト作成</h1>
+    <p>対象月を指定して自動でシフトを生成・確認できます。</p>
+</header>
+
+<nav class="app-nav">
+    <a href="/">ホーム</a>
+    <a href="/employees">従業員管理</a>
+    <a href="/schedule" class="active">シフト作成</a>
+    <a href="/stats">統計ダッシュボード</a>
+</nav>
+
+<main class="app-container">
+    <section class="card">
+        <h2>対象年月の指定</h2>
+        <form id="schedule-form" class="form-inline" data-default-year="[[${defaultYear}]]" data-default-month="[[${defaultMonth}]]">
+            <label>
+                年
+                <input type="number" name="year" min="2000" max="2100" required>
+            </label>
+            <label>
+                月
+                <input type="number" name="month" min="1" max="12" required>
+            </label>
+            <button type="submit" class="button">シフトを生成</button>
+            <button type="button" id="load-schedule" class="button button-secondary">既存シフトを読み込む</button>
+        </form>
+        <p id="schedule-status" class="status"></p>
+    </section>
+
+    <section class="card">
+        <h2>シフト一覧</h2>
+        <div class="table-wrapper">
+            <table id="schedule-table">
+                <thead>
+                <tr>
+                    <th>日付</th>
+                    <th>シフト</th>
+                    <th>開始</th>
+                    <th>終了</th>
+                    <th>担当者</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td colspan="5" class="placeholder">シフトがまだ読み込まれていません。</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+</main>
+
+<footer class="app-footer">
+    <small>&copy; 2024 Shift Scheduler Demo</small>
+</footer>
+
+<script th:src="@{/js/schedule.js}"></script>
+</body>
+</html>

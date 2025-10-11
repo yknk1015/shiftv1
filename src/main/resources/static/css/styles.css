@@ -1,0 +1,255 @@
+:root {
+    color-scheme: light;
+    font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", "BIZ UDPGothic", sans-serif;
+    background-color: #f5f7fb;
+    color: #1f2933;
+}
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+.app-header {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8);
+    color: #fff;
+    padding: 2.5rem 1.5rem 2rem;
+    text-align: center;
+    box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
+}
+
+.app-header h1 {
+    margin: 0;
+    font-size: 2.2rem;
+    letter-spacing: 0.05em;
+}
+
+.app-header p {
+    margin-top: 0.5rem;
+    font-size: 1.05rem;
+}
+
+.app-nav {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    align-items: center;
+    background-color: #1f2933;
+    padding: 0.75rem 1rem;
+    flex-wrap: wrap;
+}
+
+.app-nav a {
+    color: #e5e7eb;
+    text-decoration: none;
+    font-weight: 600;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.4rem;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+.app-nav a:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.app-nav a.active {
+    background-color: #2563eb;
+    color: #fff;
+}
+
+.app-container {
+    flex: 1;
+    width: min(960px, 92%);
+    margin: 2rem auto 3rem;
+    display: grid;
+    gap: 1.5rem;
+}
+
+.card {
+    background: #fff;
+    border-radius: 1rem;
+    padding: 1.5rem;
+    box-shadow: 0 12px 32px rgba(15, 23, 42, 0.08);
+    border: 1px solid rgba(37, 99, 235, 0.1);
+}
+
+.card h2 {
+    margin-top: 0;
+    font-size: 1.4rem;
+    color: #1d4ed8;
+}
+
+.quick-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.button {
+    background-color: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 0.6rem 1.2rem;
+    border-radius: 0.6rem;
+    cursor: pointer;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background-color 0.2s ease;
+}
+
+.button:hover {
+    background-color: #1d4ed8;
+}
+
+.button-secondary {
+    background-color: #e0e7ff;
+    color: #1d4ed8;
+}
+
+.button-secondary:hover {
+    background-color: #c7d2fe;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+table thead {
+    background-color: #eff6ff;
+}
+
+table th,
+table td {
+    padding: 0.75rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+}
+
+table tbody tr:hover {
+    background-color: #f9fafb;
+}
+
+.placeholder {
+    text-align: center;
+    color: #64748b;
+    padding: 1.2rem;
+}
+
+.form-grid {
+    display: grid;
+    gap: 1rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.form-inline {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    align-items: flex-end;
+}
+
+label {
+    display: flex;
+    flex-direction: column;
+    font-weight: 600;
+    color: #1f2937;
+}
+
+input[type="text"],
+input[type="number"] {
+    margin-top: 0.4rem;
+    padding: 0.6rem 0.8rem;
+    border-radius: 0.5rem;
+    border: 1px solid #cbd5f5;
+    font-size: 1rem;
+}
+
+.status {
+    min-height: 1.2rem;
+    color: #1f2937;
+    font-size: 0.95rem;
+}
+
+.status.error {
+    color: #dc2626;
+}
+
+.status.success {
+    color: #047857;
+}
+
+.note {
+    color: #475569;
+    font-size: 0.9rem;
+}
+
+.stat-block {
+    display: grid;
+    gap: 0.75rem;
+}
+
+.stat-block .stat {
+    display: flex;
+    justify-content: space-between;
+    background-color: #f9fafb;
+    border-radius: 0.75rem;
+    padding: 0.75rem 1rem;
+    border: 1px solid #e2e8f0;
+}
+
+.distribution-list {
+    list-style: none;
+    padding-left: 0;
+    margin: 0;
+    display: grid;
+    gap: 0.5rem;
+}
+
+.distribution-list li {
+    background-color: #f8fafc;
+    border-radius: 0.75rem;
+    padding: 0.6rem 1rem;
+    border: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: space-between;
+}
+
+.app-footer {
+    text-align: center;
+    padding: 1.5rem 1rem 2rem;
+    color: #64748b;
+    font-size: 0.85rem;
+}
+
+@media (max-width: 640px) {
+    .app-header {
+        padding: 2rem 1rem 1.5rem;
+    }
+
+    .app-header h1 {
+        font-size: 1.8rem;
+    }
+
+    .app-container {
+        margin: 1.5rem auto 2.5rem;
+        gap: 1rem;
+    }
+
+    table th,
+    table td {
+        font-size: 0.85rem;
+        padding: 0.5rem;
+    }
+}

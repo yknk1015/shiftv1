@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="ja" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <title>従業員管理 - Shift Scheduler Demo</title>
+    <link rel="stylesheet" th:href="@{/css/styles.css}">
+</head>
+<body>
+<header class="app-header">
+    <h1>従業員管理</h1>
+    <p>シフト作成に利用する従業員の登録・管理を行います。</p>
+</header>
+
+<nav class="app-nav">
+    <a href="/">ホーム</a>
+    <a href="/employees" class="active">従業員管理</a>
+    <a href="/schedule">シフト作成</a>
+    <a href="/stats">統計ダッシュボード</a>
+</nav>
+
+<main class="app-container">
+    <section class="card">
+        <h2>従業員一覧</h2>
+        <div class="table-wrapper">
+            <table id="employee-table">
+                <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>氏名</th>
+                    <th>役割</th>
+                    <th>操作</th>
+                </tr>
+                </thead>
+                <tbody>
+                <tr>
+                    <td colspan="4" class="placeholder">読み込み中...</td>
+                </tr>
+                </tbody>
+            </table>
+        </div>
+        <p id="employee-count" class="note"></p>
+    </section>
+
+    <section class="card">
+        <h2>新規従業員の登録</h2>
+        <form id="employee-form" class="form-grid">
+            <label>
+                氏名
+                <input type="text" name="name" required placeholder="例：山田 太郎">
+            </label>
+            <label>
+                役割
+                <input type="text" name="role" required placeholder="例：店長 / アルバイト">
+            </label>
+            <button type="submit" class="button">登録する</button>
+        </form>
+        <p id="employee-status" class="status"></p>
+    </section>
+</main>
+
+<footer class="app-footer">
+    <small>&copy; 2024 Shift Scheduler Demo</small>
+</footer>
+
+<script th:src="@{/js/employees.js}"></script>
+</body>
+</html>
