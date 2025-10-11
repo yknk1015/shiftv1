@@ -1,9 +1,3 @@
-diff --git a/README.md b/README.md
-new file mode 100644
-index 0000000000000000000000000000000000000000..7147b3bfe7168caf477af7912d45f9fde2c54260
---- /dev/null
-+++ b/README.md
-@@ -0,0 +1,41 @@
 +# シフト自動作成デモアプリ
 +
 +Java 17 / Spring Boot / SQLite を利用した学習用のシフト自動作成ツールです。30 名の従業員に対して 1 か月分のシフトを自動生成し、REST API から参照できます。
