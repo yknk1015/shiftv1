@@ -2,6 +2,8 @@ package com.example.shiftv1.schedule;
 
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,6 +22,8 @@ import java.util.Set;
 
 @Service
 public class ScheduleService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ScheduleService.class);
 
     static final LocalTime WEEKDAY_START_AM = LocalTime.of(9, 0);
     static final LocalTime WEEKDAY_END_AM = LocalTime.of(15, 0);
@@ -44,12 +48,17 @@ public class ScheduleService {
         LocalDate start = target.atDay(1);
         LocalDate end = target.atEndOfMonth();
 
+        logger.info("シフト生成を開始します: {}年{}月", year, month);
+
         List<Employee> employees = employeeRepository.findAll();
         if (employees.isEmpty()) {
+            logger.error("従業員が登録されていません");
             throw new IllegalStateException("No employees registered. Please add employees before generating schedule.");
         }
 
+        logger.info("登録従業員数: {}名", employees.size());
         assignmentRepository.deleteByWorkDateBetween(start, end);
+        logger.info("既存のシフト割り当てを削除しました: {} から {}", start, end);
 
         Deque<Employee> rotation = new ArrayDeque<>(employees);
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
@@ -68,7 +77,9 @@ public class ScheduleService {
             }
         }
 
-        return assignmentRepository.saveAll(results);
+        List<ShiftAssignment> savedAssignments = assignmentRepository.saveAll(results);
+        logger.info("シフト生成が完了しました: {}件の割り当てを生成", savedAssignments.size());
+        return savedAssignments;
     }
 
     public List<ShiftAssignment> getMonthlySchedule(int year, int month) {

@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 @Entity
 @Table(name = "employees")
@@ -16,9 +18,12 @@ public class Employee {
     private Long id;
 
     @Column(nullable = false, unique = true)
+    @NotBlank(message = "従業員名は必須です")
+    @Size(min = 1, max = 50, message = "従業員名は1文字以上50文字以下で入力してください")
     private String name;
 
     @Column
+    @Size(max = 30, message = "役職は30文字以下で入力してください")
     private String role;
 
     protected Employee() {
