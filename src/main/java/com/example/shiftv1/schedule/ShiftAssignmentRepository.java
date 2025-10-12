@@ -8,6 +8,7 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment, Long> {
@@ -46,6 +47,16 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
      * 指定従業員の指定日付範囲のシフト割り当てを削除
      */
     void deleteByEmployeeAndWorkDateBetween(Employee employee, LocalDate startDate, LocalDate endDate);
+
+    /**
+     * 最新の日付のシフト割り当てを取得
+     */
+    Optional<ShiftAssignment> findTopByOrderByWorkDateDesc();
+
+    /**
+     * 最古の日付のシフト割り当てを取得
+     */
+    Optional<ShiftAssignment> findTopByOrderByWorkDateAsc();
 
     /**
      * 月別シフト割り当て数を取得
