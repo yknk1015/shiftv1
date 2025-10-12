@@ -84,6 +84,28 @@
             background-color: #e9ecef;
             border-left: 4px solid #007bff;
         }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            border: 1px solid #dee2e6;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        th {
+            background-color: #007bff;
+            color: white;
+            font-weight: 600;
+        }
+        tbody tr:nth-child(even) {
+            background-color: #f2f4f7;
+        }
+        .schedule-summary {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
         .error {
             background-color: #f8d7da;
             border-left-color: #dc3545;
@@ -181,9 +203,78 @@
 
         function showResult(elementId, result, isError = false) {
             const element = document.getElementById(elementId);
+
+            if (!isError && elementId === 'schedule-result' && Array.isArray(result.data)) {
+                element.innerHTML = `<div class="result success">${renderScheduleTable(result.data)}</div>`;
+                return;
+            }
+
             element.innerHTML = `<div class="result ${isError ? 'error' : 'success'}">
                 <pre>${JSON.stringify(result, null, 2)}</pre>
             </div>`;
+        }
+
+        function renderScheduleTable(assignments) {
+            if (!assignments.length) {
+                return '<p>シフト情報がありません。</p>';
+            }
+
+            const sorted = [...assignments].sort((a, b) => {
+                const dateCompare = new Date(a.workDate) - new Date(b.workDate);
+                if (dateCompare !== 0) {
+                    return dateCompare;
+                }
+                return (a.startTime || '').localeCompare(b.startTime || '');
+            });
+
+            const rows = sorted.map(assignment => `
+                <tr>
+                    <td>${formatDate(assignment.workDate)}</td>
+                    <td>${assignment.shiftName || '-'}</td>
+                    <td>${formatTimeRange(assignment.startTime, assignment.endTime)}</td>
+                    <td>${assignment.employeeName || '-'}</td>
+                </tr>
+            `).join('');
+
+            return `
+                <div class="schedule-summary">全${assignments.length}件のシフトを表示しています。</div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日付</th>
+                            <th>シフト名</th>
+                            <th>勤務時間</th>
+                            <th>担当者</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${rows}
+                    </tbody>
+                </table>
+            `;
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            if (Number.isNaN(date.getTime())) {
+                return dateString;
+            }
+            return date.toLocaleDateString('ja-JP', { month: 'numeric', day: 'numeric', weekday: 'short' });
+        }
+
+        function formatTimeRange(start, end) {
+            if (!start && !end) {
+                return '-';
+            }
+            return `${formatTime(start)} 〜 ${formatTime(end)}`;
+        }
+
+        function formatTime(timeString) {
+            if (!timeString) {
+                return '-';
+            }
+            const [hour, minute] = timeString.split(':');
+            return `${hour}:${minute}`;
         }
 
         async function checkSystemStatus() {
