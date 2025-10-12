@@ -44,16 +44,24 @@ public class ScheduleService {
 
     @Transactional
     public List<ShiftAssignment> generateMonthlySchedule(int year, int month) {
-        YearMonth target = YearMonth.of(year, month);
-        LocalDate start = target.atDay(1);
-        LocalDate end = target.atEndOfMonth();
-
-        logger.info("シフト生成を開始します: {}年{}月", year, month);
+        YearMonth target;
+        LocalDate start;
+        LocalDate end;
+        
+        try {
+            target = YearMonth.of(year, month);
+            start = target.atDay(1);
+            end = target.atEndOfMonth();
+            logger.info("シフト生成を開始します: {}年{}月", year, month);
+        } catch (Exception e) {
+            logger.error("無効な年月です: {}年{}月", year, month, e);
+            throw new IllegalArgumentException("無効な年月です: " + year + "年" + month + "月");
+        }
 
         List<Employee> employees = employeeRepository.findAll();
         if (employees.isEmpty()) {
             logger.error("従業員が登録されていません");
-            throw new IllegalStateException("No employees registered. Please add employees before generating schedule.");
+            throw new IllegalStateException("従業員が登録されていません。シフト生成前に従業員を追加してください。");
         }
 
         logger.info("登録従業員数: {}名", employees.size());

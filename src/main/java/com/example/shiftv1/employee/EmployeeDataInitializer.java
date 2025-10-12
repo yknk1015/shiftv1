@@ -10,16 +10,17 @@ import java.util.stream.IntStream;
 @Configuration
 public class EmployeeDataInitializer {
 
-    @Bean
-    CommandLineRunner loadEmployees(EmployeeRepository repository) {
-        return args -> {
-            if (repository.count() > 0) {
-                return;
-            }
-            List<Employee> employees = IntStream.rangeClosed(1, 30)
-                    .mapToObj(i -> new Employee("Employee %02d".formatted(i), "Staff"))
-                    .toList();
-            repository.saveAll(employees);
-        };
-    }
+    // 自動初期化を無効化 - 手動で初期化するように変更
+    // @Bean
+    // CommandLineRunner loadEmployees(EmployeeRepository repository) {
+    //     return args -> {
+    //         if (repository.count() > 0) {
+    //             return;
+    //         }
+    //         List<Employee> employees = IntStream.rangeClosed(1, 30)
+    //                 .mapToObj(i -> new Employee("Employee %02d".formatted(i), "Staff"))
+    //                 .toList();
+    //         repository.saveAll(employees);
+    //     };
+    // }
 }

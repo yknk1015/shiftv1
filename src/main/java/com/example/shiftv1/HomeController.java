@@ -33,11 +33,18 @@ public class HomeController {
         employeeEndpoints.put("従業員削除", "DELETE /api/employees/{id}");
         employeeEndpoints.put("従業員数取得", "GET /api/employees/count");
         
+        Map<String, String> adminEndpoints = new HashMap<>();
+        adminEndpoints.put("システム状態確認", "GET /api/admin/status");
+        adminEndpoints.put("従業員初期化", "POST /api/admin/initialize-employees");
+        adminEndpoints.put("従業員リセット", "DELETE /api/admin/reset-employees");
+        
         endpoints.put("schedule", scheduleEndpoints);
         endpoints.put("employees", employeeEndpoints);
+        endpoints.put("admin", adminEndpoints);
         response.put("availableEndpoints", endpoints);
         
         response.put("note", "yearとmonthパラメータは省略可能です");
+        response.put("dashboard", "http://localhost:8080/dashboard");
         
         return response;
     }

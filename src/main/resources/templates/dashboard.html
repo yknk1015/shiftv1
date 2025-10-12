@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト管理システム</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .section {
+            margin-bottom: 30px;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            background-color: #fafafa;
+        }
+        .section h2 {
+            color: #555;
+            margin-top: 0;
+        }
+        .button-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 20px;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #1e7e34;
+        }
+        .btn-warning {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .btn-warning:hover {
+            background-color: #e0a800;
+        }
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+        }
+        .btn-danger:hover {
+            background-color: #c82333;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            background-color: #e9ecef;
+            border-left: 4px solid #007bff;
+        }
+        .error {
+            background-color: #f8d7da;
+            border-left-color: #dc3545;
+            color: #721c24;
+        }
+        .success {
+            background-color: #d4edda;
+            border-left-color: #28a745;
+            color: #155724;
+        }
+        .api-info {
+            background-color: #d1ecf1;
+            border-left-color: #17a2b8;
+            color: #0c5460;
+        }
+        pre {
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+            overflow-x: auto;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>シフト管理システム デモ</h1>
+        
+        <div class="section">
+            <h2>システム管理</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="checkSystemStatus()">システム状態確認</button>
+                <button class="btn-success" onclick="initializeEmployees()">従業員初期化</button>
+                <button class="btn-warning" onclick="resetEmployees()">従業員リセット</button>
+            </div>
+            <div id="admin-result"></div>
+        </div>
+
+        <div class="section">
+            <h2>シフト管理</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="generateSchedule()">今月のシフト生成</button>
+                <button class="btn-primary" onclick="getSchedule()">シフト取得</button>
+                <button class="btn-primary" onclick="getMonthlyStats()">月次統計</button>
+                <button class="btn-primary" onclick="getEmployeeWorkload()">従業員別勤務量</button>
+            </div>
+            <div id="schedule-result"></div>
+        </div>
+
+        <div class="section">
+            <h2>従業員管理</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="getAllEmployees()">全従業員取得</button>
+                <button class="btn-primary" onclick="getEmployeeCount()">従業員数取得</button>
+            </div>
+            <div id="employee-result"></div>
+        </div>
+
+        <div class="section">
+            <h2>API情報</h2>
+            <div class="api-info">
+                <p><strong>利用可能なAPIエンドポイント:</strong></p>
+                <ul>
+                    <li><code>GET /api/admin/status</code> - システム状態確認</li>
+                    <li><code>POST /api/admin/initialize-employees</code> - 従業員初期化</li>
+                    <li><code>POST /api/schedule/generate</code> - シフト生成</li>
+                    <li><code>GET /api/schedule</code> - シフト取得</li>
+                    <li><code>GET /api/schedule/stats/monthly</code> - 月次統計</li>
+                    <li><code>GET /api/employees</code> - 全従業員取得</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        async function makeRequest(url, method = 'GET', body = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                if (body) {
+                    options.body = JSON.stringify(body);
+                }
+                const response = await fetch(url, options);
+                const data = await response.json();
+                return { success: response.ok, data, status: response.status };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        function showResult(elementId, result, isError = false) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = `<div class="result ${isError ? 'error' : 'success'}">
+                <pre>${JSON.stringify(result, null, 2)}</pre>
+            </div>`;
+        }
+
+        async function checkSystemStatus() {
+            const result = await makeRequest('/api/admin/status');
+            showResult('admin-result', result, !result.success);
+        }
+
+        async function initializeEmployees() {
+            const result = await makeRequest('/api/admin/initialize-employees', 'POST');
+            showResult('admin-result', result, !result.success);
+        }
+
+        async function resetEmployees() {
+            if (confirm('従業員データをリセットしますか？')) {
+                const result = await makeRequest('/api/admin/reset-employees', 'DELETE');
+                showResult('admin-result', result, !result.success);
+            }
+        }
+
+        async function generateSchedule() {
+            const result = await makeRequest('/api/schedule/generate', 'POST');
+            showResult('schedule-result', result, !result.success);
+        }
+
+        async function getSchedule() {
+            const result = await makeRequest('/api/schedule');
+            showResult('schedule-result', result, !result.success);
+        }
+
+        async function getMonthlyStats() {
+            const result = await makeRequest('/api/schedule/stats/monthly');
+            showResult('schedule-result', result, !result.success);
+        }
+
+        async function getEmployeeWorkload() {
+            const result = await makeRequest('/api/schedule/stats/employee-workload');
+            showResult('schedule-result', result, !result.success);
+        }
+
+        async function getAllEmployees() {
+            const result = await makeRequest('/api/employees');
+            showResult('employee-result', result, !result.success);
+        }
+
+        async function getEmployeeCount() {
+            const result = await makeRequest('/api/employees/count');
+            showResult('employee-result', result, !result.success);
+        }
+
+        // ページ読み込み時にシステム状態を確認
+        window.onload = function() {
+            checkSystemStatus();
+        };
+    </script>
+</body>
+</html>
+

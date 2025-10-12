@@ -42,7 +42,11 @@ public class ScheduleController {
 
     private YearMonth resolveYearMonth(Integer year, Integer month) {
         if (year != null && month != null) {
-            return YearMonth.of(year, month);
+            try {
+                return YearMonth.of(year, month);
+            } catch (Exception e) {
+                throw new IllegalArgumentException("無効な年月です: " + year + "年" + month + "月");
+            }
         }
         LocalDate today = LocalDate.now();
         return YearMonth.of(today.getYear(), today.getMonthValue());
