@@ -8,10 +8,14 @@ import org.springframework.validation.FieldError;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.WebRequest;
 
+import jakarta.validation.ConstraintViolation;
+import jakarta.validation.ConstraintViolationException;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 @RestControllerAdvice
 public class GlobalExceptionHandler {
@@ -62,6 +66,49 @@ public class GlobalExceptionHandler {
         
         logger.warn("引数エラーが発生しました: {}", ex.getMessage());
         return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(ScheduleGenerationException.class)
+    public ResponseEntity<ErrorResponse> handleScheduleGenerationException(ScheduleGenerationException ex, WebRequest request) {
+        logger.error("Schedule generation error: {}", ex.getMessage(), ex);
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                "SCHEDULE_GENERATION_ERROR",
+                ex.getMessage(),
+                null,
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
+    }
+
+    @ExceptionHandler(ConstraintViolationException.class)
+    public ResponseEntity<ErrorResponse> handleConstraintViolationException(ConstraintViolationException ex, WebRequest request) {
+        logger.warn("Constraint violation: {}", ex.getMessage());
+        
+        String message = ex.getConstraintViolations().stream()
+                .map(ConstraintViolation::getMessage)
+                .collect(Collectors.joining(", "));
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                "CONSTRAINT_VIOLATION",
+                message,
+                null,
+                LocalDateTime.now()
+        );
+        return ResponseEntity.badRequest().body(errorResponse);
+    }
+
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ErrorResponse> handleBusinessException(BusinessException ex, WebRequest request) {
+        logger.warn("Business error: {}", ex.getMessage());
+        
+        ErrorResponse errorResponse = new ErrorResponse(
+                ex.getErrorCode(),
+                ex.getMessage(),
+                null,
+                LocalDateTime.now()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(errorResponse);
     }
 
     @ExceptionHandler(Exception.class)

@@ -10,5 +10,15 @@ public class WebController {
     public String dashboard() {
         return "dashboard";
     }
+
+    @GetMapping("/login")
+    public String login() {
+        return "login";
+    }
+
+    @GetMapping("/calendar")
+    public String calendar() {
+        return "calendar";
+    }
 }
 

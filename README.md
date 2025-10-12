@@ -1,182 +1,136 @@
-# シフト自動作成デモアプリ（学習用強化版）
+# シフト管理システム
 
-Java 17 / Spring Boot / SQLite を利用した学習用のシフト自動作成ツールです。多様な属性を持つ従業員に対して、より現実的で柔軟なシフト生成を行います。
+Java 17 / Spring Boot / SQLite を利用した本格的なシフト管理システムです。従業員のシフトを自動生成・管理し、直感的なWeb UIで操作できます。
 
-## 🚀 主な特徴
+## 🚀 主な機能
 
-### 従業員モデルの拡張
-- **スキルレベル** (1-5段階): 高いスキルの従業員を優先的に割り当て
-- **土日勤務可能**: 土日勤務の可否を個別設定
-- **夜勤可能**: 夜勤シフトの可否を個別設定
-- **希望勤務日数**: 週あたりの希望勤務日数を設定
-- **役職**: スタッフ、リーダー、マネージャー、アシスタント
+### 🔐 セキュリティ機能
+- **ユーザー認証**: ログイン・ログアウト機能
+- **権限管理**: 管理者・一般ユーザーの役割分離
+- **セキュアなAPI**: Spring Securityによる保護
 
-### 柔軟なシフト設定
-- **動的設定変更**: 勤務時間や必要人数を実行時に変更可能
-- **平日シフト**: 午前・午後の2シフト制
-- **休日シフト**: 単一シフト制
-- **バリデーション**: 従業員の制約を考慮した割り当て
+### 📅 シフト管理
+- **自動シフト生成**: 公平なラウンドロビン方式
+- **カレンダー表示**: 視覚的なシフト確認
+- **柔軟な設定**: シフト時間・従業員数のカスタマイズ
+- **統計機能**: 月次統計・従業員別勤務量
 
-### 高度なアルゴリズム
-- **スキル優先**: 高いスキルレベルの従業員を優先
-- **制約遵守**: 土日勤務不可、夜勤不可などの制約を考慮
-- **公平性**: ラウンドロビン方式で公平な配分
-- **エラーハンドリング**: 詳細なエラーメッセージとログ出力
+### 👥 従業員管理
+- **CRUD操作**: 従業員の追加・編集・削除
+- **役職管理**: 役職別のシフト割り当て
 
-## 🛠️ 必要環境
+### 📊 データ管理
+- **データエクスポート**: CSV形式での出力
+- **バックアップ機能**: データベースの完全バックアップ
+- **統計情報**: 詳細なデータ分析
+
+## 🛠 技術スタック
+- **Java 17**
+- **Spring Boot 3.2.5**
+- **Spring Security**
+- **Spring Data JPA**
+- **SQLite**
+- **Thymeleaf**
+- **Maven**
+
+## 📋 必要環境
 - Java 17
 - Maven 3.9 以降
 
-## 🚀 ビルド & 実行
+## 🚀 クイックスタート
+
+### 1. アプリケーションの起動
 ```bash
 mvn spring-boot:run
 ```
 
-起動後、`http://localhost:8080` でアプリが待ち受けます。
+### 2. アクセス
+起動後、以下のURLでアクセスできます：
+- **ダッシュボード**: http://localhost:8080/dashboard
+- **カレンダー**: http://localhost:8080/calendar
+- **ログイン**: http://localhost:8080/login
 
-## 📡 API エンドポイント
+### 3. デフォルトアカウント
+- **管理者**: `admin` / `admin123`
+- **一般ユーザー**: `user` / `user123`
+
+## 📖 使用方法
+
+### 基本的な操作フロー
+1. **ログイン**: デフォルトアカウントでログイン
+2. **従業員初期化**: ダッシュボードで従業員データを作成
+3. **シフト生成**: カレンダーまたはダッシュボードでシフトを生成
+4. **確認**: カレンダーでシフトを視覚的に確認
+
+### カレンダー機能
+- **月間表示**: 月単位でのシフト確認
+- **色分け**: シフトタイプ別の色分け表示
+  - 🟢 朝シフト (9:00-15:00)
+  - 🟡 夜シフト (15:00-21:00)
+  - 🔴 土日シフト (9:00-18:00)
+- **ナビゲーション**: 前月・次月への移動
+
+## 🔌 API エンドポイント
+
+### 認証
+- `POST /api/auth/login` - ログイン
+- `POST /api/auth/logout` - ログアウト
+- `POST /api/auth/register` - ユーザー登録
+- `GET /api/auth/me` - 現在のユーザー情報
 
 ### シフト管理
-```bash
-# シフト生成
-POST /api/schedule/generate?year=2024&month=7
-
-# シフト取得
-GET /api/schedule?year=2024&month=7
-
-# 生成統計情報
-GET /api/schedule/generation-stats?year=2024&month=7
-```
-
-### 設定管理
-```bash
-# 現在のシフト設定を取得
-GET /api/schedule/configuration
-
-# シフト設定を更新
-PUT /api/schedule/configuration
-Content-Type: application/json
-
-{
-  "weekdayAmStart": "09:00",
-  "weekdayAmEnd": "15:00",
-  "weekdayPmStart": "15:00",
-  "weekdayPmEnd": "21:00",
-  "weekdayEmployeesPerShift": 4,
-  "weekendStart": "09:00",
-  "weekendEnd": "18:00",
-  "weekendEmployeesPerShift": 5
-}
-```
-
-### 統計情報
-```bash
-# 月次統計
-GET /api/schedule/stats/monthly?year=2024&month=7
-
-# 従業員別勤務量
-GET /api/schedule/stats/employee-workload?year=2024&month=7
-
-# シフト種別分布
-GET /api/schedule/stats/shift-distribution?year=2024&month=7
-```
+- `POST /api/schedule/generate` - シフト生成
+- `GET /api/schedule` - シフト取得
+- `GET /api/schedule/stats/monthly` - 月次統計
+- `GET /api/schedule/stats/employee-workload` - 従業員別勤務量
 
 ### 従業員管理
-```bash
-# 従業員一覧
-GET /api/employees
+- `GET /api/employees` - 全従業員取得
+- `POST /api/employees` - 従業員作成
+- `PUT /api/employees/{id}` - 従業員更新
+- `DELETE /api/employees/{id}` - 従業員削除
 
-# 従業員追加
-POST /api/employees
-Content-Type: application/json
+### 設定管理
+- `GET /api/config/shift` - シフト設定一覧
+- `POST /api/config/shift` - シフト設定作成
+- `PUT /api/config/shift/{id}` - シフト設定更新
 
-{
-  "name": "新規従業員",
-  "role": "スタッフ",
-  "skillLevel": 3,
-  "canWorkWeekends": true,
-  "canWorkEvenings": true,
-  "preferredWorkingDays": 5
-}
-```
+### データ管理
+- `GET /api/data/export/employees/csv` - 従業員データエクスポート
+- `GET /api/data/export/schedule/csv` - シフトデータエクスポート
+- `POST /api/data/backup/export` - データベースバックアップ
 
-## 🧪 テスト実行
-```bash
-# 全テスト実行
-mvn test
+### 管理機能
+- `GET /api/admin/status` - システム状態確認
+- `POST /api/admin/initialize-employees` - 従業員初期化
+- `DELETE /api/admin/reset-employees` - 従業員リセット
 
-# 特定のテストクラス実行
-mvn test -Dtest=ScheduleServiceTest
-```
+## 💾 データベース
+`shift-demo.db` という SQLite ファイルがプロジェクト直下に作成されます。
 
-## 📊 学習ポイント
-
-### 1. オブジェクト指向設計
-- **Builder パターン**: ShiftConfiguration での設定構築
-- **Strategy パターン**: 従業員適性判定ロジック
-- **Repository パターン**: データアクセス層の分離
-
-### 2. Spring Boot 機能
-- **バリデーション**: Bean Validation による入力検証
-- **トランザクション**: @Transactional によるデータ整合性
-- **ログ出力**: SLF4J による構造化ログ
-- **テスト**: Spring Boot Test による統合テスト
-
-### 3. アルゴリズム学習
-- **制約充足問題**: 従業員制約を考慮したシフト割り当て
-- **優先度付き割り当て**: スキルレベルによる優先順位
-- **公平性アルゴリズム**: ラウンドロビン方式の実装
-
-### 4. データベース設計
-- **JPA/Hibernate**: エンティティマッピング
-- **リレーション**: Employee と ShiftAssignment の関連
-- **SQLite**: 軽量データベースの活用
-
-## 📁 プロジェクト構造
-```
-src/main/java/com/example/shiftv1/
-├── employee/           # 従業員管理
-│   ├── Employee.java   # 従業員エンティティ（拡張版）
-│   └── ...
-├── schedule/           # シフト管理
-│   ├── ScheduleService.java      # シフト生成ロジック（改善版）
-│   ├── ShiftConfiguration.java   # 設定管理クラス（新規）
-│   └── ...
-└── exception/          # 例外処理
-    └── GlobalExceptionHandler.java
-```
-
-## 🔧 カスタマイズ例
+## 🔧 カスタマイズ
 
 ### シフト設定の変更
-```java
-// カスタム設定を作成
-ShiftConfiguration customConfig = ShiftConfiguration.builder()
-    .weekdayAmStart(LocalTime.of(8, 0))
-    .weekdayAmEnd(LocalTime.of(16, 0))
-    .weekdayEmployeesPerShift(3)
-    .build();
+1. ダッシュボードの「設定管理」セクションを使用
+2. または `/api/config/shift` API を直接呼び出し
 
-// 設定を適用
-scheduleService.updateShiftConfiguration(customConfig);
-```
+### デフォルト設定
+- **朝シフト**: 9:00-15:00 (4名)
+- **夜シフト**: 15:00-21:00 (4名)
+- **土日シフト**: 9:00-18:00 (5名)
 
-### 従業員制約の追加
-```java
-// 新しい従業員を作成
-Employee newEmployee = new Employee(
-    "新規スタッフ", 
-    "スタッフ", 
-    2,              // スキルレベル
-    false,          // 土日勤務不可
-    true,           // 夜勤可能
-    4               // 希望勤務日数
-);
-```
+## 🛡️ セキュリティ
+- 管理者のみアクセス可能な機能
+- セッション管理
+- CSRF保護
+- 入力値検証
 
-## 📈 今後の拡張案
-- **祝日対応**: 日本の祝日データとの連携
-- **希望シフト**: 従業員の希望入力機能
-- **最適化アルゴリズム**: より高度な最適化手法の導入
-- **Web UI**: フロントエンドでの操作画面
-- **レポート機能**: より詳細な分析・レポート機能
+## 📈 今後の拡張予定
+- 祝日データの対応
+- 従業員の希望シフト入力機能
+- シフト変更申請・承認機能
+- メール通知機能
+- モバイルアプリ対応
+
+## 🤝 サポート
+質問や問題がある場合は、GitHubのIssuesでお知らせください。

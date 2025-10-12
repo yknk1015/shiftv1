@@ -4,6 +4,8 @@ import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.CacheEvict;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,7 +27,14 @@ public class ScheduleService {
 
     private static final Logger logger = LoggerFactory.getLogger(ScheduleService.class);
 
-    private ShiftConfiguration shiftConfiguration;
+    static final LocalTime WEEKDAY_START_AM = LocalTime.of(9, 0);
+    static final LocalTime WEEKDAY_END_AM = LocalTime.of(15, 0);
+    static final LocalTime WEEKDAY_START_PM = LocalTime.of(15, 0);
+    static final LocalTime WEEKDAY_END_PM = LocalTime.of(21, 0);
+    static final LocalTime HOLIDAY_START = LocalTime.of(9, 0);
+    static final LocalTime HOLIDAY_END = LocalTime.of(18, 0);
+    static final int WEEKDAY_EMPLOYEES_PER_SHIFT = 4;
+    static final int HOLIDAY_EMPLOYEES_PER_SHIFT = 5;
 
     private final EmployeeRepository employeeRepository;
     private final ShiftAssignmentRepository assignmentRepository;
@@ -33,10 +42,10 @@ public class ScheduleService {
     public ScheduleService(EmployeeRepository employeeRepository, ShiftAssignmentRepository assignmentRepository) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
-        this.shiftConfiguration = ShiftConfiguration.DEFAULT;
     }
 
     @Transactional
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
     public List<ShiftAssignment> generateMonthlySchedule(int year, int month) {
         YearMonth target;
         LocalDate start;
@@ -69,16 +78,13 @@ public class ScheduleService {
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
             boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
             if (isWeekend) {
-                results.addAll(assignEmployeesForShift(day, "Weekend", 
-                        shiftConfiguration.getWeekendStart(), shiftConfiguration.getWeekendEnd(),
-                        shiftConfiguration.getWeekendEmployeesPerShift(), rotation, dailyAssignments));
+                results.addAll(assignEmployeesForShift(day, "Weekend", HOLIDAY_START, HOLIDAY_END,
+                        HOLIDAY_EMPLOYEES_PER_SHIFT, rotation, dailyAssignments));
             } else {
-                results.addAll(assignEmployeesForShift(day, "Weekday AM", 
-                        shiftConfiguration.getWeekdayAmStart(), shiftConfiguration.getWeekdayAmEnd(),
-                        shiftConfiguration.getWeekdayEmployeesPerShift(), rotation, dailyAssignments));
-                results.addAll(assignEmployeesForShift(day, "Weekday PM", 
-                        shiftConfiguration.getWeekdayPmStart(), shiftConfiguration.getWeekdayPmEnd(),
-                        shiftConfiguration.getWeekdayEmployeesPerShift(), rotation, dailyAssignments));
+                results.addAll(assignEmployeesForShift(day, "Weekday AM", WEEKDAY_START_AM, WEEKDAY_END_AM,
+                        WEEKDAY_EMPLOYEES_PER_SHIFT, rotation, dailyAssignments));
+                results.addAll(assignEmployeesForShift(day, "Weekday PM", WEEKDAY_START_PM, WEEKDAY_END_PM,
+                        WEEKDAY_EMPLOYEES_PER_SHIFT, rotation, dailyAssignments));
             }
         }
 
@@ -87,6 +93,7 @@ public class ScheduleService {
         return savedAssignments;
     }
 
+    @Cacheable(value = "monthly-schedules", key = "#year + '-' + #month")
     public List<ShiftAssignment> getMonthlySchedule(int year, int month) {
         YearMonth target = YearMonth.of(year, month);
         LocalDate start = target.atDay(1);
@@ -103,80 +110,27 @@ public class ScheduleService {
                                                           Map<LocalDate, Set<Long>> dailyAssignments) {
         List<ShiftAssignment> assignments = new ArrayList<>();
         Set<Long> assignedToday = dailyAssignments.computeIfAbsent(day, d -> new HashSet<>());
-        
-        // 従業員の適性を考慮したフィルタリング
-        List<Employee> eligibleEmployees = rotation.stream()
-            .filter(emp -> isEmployeeEligibleForShift(emp, day, shiftName, start, end))
-            .filter(emp -> !assignedToday.contains(emp.getId()))
-            .toList();
-        
-        // スキルレベルでソート（高いスキルを優先）
-        eligibleEmployees = eligibleEmployees.stream()
-            .sorted((a, b) -> Integer.compare(b.getSkillLevel(), a.getSkillLevel()))
-            .toList();
-        
-        for (Employee candidate : eligibleEmployees) {
-            if (assignments.size() >= requiredEmployees) {
+        int attempts = 0;
+        while (assignments.size() < requiredEmployees && attempts < rotation.size() * 2) {
+            Employee candidate = rotation.pollFirst();
+            if (candidate == null) {
                 break;
             }
-            
+            rotation.offerLast(candidate);
+            attempts++;
+
+            if (assignedToday.contains(candidate.getId())) {
+                continue;
+            }
+
             assignments.add(new ShiftAssignment(day, shiftName, start, end, candidate));
             assignedToday.add(candidate.getId());
-            
-            logger.debug("従業員 {} をシフト {} に割り当て (スキルレベル: {})", 
-                candidate.getName(), shiftName, candidate.getSkillLevel());
         }
 
         if (assignments.size() < requiredEmployees) {
-            logger.warn("十分な従業員が見つかりませんでした。必要: {}, 割り当て可能: {}", 
-                requiredEmployees, assignments.size());
-            throw new IllegalStateException(
-                String.format("十分な従業員が見つかりませんでした。%s の %s シフトに %d 名必要ですが、%d 名しか割り当てできませんでした。", 
-                day, shiftName, requiredEmployees, assignments.size()));
+            throw new IllegalStateException("Not enough employees to fill " + shiftName + " on " + day);
         }
 
         return assignments;
-    }
-    
-    /**
-     * 従業員が特定のシフトに適しているかを判定
-     */
-    private boolean isEmployeeEligibleForShift(Employee employee, LocalDate day, String shiftName, 
-                                             LocalTime start, LocalTime end) {
-        // 土日勤務チェック
-        boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
-        if (isWeekend && !employee.getCanWorkWeekends()) {
-            return false;
-        }
-        
-        // 夜勤チェック（午後シフトの場合）
-        if (shiftName.contains("PM") && !employee.getCanWorkEvenings()) {
-            return false;
-        }
-        
-        // 基本的なスキルレベルチェック
-        if (employee.getSkillLevel() == null || employee.getSkillLevel() < 1) {
-            return false;
-        }
-        
-        return true;
-    }
-    
-    /**
-     * シフト設定を更新するメソッド（学習用）
-     */
-    public void updateShiftConfiguration(ShiftConfiguration newConfiguration) {
-        this.shiftConfiguration = newConfiguration;
-        logger.info("シフト設定を更新しました: 平日午前 {}-{}, 平日午後 {}-{}, 休日 {}-{}", 
-            newConfiguration.getWeekdayAmStart(), newConfiguration.getWeekdayAmEnd(),
-            newConfiguration.getWeekdayPmStart(), newConfiguration.getWeekdayPmEnd(),
-            newConfiguration.getWeekendStart(), newConfiguration.getWeekendEnd());
-    }
-    
-    /**
-     * 現在のシフト設定を取得するメソッド（学習用）
-     */
-    public ShiftConfiguration getCurrentShiftConfiguration() {
-        return shiftConfiguration;
     }
 }

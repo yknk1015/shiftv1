@@ -109,7 +109,13 @@
 </head>
 <body>
     <div class="container">
-        <h1>シフト管理システム デモ</h1>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1>シフト管理システム デモ</h1>
+            <div>
+                <span id="user-info" style="margin-right: 15px; color: #666;"></span>
+                <button class="btn-danger" onclick="logout()">ログアウト</button>
+            </div>
+        </div>
         
         <div class="section">
             <h2>システム管理</h2>
@@ -124,6 +130,7 @@
         <div class="section">
             <h2>シフト管理</h2>
             <div class="button-group">
+                <button class="btn-primary" onclick="window.location.href='/calendar'">カレンダー表示</button>
                 <button class="btn-primary" onclick="generateSchedule()">今月のシフト生成</button>
                 <button class="btn-primary" onclick="getSchedule()">シフト取得</button>
                 <button class="btn-primary" onclick="getMonthlyStats()">月次統計</button>
@@ -142,6 +149,17 @@
         </div>
 
         <div class="section">
+            <h2>データ管理</h2>
+            <div class="button-group">
+                <button class="btn-primary" onclick="exportEmployeesCsv()">従業員データエクスポート (CSV)</button>
+                <button class="btn-primary" onclick="exportScheduleCsv()">シフトデータエクスポート (CSV)</button>
+                <button class="btn-primary" onclick="createBackup()">データベースバックアップ</button>
+                <button class="btn-primary" onclick="getDataStatistics()">データ統計</button>
+            </div>
+            <div id="data-result"></div>
+        </div>
+
+        <div class="section">
             <h2>API情報</h2>
             <div class="api-info">
                 <p><strong>利用可能なAPIエンドポイント:</strong></p>
@@ -152,6 +170,9 @@
                     <li><code>GET /api/schedule</code> - シフト取得</li>
                     <li><code>GET /api/schedule/stats/monthly</code> - 月次統計</li>
                     <li><code>GET /api/employees</code> - 全従業員取得</li>
+                    <li><code>GET /api/data/export/employees/csv</code> - 従業員データエクスポート</li>
+                    <li><code>GET /api/data/export/schedule/csv</code> - シフトデータエクスポート</li>
+                    <li><code>POST /api/data/backup/export</code> - データベースバックアップ</li>
                 </ul>
             </div>
         </div>
@@ -233,8 +254,108 @@
             showResult('employee-result', result, !result.success);
         }
 
+        async function logout() {
+            try {
+                const result = await makeRequest('/api/auth/logout', 'POST');
+                if (result.success) {
+                    window.location.href = '/login?logout';
+                } else {
+                    alert('ログアウト中にエラーが発生しました');
+                }
+            } catch (error) {
+                alert('ログアウト中にエラーが発生しました');
+            }
+        }
+
+        async function loadUserInfo() {
+            try {
+                const result = await makeRequest('/api/auth/me');
+                if (result.success) {
+                    const userInfo = document.getElementById('user-info');
+                    userInfo.textContent = `ようこそ、${result.data.username}さん (${result.data.role})`;
+                } else {
+                    // 認証されていない場合はログインページにリダイレクト
+                    window.location.href = '/login';
+                }
+            } catch (error) {
+                window.location.href = '/login';
+            }
+        }
+
+        async function exportEmployeesCsv() {
+            try {
+                const response = await fetch('/api/data/export/employees/csv');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'employees.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showResult('data-result', {success: true, message: '従業員データのエクスポートが完了しました'}, false);
+                } else {
+                    showResult('data-result', {success: false, message: 'エクスポートに失敗しました'}, true);
+                }
+            } catch (error) {
+                showResult('data-result', {success: false, message: 'エクスポート中にエラーが発生しました'}, true);
+            }
+        }
+
+        async function exportScheduleCsv() {
+            try {
+                const response = await fetch('/api/data/export/schedule/csv');
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = 'schedule.csv';
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showResult('data-result', {success: true, message: 'シフトデータのエクスポートが完了しました'}, false);
+                } else {
+                    showResult('data-result', {success: false, message: 'エクスポートに失敗しました'}, true);
+                }
+            } catch (error) {
+                showResult('data-result', {success: false, message: 'エクスポート中にエラーが発生しました'}, true);
+            }
+        }
+
+        async function createBackup() {
+            try {
+                const response = await fetch('/api/data/backup/export', {method: 'POST'});
+                if (response.ok) {
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `shift_backup_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    showResult('data-result', {success: true, message: 'データベースバックアップが完了しました'}, false);
+                } else {
+                    showResult('data-result', {success: false, message: 'バックアップに失敗しました'}, true);
+                }
+            } catch (error) {
+                showResult('data-result', {success: false, message: 'バックアップ中にエラーが発生しました'}, true);
+            }
+        }
+
+        async function getDataStatistics() {
+            const result = await makeRequest('/api/data/stats');
+            showResult('data-result', result, !result.success);
+        }
+
         // ページ読み込み時にシステム状態を確認
         window.onload = function() {
+            loadUserInfo();
             checkSystemStatus();
         };
     </script>
