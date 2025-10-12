@@ -1,6 +1,11 @@
 package com.example.shiftv1.employee;
 
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Size;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -33,13 +38,9 @@ public class EmployeeController {
 
     @PostMapping
     public ResponseEntity<Employee> createEmployee(@Valid @RequestBody EmployeeRequest request) {
-        try {
-            Employee employee = new Employee(request.name(), request.role());
-            Employee savedEmployee = employeeRepository.save(employee);
-            return ResponseEntity.status(HttpStatus.CREATED).body(savedEmployee);
-        } catch (Exception e) {
-            return ResponseEntity.badRequest().build();
-        }
+        Employee employee = request.toEntity();
+        Employee savedEmployee = employeeRepository.save(employee);
+        return ResponseEntity.status(HttpStatus.CREATED).body(savedEmployee);
     }
 
     @PutMapping("/{id}")
@@ -50,8 +51,7 @@ public class EmployeeController {
         }
 
         Employee employee = existingEmployee.get();
-        employee.setName(request.name());
-        employee.setRole(request.role());
+        request.applyTo(employee);
         Employee updatedEmployee = employeeRepository.save(employee);
         return ResponseEntity.ok(updatedEmployee);
     }
@@ -71,7 +71,43 @@ public class EmployeeController {
         return ResponseEntity.ok(new EmployeeCountResponse(count));
     }
 
-    public record EmployeeRequest(String name, String role) {}
+    public record EmployeeRequest(
+            @NotBlank(message = "従業員名は必須です")
+            @Size(min = 1, max = 50, message = "従業員名は1文字以上50文字以下で入力してください")
+            String name,
+
+            @Size(max = 30, message = "役職は30文字以下で入力してください")
+            String role,
+
+            @NotNull(message = "スキルレベルは必須です")
+            @Min(value = 1, message = "スキルレベルは1以上である必要があります")
+            @Max(value = 5, message = "スキルレベルは5以下である必要があります")
+            Integer skillLevel,
+
+            @NotNull(message = "土日勤務可否は必須です")
+            Boolean canWorkWeekends,
+
+            @NotNull(message = "夜勤可否は必須です")
+            Boolean canWorkEvenings,
+
+            @NotNull(message = "希望勤務日数は必須です")
+            @Min(value = 1, message = "希望勤務日数は1以上である必要があります")
+            @Max(value = 7, message = "希望勤務日数は7以下である必要があります")
+            Integer preferredWorkingDays
+    ) {
+        public Employee toEntity() {
+            return new Employee(name, role, skillLevel, canWorkWeekends, canWorkEvenings, preferredWorkingDays);
+        }
+
+        public void applyTo(Employee employee) {
+            employee.setName(name);
+            employee.setRole(role);
+            employee.setSkillLevel(skillLevel);
+            employee.setCanWorkWeekends(canWorkWeekends);
+            employee.setCanWorkEvenings(canWorkEvenings);
+            employee.setPreferredWorkingDays(preferredWorkingDays);
+        }
+    }
     
     public record EmployeeCountResponse(long count) {}
 }

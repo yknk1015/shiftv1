@@ -40,6 +40,8 @@ public class Employee {
     private Boolean canWorkEvenings = true; // 夜勤可能かどうか
 
     @Column
+    @Min(value = 1, message = "希望勤務日数は1以上である必要があります")
+    @Max(value = 7, message = "希望勤務日数は7以下である必要があります")
     private Integer preferredWorkingDays = 5; // 希望勤務日数（週）
 
     protected Employee() {
@@ -57,10 +59,10 @@ public class Employee {
     public Employee(String name, String role, Integer skillLevel, Boolean canWorkWeekends, Boolean canWorkEvenings, Integer preferredWorkingDays) {
         this.name = name;
         this.role = role;
-        this.skillLevel = skillLevel;
-        this.canWorkWeekends = canWorkWeekends;
-        this.canWorkEvenings = canWorkEvenings;
-        this.preferredWorkingDays = preferredWorkingDays;
+        this.skillLevel = skillLevel != null ? skillLevel : this.skillLevel;
+        this.canWorkWeekends = canWorkWeekends != null ? canWorkWeekends : this.canWorkWeekends;
+        this.canWorkEvenings = canWorkEvenings != null ? canWorkEvenings : this.canWorkEvenings;
+        this.preferredWorkingDays = preferredWorkingDays != null ? preferredWorkingDays : this.preferredWorkingDays;
     }
 
     public Long getId() {
