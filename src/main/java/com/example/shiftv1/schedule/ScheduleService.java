@@ -11,9 +11,10 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
-import java.util.ArrayDeque;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
-import java.util.Deque;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -62,23 +63,27 @@ public class ScheduleService {
         assignmentRepository.deleteByWorkDateBetween(start, end);
         logger.info("既存のシフト割り当てを削除しました: {} から {}", start, end);
 
-        Deque<Employee> rotation = new ArrayDeque<>(employees);
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
+        Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+        Map<String, Map<Long, Integer>> weeklyAssignmentCounts = new HashMap<>();
         List<ShiftAssignment> results = new ArrayList<>();
 
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
             boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
             if (isWeekend) {
-                results.addAll(assignEmployeesForShift(day, "Weekend", 
+                results.addAll(assignEmployeesForShift(day, "Weekend",
                         shiftConfiguration.getWeekendStart(), shiftConfiguration.getWeekendEnd(),
-                        shiftConfiguration.getWeekendEmployeesPerShift(), rotation, dailyAssignments));
+                        shiftConfiguration.getWeekendEmployeesPerShift(), employees, dailyAssignments,
+                        monthlyAssignmentCounts, weeklyAssignmentCounts));
             } else {
-                results.addAll(assignEmployeesForShift(day, "Weekday AM", 
+                results.addAll(assignEmployeesForShift(day, "Weekday AM",
                         shiftConfiguration.getWeekdayAmStart(), shiftConfiguration.getWeekdayAmEnd(),
-                        shiftConfiguration.getWeekdayEmployeesPerShift(), rotation, dailyAssignments));
-                results.addAll(assignEmployeesForShift(day, "Weekday PM", 
+                        shiftConfiguration.getWeekdayEmployeesPerShift(), employees, dailyAssignments,
+                        monthlyAssignmentCounts, weeklyAssignmentCounts));
+                results.addAll(assignEmployeesForShift(day, "Weekday PM",
                         shiftConfiguration.getWeekdayPmStart(), shiftConfiguration.getWeekdayPmEnd(),
-                        shiftConfiguration.getWeekdayEmployeesPerShift(), rotation, dailyAssignments));
+                        shiftConfiguration.getWeekdayEmployeesPerShift(), employees, dailyAssignments,
+                        monthlyAssignmentCounts, weeklyAssignmentCounts));
             }
         }
 
@@ -99,31 +104,32 @@ public class ScheduleService {
                                                           LocalTime start,
                                                           LocalTime end,
                                                           int requiredEmployees,
-                                                          Deque<Employee> rotation,
-                                                          Map<LocalDate, Set<Long>> dailyAssignments) {
+                                                          List<Employee> candidates,
+                                                          Map<LocalDate, Set<Long>> dailyAssignments,
+                                                          Map<Long, Integer> monthlyAssignmentCounts,
+                                                          Map<String, Map<Long, Integer>> weeklyAssignmentCounts) {
         List<ShiftAssignment> assignments = new ArrayList<>();
         Set<Long> assignedToday = dailyAssignments.computeIfAbsent(day, d -> new HashSet<>());
-        
+
         // 従業員の適性を考慮したフィルタリング
-        List<Employee> eligibleEmployees = rotation.stream()
+        List<Employee> eligibleEmployees = candidates.stream()
             .filter(emp -> isEmployeeEligibleForShift(emp, day, shiftName, start, end))
             .filter(emp -> !assignedToday.contains(emp.getId()))
+            .filter(emp -> !hasReachedWeeklyLimit(emp, day, weeklyAssignmentCounts))
+            .sorted(buildCandidateComparator(day, monthlyAssignmentCounts, weeklyAssignmentCounts))
             .toList();
-        
-        // スキルレベルでソート（高いスキルを優先）
-        eligibleEmployees = eligibleEmployees.stream()
-            .sorted((a, b) -> Integer.compare(b.getSkillLevel(), a.getSkillLevel()))
-            .toList();
-        
+
         for (Employee candidate : eligibleEmployees) {
             if (assignments.size() >= requiredEmployees) {
                 break;
             }
-            
+
             assignments.add(new ShiftAssignment(day, shiftName, start, end, candidate));
             assignedToday.add(candidate.getId());
-            
-            logger.debug("従業員 {} をシフト {} に割り当て (スキルレベル: {})", 
+            monthlyAssignmentCounts.merge(candidate.getId(), 1, Integer::sum);
+            incrementWeeklyAssignmentCount(day, candidate, weeklyAssignmentCounts);
+
+            logger.debug("従業員 {} をシフト {} に割り当て (スキルレベル: {})",
                 candidate.getName(), shiftName, candidate.getSkillLevel());
         }
 
@@ -141,25 +147,66 @@ public class ScheduleService {
     /**
      * 従業員が特定のシフトに適しているかを判定
      */
-    private boolean isEmployeeEligibleForShift(Employee employee, LocalDate day, String shiftName, 
+    private boolean isEmployeeEligibleForShift(Employee employee, LocalDate day, String shiftName,
                                              LocalTime start, LocalTime end) {
         // 土日勤務チェック
         boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
         if (isWeekend && !employee.getCanWorkWeekends()) {
             return false;
         }
-        
+
         // 夜勤チェック（午後シフトの場合）
         if (shiftName.contains("PM") && !employee.getCanWorkEvenings()) {
             return false;
         }
-        
+
         // 基本的なスキルレベルチェック
         if (employee.getSkillLevel() == null || employee.getSkillLevel() < 1) {
             return false;
         }
-        
+
         return true;
+    }
+
+    private Comparator<Employee> buildCandidateComparator(LocalDate day,
+                                                           Map<Long, Integer> monthlyAssignmentCounts,
+                                                           Map<String, Map<Long, Integer>> weeklyAssignmentCounts) {
+        return Comparator
+            .comparing((Employee e) -> getWeeklyAssignmentCount(day, e, weeklyAssignmentCounts))
+            .thenComparing(e -> monthlyAssignmentCounts.getOrDefault(e.getId(), 0))
+            .thenComparing(e -> e.getSkillLevel() == null ? 0 : e.getSkillLevel(), Comparator.reverseOrder());
+    }
+
+    private boolean hasReachedWeeklyLimit(Employee employee, LocalDate day,
+                                          Map<String, Map<Long, Integer>> weeklyAssignmentCounts) {
+        Integer preferredWorkingDays = employee.getPreferredWorkingDays();
+        if (preferredWorkingDays == null || preferredWorkingDays <= 0) {
+            return false;
+        }
+
+        return getWeeklyAssignmentCount(day, employee, weeklyAssignmentCounts) >= preferredWorkingDays;
+    }
+
+    private int getWeeklyAssignmentCount(LocalDate day, Employee employee,
+                                         Map<String, Map<Long, Integer>> weeklyAssignmentCounts) {
+        String weekKey = weekKey(day);
+        return weeklyAssignmentCounts
+            .getOrDefault(weekKey, Collections.emptyMap())
+            .getOrDefault(employee.getId(), 0);
+    }
+
+    private void incrementWeeklyAssignmentCount(LocalDate day, Employee employee,
+                                                Map<String, Map<Long, Integer>> weeklyAssignmentCounts) {
+        String weekKey = weekKey(day);
+        Map<Long, Integer> weeklyCounts = weeklyAssignmentCounts
+            .computeIfAbsent(weekKey, key -> new HashMap<>());
+        weeklyCounts.merge(employee.getId(), 1, Integer::sum);
+    }
+
+    private String weekKey(LocalDate day) {
+        int weekBasedYear = day.get(WeekFields.ISO.weekBasedYear());
+        int weekOfYear = day.get(WeekFields.ISO.weekOfWeekBasedYear());
+        return weekBasedYear + "-W" + weekOfYear;
     }
     
     /**

@@ -12,6 +12,7 @@ import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.WeekFields;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -99,7 +100,7 @@ class ScheduleServiceTest {
         // 異なるスキルレベルの従業員を作成
         Employee lowSkillEmployee = new Employee("低スキル従業員", "スタッフ", 1, true, true, 5);
         Employee highSkillEmployee = new Employee("高スキル従業員", "マネージャー", 5, true, true, 5);
-        
+
         employeeRepository.save(lowSkillEmployee);
         employeeRepository.save(highSkillEmployee);
 
@@ -117,6 +118,36 @@ class ScheduleServiceTest {
                 .count();
 
         assertThat(highSkillAssignments).isGreaterThanOrEqualTo(lowSkillAssignments);
+    }
+
+    @Test
+    void generateMonthlySchedule_respectsPreferredWorkingDaysLimit() {
+        for (int i = 0; i < 3; i++) {
+            Employee employee = new Employee("週1希望従業員" + i, "スタッフ", 5, true, true, 1);
+            employeeRepository.save(employee);
+        }
+
+        int year = 2024;
+        int month = 7;
+        List<ShiftAssignment> assignments = scheduleService.generateMonthlySchedule(year, month);
+
+        WeekFields weekFields = WeekFields.ISO;
+
+        Map<Long, Map<Integer, Long>> weeklyCounts = assignments.stream()
+                .filter(a -> a.getEmployee().getName().startsWith("週1希望従業員"))
+                .collect(Collectors.groupingBy(
+                        a -> a.getEmployee().getId(),
+                        Collectors.groupingBy(a -> a.getWorkDate().get(weekFields.weekOfWeekBasedYear()), Collectors.counting())
+                ));
+
+        long totalAssignments = weeklyCounts.values().stream()
+                .flatMap(counts -> counts.values().stream())
+                .mapToLong(Long::longValue)
+                .sum();
+
+        assertThat(totalAssignments).isGreaterThan(0);
+        weeklyCounts.values().forEach(counts ->
+                counts.values().forEach(count -> assertThat(count).isLessThanOrEqualTo(1)));
     }
 
     @Test
