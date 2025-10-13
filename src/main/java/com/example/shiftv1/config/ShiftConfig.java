@@ -2,6 +2,7 @@ package com.example.shiftv1.config;
 
 import jakarta.persistence.*;
 import java.time.DayOfWeek;
+import java.util.Set;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -47,6 +48,12 @@ public class ShiftConfig {
 
     @Column(name = "is_holiday")
     private Boolean holiday = false; // 祝日専用シフトかどうか
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "shift_config_days", joinColumns = @JoinColumn(name = "shift_config_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_of_week")
+    private Set<DayOfWeek> days; // 複数曜日に対応（null/emptyで未指定）
 
     @Column(name = "created_at")
     private java.time.LocalDateTime createdAt;
@@ -159,6 +166,14 @@ public class ShiftConfig {
         this.holiday = holiday;
     }
 
+    public Set<DayOfWeek> getDays() {
+        return days;
+    }
+
+    public void setDays(Set<DayOfWeek> days) {
+        this.days = days;
+    }
+
     public java.time.LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -200,6 +215,7 @@ public class ShiftConfig {
                 ", weekend=" + weekend +
                 ", dayOfWeek=" + dayOfWeek +
                 ", holiday=" + holiday +
+                ", days=" + days +
                 '}';
     }
 }

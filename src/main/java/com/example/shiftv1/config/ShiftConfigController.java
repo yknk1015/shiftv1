@@ -78,6 +78,11 @@ public class ShiftConfigController {
                 request.holiday()
             );
 
+            if (request.days() != null && !request.days().isEmpty()) {
+                config.setDays(new java.util.HashSet<>(request.days()));
+            } else {
+                config.setDays(null);
+            }
             ShiftConfig savedConfig = shiftConfigRepository.save(config);
             logger.info("シフト設定が作成されました: {}", savedConfig.getName());
             
@@ -116,6 +121,11 @@ public class ShiftConfigController {
             config.setWeekend(request.weekend());
             config.setDayOfWeek(request.dayOfWeek());
             config.setHoliday(request.holiday());
+            if (request.days() != null && !request.days().isEmpty()) {
+                config.setDays(new java.util.HashSet<>(request.days()));
+            } else {
+                config.setDays(null);
+            }
 
             ShiftConfig savedConfig = shiftConfigRepository.save(config);
             logger.info("シフト設定が更新されました: {}", savedConfig.getName());
@@ -180,7 +190,8 @@ public class ShiftConfigController {
             Integer requiredEmployees,
             Boolean weekend,
             java.time.DayOfWeek dayOfWeek,
-            Boolean holiday
+            Boolean holiday,
+            java.util.List<java.time.DayOfWeek> days
     ) {}
 }
 

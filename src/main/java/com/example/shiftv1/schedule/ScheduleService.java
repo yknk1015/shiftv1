@@ -129,16 +129,9 @@ public class ScheduleService {
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
         List<ShiftAssignment> results = new ArrayList<>();
 
-        // 祝日マップの準備
-        Map<LocalDate, Boolean> holidayMap = new HashMap<>();
-        try {
-            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
-            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) { holidayMap.put(d, false); }
-            for (LocalDate hd : holidays) holidayMap.put(hd, true);
-        } catch (Exception ignored) {}
-
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap.getOrDefault(day, false));
+            boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
+            List<ShiftConfig> configsForDay = isWeekend ? weekendShiftConfigs : weekdayShiftConfigs;
             for (ShiftConfig config : configsForDay) {
                 results.addAll(assignEmployeesForShift(day, config, employees, monthlyAssignmentCounts,
                         dailyAssignments, constraintsByDate));
@@ -551,6 +544,13 @@ public class ScheduleService {
                     .toList();
             if (!holidayConfigs.isEmpty()) return holidayConfigs;
         }
+        // まず複数曜日指定（days）を優先
+        List<ShiftConfig> daysConfigs = activeConfigs.stream()
+                .filter(c -> c.getDays() != null && !c.getDays().isEmpty() && c.getDays().contains(day.getDayOfWeek()))
+                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                .toList();
+        if (!daysConfigs.isEmpty()) return daysConfigs;
+
         List<ShiftConfig> dowConfigs = activeConfigs.stream()
                 .filter(c -> c.getDayOfWeek() != null && c.getDayOfWeek() == day.getDayOfWeek())
                 .sorted(Comparator.comparing(ShiftConfig::getStartTime))
