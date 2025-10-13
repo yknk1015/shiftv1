@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>勤務ルール設定</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin: 0; background: #f6f7fb; color:#1f2937; }
+    .container { max-width: 960px; margin: 32px auto; padding: 0 16px; }
+    h1 { font-size: 22px; margin: 0 0 16px; }
+    .card { background: #fff; border:1px solid #e5e7eb; border-radius: 12px; padding: 16px; margin-bottom: 16px; }
+    .row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; align-items: end; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color:#6b7280; }
+    input[type="number"], input[type="time"], select { padding: 8px; border:1px solid #e5e7eb; border-radius: 8px; font-size: 14px; }
+    .checkbox { display:flex; align-items:center; gap:8px; margin-top: 8px; }
+    .button-row { display:flex; gap:8px; margin-top: 12px; }
+    .button { padding: 10px 14px; border-radius: 8px; border:1px solid #d1d5db; background:#fff; cursor:pointer; }
+    .button.primary { background:#2563eb; border-color:#2563eb; color:#fff; }
+    .subtle { opacity: .9; }
+    .message { margin-top: 8px; padding: 10px; border-radius: 8px; display:none; }
+    .message.success { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+    .message.error { background:#fef2f2; color:#991b1b; border:1px solid #fecaca; }
+    .message.info { background:#eff6ff; color:#1e3a8a; border:1px solid #bfdbfe; }
+    .header { display:flex; justify-content: space-between; align-items:center; margin-bottom:12px; }
+    a.link { color:#2563eb; text-decoration:none; }
+  </style>
+  <script>
+    async function callApi(url, options = {}, config = {}) {
+      const expectSuccess = config.expectSuccess !== false;
+      const req = { credentials: 'include', ...options, headers: { 'Content-Type': 'application/json', ...(options.headers||{}) } };
+      if (req.body && typeof req.body !== 'string') req.body = JSON.stringify(req.body);
+      const res = await fetch(url, req);
+      let data = null; const ct = res.headers.get('content-type')||'';
+      data = ct.includes('application/json') ? await res.json() : await res.text();
+      if (!res.ok) throw new Error((data && data.message) || ('HTTP '+res.status));
+      if (expectSuccess && data && data.success === false) throw new Error(data.message || '操作に失敗しました');
+      return data;
+    }
+    function setMessage(id, text, type='info'){ const el=document.getElementById(id); if(!el) return; if(!text){ el.style.display='none'; el.className='message'; el.textContent=''; return;} el.textContent=text; el.style.display='block'; el.className='message '+type; }
+    function setNum(id,v){ const el=document.getElementById(id); if(el) el.value=v; }
+    function getNum(id){ const el=document.getElementById(id); return Number(el?.value||0); }
+    function setChk(id,v){ const el=document.getElementById(id); if(el) el.checked=!!v; }
+    function getChk(id){ const el=document.getElementById(id); return !!el?.checked; }
+    function setTime(id,v){ const el=document.getElementById(id); if(el) el.value=v||''; }
+    function getTime(id){ const el=document.getElementById(id); return (el?.value||''); }
+
+    async function init() {
+      try {
+        const employees = await callApi('/api/employees', {}, { expectSuccess:false });
+        const select = document.getElementById('emp-select');
+        (employees.data||[]).forEach(e => { const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; select.appendChild(o); });
+        select.addEventListener('change', onEmpChange);
+        document.getElementById('save-rule').addEventListener('click', saveRule);
+        document.getElementById('save-avail').addEventListener('click', saveAvailability);
+        document.getElementById('preset-weekdays').addEventListener('click', () => presetWeekdays('09:00','21:00'));
+        document.getElementById('preset-all').addEventListener('click', () => presetAll('00:00','23:59'));
+        document.getElementById('clear-all').addEventListener('click', () => presetAll('',''));
+        if (select.value) await onEmpChange();
+      } catch (e) { setMessage('page-message', e.message || '初期化に失敗しました', 'error'); }
+    }
+    async function onEmpChange(){ const id=document.getElementById('emp-select').value; await Promise.all([loadRule(id), loadAvailability(id)]); }
+    async function loadRule(id){ try{ const res=await callApi(`/api/employees/${id}/rule`, {}, {expectSuccess:false}); const r=res.data||{}; setNum('weeklyMax', r.weeklyMaxHours??40); setNum('dailyMax', r.dailyMaxHours??8); setNum('maxConsecutive', r.maxConsecutiveDays??5); setNum('minRest', r.minRestHours??11); setChk('allowMulti', !!r.allowMultipleShiftsPerDay); setChk('allowHoliday', r.allowHolidayWork!==false); setMessage('rule-message','', 'info'); }catch(e){ setMessage('rule-message', e.message||'取得に失敗しました','error'); } }
+    async function saveRule(){ const id=document.getElementById('emp-select').value; try{ const payload={ weeklyMaxHours:getNum('weeklyMax'), dailyMaxHours:getNum('dailyMax'), maxConsecutiveDays:getNum('maxConsecutive'), minRestHours:getNum('minRest'), allowMultipleShiftsPerDay:getChk('allowMulti'), allowHolidayWork:getChk('allowHoliday') }; await callApi(`/api/employees/${id}/rule`, {method:'PUT', body:payload}, {expectSuccess:false}); setMessage('rule-message','勤務ルールを更新しました','success'); }catch(e){ setMessage('rule-message', e.message||'更新に失敗しました','error'); } }
+    async function loadAvailability(id){ try{ const res=await callApi(`/api/employees/${id}/availability`, {}, {expectSuccess:false}); const map={}; (res.data||[]).forEach(a=> map[a.dayOfWeek]=a); ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].forEach(d=>{ setTime(`av-${d}-s`, (map[d]?.startTime||'').slice(0,5)); setTime(`av-${d}-e`, (map[d]?.endTime||'').slice(0,5)); }); setMessage('avail-message','', 'info'); }catch(e){ setMessage('avail-message', e.message||'取得に失敗しました','error'); } }
+    async function saveAvailability(){ const id=document.getElementById('emp-select').value; try{ const items=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].map(d=>({dayOfWeek:d, startTime:getTime(`av-${d}-s`), endTime:getTime(`av-${d}-e`)})).filter(it=>it.startTime&&it.endTime); await callApi(`/api/employees/${id}/availability`, {method:'PUT', body:items}, {expectSuccess:false}); setMessage('avail-message','可用時間帯を更新しました','success'); }catch(e){ setMessage('avail-message', e.message||'更新に失敗しました','error'); } }
+    function presetWeekdays(s,e){ ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].forEach(d=>{ setTime(`av-${d}-s`, s); setTime(`av-${d}-e`, e); }); }
+    function presetAll(s,e){ ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].forEach(d=>{ setTime(`av-${d}-s`, s); setTime(`av-${d}-e`, e); }); }
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>勤務ルール設定</h1>
+      <a class="link" href="/dashboard">ダッシュボードへ戻る</a>
+    </div>
+    <div id="page-message" class="message"></div>
+
+    <div class="card">
+      <div class="row">
+        <label>
+          <span>従業員</span>
+          <select id="emp-select"></select>
+        </label>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px;margin:0 0 8px;">勤務ルール</h2>
+      <div class="row">
+        <label><span>週上限時間</span><input type="number" id="weeklyMax" min="1" max="80"></label>
+        <label><span>日上限時間</span><input type="number" id="dailyMax" min="1" max="16"></label>
+        <label><span>連勤上限（日）</span><input type="number" id="maxConsecutive" min="1" max="10"></label>
+        <label><span>最低休息（時間）</span><input type="number" id="minRest" min="0" max="24"></label>
+      </div>
+      <div class="row">
+        <label class="checkbox"><input type="checkbox" id="allowMulti">同日複数シフト許可</label>
+        <label class="checkbox"><input type="checkbox" id="allowHoliday">祝日勤務を許可</label>
+      </div>
+      <div class="button-row"><button id="save-rule" class="button primary">ルールを保存</button></div>
+      <div id="rule-message" class="message"></div>
+    </div>
+
+    <div class="card">
+      <h2 style="font-size:16px;margin:0 0 8px;">週間可用性</h2>
+      <div class="row">
+        <label>月 <input type="time" id="av-MONDAY-s">〜<input type="time" id="av-MONDAY-e"></label>
+        <label>火 <input type="time" id="av-TUESDAY-s">〜<input type="time" id="av-TUESDAY-e"></label>
+        <label>水 <input type="time" id="av-WEDNESDAY-s">〜<input type="time" id="av-WEDNESDAY-e"></label>
+        <label>木 <input type="time" id="av-THURSDAY-s">〜<input type="time" id="av-THURSDAY-e"></label>
+        <label>金 <input type="time" id="av-FRIDAY-s">〜<input type="time" id="av-FRIDAY-e"></label>
+        <label>土 <input type="time" id="av-SATURDAY-s">〜<input type="time" id="av-SATURDAY-e"></label>
+        <label>日 <input type="time" id="av-SUNDAY-s">〜<input type="time" id="av-SUNDAY-e"></label>
+      </div>
+      <div class="button-row">
+        <button id="preset-weekdays" class="button subtle">平日 09:00–21:00</button>
+        <button id="preset-all" class="button subtle">全日 00:00–23:59</button>
+        <button id="clear-all" class="button">クリア</button>
+        <button id="save-avail" class="button primary">可用性を保存</button>
+      </div>
+      <div id="avail-message" class="message"></div>
+    </div>
+  </div>
+</body>
+</html>
+

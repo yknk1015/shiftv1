@@ -20,5 +20,9 @@ public class WebController {
     public String calendar() {
         return "calendar";
     }
-}
 
+    @GetMapping("/rules")
+    public String rules() {
+        return "rules";
+    }
+}
