@@ -154,8 +154,8 @@ public class EmployeeConstraintController {
      */
     @GetMapping("/date-range")
     public ResponseEntity<Map<String, Object>> getConstraintsByDateRange(
-            @RequestParam LocalDate startDate,
-            @RequestParam LocalDate endDate) {
+            @RequestParam(name = "startDate") LocalDate startDate,
+            @RequestParam(name = "endDate") LocalDate endDate) {
         try {
             List<EmployeeConstraint> constraints = constraintService.getConstraintsByDateRange(startDate, endDate);
 
@@ -200,8 +200,8 @@ public class EmployeeConstraintController {
     public ResponseEntity<Map<String, Object>> checkEmployeeAvailability(
             @PathVariable Long employeeId,
             @PathVariable LocalDate date,
-            @RequestParam(required = false) String startTime,
-            @RequestParam(required = false) String endTime) {
+            @RequestParam(name = "startTime", required = false) String startTime,
+            @RequestParam(name = "endTime", required = false) String endTime) {
         try {
             boolean available;
             
@@ -231,8 +231,8 @@ public class EmployeeConstraintController {
      */
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getConstraintStatistics(
-            @RequestParam LocalDate startDate,
-            @RequestParam LocalDate endDate) {
+            @RequestParam(name = "startDate") LocalDate startDate,
+            @RequestParam(name = "endDate") LocalDate endDate) {
         try {
             List<Object[]> statistics = constraintService.getConstraintStatistics(startDate, endDate);
 
