@@ -2,12 +2,7 @@ package com.example.shiftv1.schedule;
 
 import com.example.shiftv1.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -147,5 +142,12 @@ public class ScheduleController {
         meta.put("uniqueEmployees", uniqueEmployees);
         meta.put("workingDays", workingDays);
         return meta;
+    }
+
+    @GetMapping("/diagnostics")
+    public ResponseEntity<ApiResponse<ScheduleService.DiagnosticReport>> getDiagnostics(
+            @RequestParam(name = "date") LocalDate date) {
+        ScheduleService.DiagnosticReport report = scheduleService.diagnoseDay(date);
+        return ResponseEntity.ok(ApiResponse.success("診断結果を取得しました", report));
     }
 }

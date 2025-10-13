@@ -173,6 +173,53 @@ public class EmployeeConstraintController {
     }
 
     /**
+     * メンテ用: 指定日・タイプの制約を一括で非アクティブ化
+     */
+    @PostMapping("/bulk/deactivate")
+    public ResponseEntity<Map<String, Object>> bulkDeactivate(
+            @RequestParam(name = "date") LocalDate date,
+            @RequestParam(name = "type") EmployeeConstraint.ConstraintType type) {
+        try {
+            int affected = constraintService.bulkDeactivateByTypeAndDate(type, date);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "一括無効化を実行しました");
+            response.put("affected", affected);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "一括無効化に失敗しました: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    /**
+     * メンテ用: 指定日のLIMITED制約の時間帯を一括更新
+     */
+    @PostMapping("/bulk/update-limited-time")
+    public ResponseEntity<Map<String, Object>> bulkUpdateLimitedTime(
+            @RequestParam(name = "date") LocalDate date,
+            @RequestParam(name = "start") String start,
+            @RequestParam(name = "end") String end) {
+        try {
+            LocalTime startTime = LocalTime.parse(start);
+            LocalTime endTime = LocalTime.parse(end);
+            int affected = constraintService.bulkUpdateLimitedTime(date, startTime, endTime);
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "LIMITED時間帯を一括更新しました");
+            response.put("affected", affected);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", false);
+            response.put("message", "LIMITED時間帯の一括更新に失敗しました: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+    /**
      * 指定日付で勤務不可の従業員一覧を取得
      */
     @GetMapping("/unavailable/{date}")

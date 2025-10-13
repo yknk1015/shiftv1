@@ -219,4 +219,32 @@ public class EmployeeConstraintService {
     public Optional<EmployeeConstraint> getConstraint(Long constraintId) {
         return constraintRepository.findById(constraintId);
     }
+
+    // ===== Bulk operations for maintenance =====
+    public int bulkDeactivateByTypeAndDate(EmployeeConstraint.ConstraintType type, LocalDate date) {
+        List<EmployeeConstraint> list = constraintRepository.findByDateBetweenAndActiveTrue(date, date);
+        int count = 0;
+        for (EmployeeConstraint c : list) {
+            if (c.getType() == type && Boolean.TRUE.equals(c.getActive())) {
+                c.setActive(false);
+                constraintRepository.save(c);
+                count++;
+            }
+        }
+        return count;
+    }
+
+    public int bulkUpdateLimitedTime(LocalDate date, LocalTime startTime, LocalTime endTime) {
+        List<EmployeeConstraint> list = constraintRepository.findByDateBetweenAndActiveTrue(date, date);
+        int count = 0;
+        for (EmployeeConstraint c : list) {
+            if (c.getType() == EmployeeConstraint.ConstraintType.LIMITED && Boolean.TRUE.equals(c.getActive())) {
+                c.setStartTime(startTime);
+                c.setEndTime(endTime);
+                constraintRepository.save(c);
+                count++;
+            }
+        }
+        return count;
+    }
 }
