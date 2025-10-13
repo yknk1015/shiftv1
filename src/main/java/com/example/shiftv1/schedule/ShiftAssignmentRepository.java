@@ -54,6 +54,11 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     Optional<ShiftAssignment> findTopByOrderByWorkDateDesc();
 
     /**
+     * 指定日より前で最も新しいシフト割り当てを取得
+     */
+    Optional<ShiftAssignment> findTopByWorkDateBeforeOrderByWorkDateDesc(LocalDate workDate);
+
+    /**
      * 最古の日付のシフト割り当てを取得
      */
     Optional<ShiftAssignment> findTopByOrderByWorkDateAsc();
