@@ -1,6 +1,7 @@
 package com.example.shiftv1.config;
 
 import jakarta.persistence.*;
+import java.time.DayOfWeek;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -40,6 +41,13 @@ public class ShiftConfig {
     @Column(name = "is_weekend")
     private Boolean weekend = false;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_of_week")
+    private DayOfWeek dayOfWeek; // 特定曜日に限定する場合（nullなら曜日制約なし）
+
+    @Column(name = "is_holiday")
+    private Boolean holiday = false; // 祝日専用シフトかどうか
+
     @Column(name = "created_at")
     private java.time.LocalDateTime createdAt;
 
@@ -58,6 +66,13 @@ public class ShiftConfig {
         this.weekend = weekend;
         this.createdAt = java.time.LocalDateTime.now();
         this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees,
+                       Boolean weekend, DayOfWeek dayOfWeek, Boolean holiday) {
+        this(name, startTime, endTime, requiredEmployees, weekend);
+        this.dayOfWeek = dayOfWeek;
+        this.holiday = holiday != null ? holiday : false;
     }
 
     @PrePersist
@@ -128,6 +143,22 @@ public class ShiftConfig {
         this.weekend = weekend;
     }
 
+    public DayOfWeek getDayOfWeek() {
+        return dayOfWeek;
+    }
+
+    public void setDayOfWeek(DayOfWeek dayOfWeek) {
+        this.dayOfWeek = dayOfWeek;
+    }
+
+    public Boolean getHoliday() {
+        return holiday;
+    }
+
+    public void setHoliday(Boolean holiday) {
+        this.holiday = holiday;
+    }
+
     public java.time.LocalDateTime getCreatedAt() {
         return createdAt;
     }
@@ -167,6 +198,8 @@ public class ShiftConfig {
                 ", requiredEmployees=" + requiredEmployees +
                 ", active=" + active +
                 ", weekend=" + weekend +
+                ", dayOfWeek=" + dayOfWeek +
+                ", holiday=" + holiday +
                 '}';
     }
 }

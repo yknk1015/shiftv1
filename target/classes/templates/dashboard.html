@@ -677,28 +677,50 @@
                         <span>必要人数</span>
                         <input type="number" id="config-required" min="1" value="4" required>
                     </label>
-                    <label class="checkbox">
-                        <input type="checkbox" id="config-weekend">
-                        <span>週末専用シフト</span>
-                    </label>
-                    <button type="submit" class="button primary">設定を追加</button>
-                </form>
+                      <label class="checkbox">
+                          <input type="checkbox" id="config-weekend">
+                          <span>週末専用シフト</span>
+                      </label>
+                      <label>
+                          <span>曜日（任意）</span>
+                          <select id="config-dow">
+                              <option value="">指定なし</option>
+                              <option value="MONDAY">月</option>
+                              <option value="TUESDAY">火</option>
+                              <option value="WEDNESDAY">水</option>
+                              <option value="THURSDAY">木</option>
+                              <option value="FRIDAY">金</option>
+                              <option value="SATURDAY">土</option>
+                              <option value="SUNDAY">日</option>
+                          </select>
+                      </label>
+                      <label class="checkbox">
+                          <input type="checkbox" id="config-holiday">
+                          <span>祝日シフト</span>
+                      </label>
+                      <div class="button-row">
+                          <button type="submit" class="button primary" id="config-submit">設定を追加</button>
+                          <button type="button" class="button" id="config-cancel" style="display:none;">編集をキャンセル</button>
+                      </div>
+                  </form>
                 <div id="shift-config-message" class="message"></div>
                 <div class="table-container small">
                     <table id="shift-config-table">
-                        <thead>
-                            <tr>
-                                <th>名称</th>
-                                <th>時間帯</th>
-                                <th>人数</th>
-                                <th>対象</th>
-                                <th>状態</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+                          <thead>
+                              <tr>
+                                  <th>名称</th>
+                                  <th>時間帯</th>
+                                  <th>人数</th>
+                                  <th>対象</th>
+                                  <th>曜日</th>
+                                  <th>祝日</th>
+                                  <th>状態</th>
+                                  <th></th>
+                              </tr>
+                          </thead>
+                          <tbody></tbody>
+                      </table>
+                  </div>
             </section>
 
             <section class="card" id="data-card">
@@ -1126,7 +1148,7 @@
             if (!configs || configs.length === 0) {
                 const row = document.createElement('tr');
                 const cell = document.createElement('td');
-                cell.colSpan = 6;
+                cell.colSpan = 8;
                 cell.className = 'muted';
                 cell.textContent = '登録されているシフト設定はありません';
                 row.appendChild(cell);
@@ -1157,6 +1179,12 @@
                     const targetCell = document.createElement('td');
                     targetCell.textContent = config.weekend ? '週末' : '平日';
                     row.appendChild(targetCell);
+                    const dowCell = document.createElement('td');
+                    dowCell.textContent = config.dayOfWeek ? dayOfWeekLabel(config.dayOfWeek) : '-';
+                    row.appendChild(dowCell);
+                    const holidayCell = document.createElement('td');
+                    holidayCell.textContent = config.holiday ? '祝日' : '-';
+                    row.appendChild(holidayCell);
                     const stateCell = document.createElement('td');
                     const badge = document.createElement('span');
                     badge.className = `badge ${config.active ? 'active' : 'inactive'}`;
@@ -1170,6 +1198,13 @@
                     toggleButton.textContent = config.active ? '停止' : '有効化';
                     toggleButton.addEventListener('click', () => toggleShiftConfig(config));
                     actionCell.appendChild(toggleButton);
+                    const editButton = document.createElement('button');
+                    editButton.className = 'button subtle';
+                    editButton.type = 'button';
+                    editButton.textContent = '編集';
+                    editButton.style.marginLeft = '8px';
+                    editButton.addEventListener('click', () => startEditShiftConfig(config));
+                    actionCell.appendChild(editButton);
                     row.appendChild(actionCell);
                     tbody.appendChild(row);
                 });
@@ -1236,6 +1271,45 @@
             }
         }
 
+        let editingConfigId = null;
+
+        function dayOfWeekLabel(dow) {
+            const map = { MONDAY: '月', TUESDAY: '火', WEDNESDAY: '水', THURSDAY: '木', FRIDAY: '金', SATURDAY: '土', SUNDAY: '日' };
+            return map[dow] || dow;
+        }
+
+        function startEditShiftConfig(config) {
+            editingConfigId = config.id;
+            document.getElementById('config-name').value = config.name || '';
+            document.getElementById('config-start').value = (config.startTime || '').slice(0,5);
+            document.getElementById('config-end').value = (config.endTime || '').slice(0,5);
+            document.getElementById('config-required').value = config.requiredEmployees ?? 1;
+            document.getElementById('config-weekend').checked = !!config.weekend;
+            const dowSel = document.getElementById('config-dow');
+            if (dowSel) dowSel.value = config.dayOfWeek || '';
+            const hol = document.getElementById('config-holiday');
+            if (hol) hol.checked = !!config.holiday;
+            document.getElementById('config-submit').textContent = '設定を更新';
+            const cancelBtn = document.getElementById('config-cancel');
+            if (cancelBtn) cancelBtn.style.display = 'inline-block';
+            setMessage('shift-config-message', '編集モードです。更新後に「設定を更新」を押してください。', 'info');
+        }
+
+        function cancelEditShiftConfig() {
+            editingConfigId = null;
+            document.getElementById('shift-config-form').reset();
+            document.getElementById('config-required').value = 4;
+            const dowSel = document.getElementById('config-dow');
+            if (dowSel) dowSel.value = '';
+            document.getElementById('config-submit').textContent = '設定を追加';
+            const cancelBtn = document.getElementById('config-cancel');
+            if (cancelBtn) cancelBtn.style.display = 'none';
+            setMessage('shift-config-message', '', 'info');
+        }
+
+        const cancelBtnInit = document.getElementById('config-cancel');
+        if (cancelBtnInit) cancelBtnInit.addEventListener('click', cancelEditShiftConfig);
+
         async function handleCreateShiftConfig(event) {
             event.preventDefault();
             const payload = {
@@ -1243,23 +1317,26 @@
                 startTime: document.getElementById('config-start').value,
                 endTime: document.getElementById('config-end').value,
                 requiredEmployees: Number(document.getElementById('config-required').value || 0),
-                weekend: document.getElementById('config-weekend').checked
+                weekend: document.getElementById('config-weekend').checked,
+                dayOfWeek: (document.getElementById('config-dow')?.value || '') || null,
+                holiday: document.getElementById('config-holiday')?.checked || false
             };
             if (!payload.name || !payload.startTime || !payload.endTime || payload.requiredEmployees <= 0) {
                 setMessage('shift-config-message', 'すべての項目を正しく入力してください。', 'error');
                 return;
             }
             try {
-                await callApi('/api/config/shift', {
-                    method: 'POST',
-                    body: payload
-                }, { expectSuccess: false });
-                document.getElementById('shift-config-form').reset();
-                document.getElementById('config-required').value = 4;
-                setMessage('shift-config-message', 'シフト設定を追加しました。', 'success');
+                if (editingConfigId) {
+                    await callApi(`/api/config/shift/${editingConfigId}`, { method: 'PUT', body: payload }, { expectSuccess: false });
+                    setMessage('shift-config-message', 'シフト設定を更新しました。', 'success');
+                } else {
+                    await callApi('/api/config/shift', { method: 'POST', body: payload }, { expectSuccess: false });
+                    setMessage('shift-config-message', 'シフト設定を追加しました。', 'success');
+                }
+                cancelEditShiftConfig();
                 await loadShiftConfigs();
             } catch (error) {
-                setMessage('shift-config-message', error.message || 'シフト設定の追加に失敗しました。', 'error');
+                setMessage('shift-config-message', error.message || 'シフト設定の追加/更新に失敗しました。', 'error');
             }
         }
 
@@ -1447,3 +1524,4 @@
                     <h3>従業員の勤務/休日日数</h3>
                     <div id="employee-days" class="table-wrapper"></div>
                 </div>
+

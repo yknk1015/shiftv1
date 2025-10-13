@@ -5,6 +5,7 @@ import com.example.shiftv1.config.ShiftConfigRepository;
 import com.example.shiftv1.constraint.EmployeeConstraint;
 import com.example.shiftv1.constraint.EmployeeConstraintRepository;
 import com.example.shiftv1.employee.Employee;
+import com.example.shiftv1.holiday.HolidayRepository;
 import com.example.shiftv1.employee.EmployeeRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,15 +39,18 @@ public class ScheduleService {
     private final ShiftAssignmentRepository assignmentRepository;
     private final ShiftConfigRepository shiftConfigRepository;
     private final EmployeeConstraintRepository constraintRepository;
+    private final HolidayRepository holidayRepository;
 
     public ScheduleService(EmployeeRepository employeeRepository,
                            ShiftAssignmentRepository assignmentRepository,
                            ShiftConfigRepository shiftConfigRepository,
-                           EmployeeConstraintRepository constraintRepository) {
+                           EmployeeConstraintRepository constraintRepository,
+                           HolidayRepository holidayRepository) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
         this.shiftConfigRepository = shiftConfigRepository;
         this.constraintRepository = constraintRepository;
+        this.holidayRepository = holidayRepository;
     }
 
     @Transactional
@@ -125,9 +129,16 @@ public class ScheduleService {
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
         List<ShiftAssignment> results = new ArrayList<>();
 
+        // 祝日マップの準備
+        Map<LocalDate, Boolean> holidayMap = new HashMap<>();
+        try {
+            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
+            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) { holidayMap.put(d, false); }
+            for (LocalDate hd : holidays) holidayMap.put(hd, true);
+        } catch (Exception ignored) {}
+
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
-            List<ShiftConfig> configsForDay = isWeekend ? weekendShiftConfigs : weekdayShiftConfigs;
+            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap.getOrDefault(day, false));
             for (ShiftConfig config : configsForDay) {
                 results.addAll(assignEmployeesForShift(day, config, employees, monthlyAssignmentCounts,
                         dailyAssignments, constraintsByDate));
@@ -250,9 +261,16 @@ public class ScheduleService {
         List<ShiftAssignment> results = new ArrayList<>();
         List<ShortageInfo> shortages = new ArrayList<>();
 
+        // 祝日マップの準備
+        Map<LocalDate, Boolean> holidayMap2 = new HashMap<>();
+        try {
+            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
+            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) { holidayMap2.put(d, false); }
+            for (LocalDate hd : holidays) holidayMap2.put(hd, true);
+        } catch (Exception ignored) {}
+
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
-            List<ShiftConfig> configsForDay = isWeekend ? weekendShiftConfigs : weekdayShiftConfigs;
+            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap2.getOrDefault(day, false));
             for (ShiftConfig config : configsForDay) {
                 results.addAll(assignEmployeesForShiftWithReport(day, config, employees, monthlyAssignmentCounts,
                         dailyAssignments, constraintsByDate, shortages));
@@ -522,5 +540,28 @@ public class ScheduleService {
         if (!monthlyAssignmentCounts.isEmpty()) {
             logger.debug("過去の割り当てを{}件分プリロードしました", monthlyAssignmentCounts.size());
         }
+    }
+
+    // 祝日・曜日・週末対応の設定選択
+    private List<ShiftConfig> selectConfigsForDay(List<ShiftConfig> activeConfigs, LocalDate day, boolean isHoliday) {
+        if (isHoliday) {
+            List<ShiftConfig> holidayConfigs = activeConfigs.stream()
+                    .filter(c -> Boolean.TRUE.equals(c.getHoliday()))
+                    .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                    .toList();
+            if (!holidayConfigs.isEmpty()) return holidayConfigs;
+        }
+        List<ShiftConfig> dowConfigs = activeConfigs.stream()
+                .filter(c -> c.getDayOfWeek() != null && c.getDayOfWeek() == day.getDayOfWeek())
+                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                .toList();
+        if (!dowConfigs.isEmpty()) return dowConfigs;
+        boolean weekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
+        List<ShiftConfig> weekendFiltered = activeConfigs.stream()
+                .filter(c -> Boolean.TRUE.equals(c.getWeekend()) == weekend)
+                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                .toList();
+        if (!weekendFiltered.isEmpty()) return weekendFiltered;
+        return activeConfigs.stream().sorted(Comparator.comparing(ShiftConfig::getStartTime)).toList();
     }
 }

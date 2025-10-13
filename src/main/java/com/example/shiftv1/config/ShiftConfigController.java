@@ -73,7 +73,9 @@ public class ShiftConfigController {
                 request.startTime(),
                 request.endTime(),
                 request.requiredEmployees(),
-                request.weekend()
+                request.weekend(),
+                request.dayOfWeek(),
+                request.holiday()
             );
 
             ShiftConfig savedConfig = shiftConfigRepository.save(config);
@@ -112,6 +114,8 @@ public class ShiftConfigController {
             config.setEndTime(request.endTime());
             config.setRequiredEmployees(request.requiredEmployees());
             config.setWeekend(request.weekend());
+            config.setDayOfWeek(request.dayOfWeek());
+            config.setHoliday(request.holiday());
 
             ShiftConfig savedConfig = shiftConfigRepository.save(config);
             logger.info("シフト設定が更新されました: {}", savedConfig.getName());
@@ -174,7 +178,9 @@ public class ShiftConfigController {
             LocalTime startTime,
             LocalTime endTime,
             Integer requiredEmployees,
-            Boolean weekend
+            Boolean weekend,
+            java.time.DayOfWeek dayOfWeek,
+            Boolean holiday
     ) {}
 }
 
