@@ -252,8 +252,8 @@ public class ShiftChangeRequestController {
      */
     @GetMapping("/statistics")
     public ResponseEntity<Map<String, Object>> getRequestStatistics(
-            @RequestParam LocalDateTime startDate,
-            @RequestParam LocalDateTime endDate) {
+            @RequestParam(name = "startDate") LocalDateTime startDate,
+            @RequestParam(name = "endDate") LocalDateTime endDate) {
         try {
             List<Object[]> statistics = changeRequestService.getRequestStatistics(startDate, endDate);
 

@@ -27,8 +27,8 @@ public class ScheduleController {
 
     @PostMapping("/generate")
     public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateSchedule(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
         try {
             YearMonth target = resolveYearMonth(year, month);
             List<ShiftAssignment> assignments = scheduleService.generateMonthlySchedule(target.getYear(), target.getMonthValue());
@@ -47,8 +47,8 @@ public class ScheduleController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> getSchedule(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
         try {
             YearMonth target = resolveYearMonth(year, month);
             List<ShiftAssignment> assignments = scheduleService.getMonthlySchedule(target.getYear(), target.getMonthValue());
