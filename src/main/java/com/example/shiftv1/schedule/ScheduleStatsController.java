@@ -18,9 +18,12 @@ import java.util.stream.Collectors;
 public class ScheduleStatsController {
 
     private final ShiftAssignmentRepository assignmentRepository;
+    private final com.example.shiftv1.employee.EmployeeRepository employeeRepository;
 
-    public ScheduleStatsController(ShiftAssignmentRepository assignmentRepository) {
+    public ScheduleStatsController(ShiftAssignmentRepository assignmentRepository,
+                                   com.example.shiftv1.employee.EmployeeRepository employeeRepository) {
         this.assignmentRepository = assignmentRepository;
+        this.employeeRepository = employeeRepository;
     }
 
     @GetMapping("/monthly")
@@ -68,6 +71,40 @@ public class ScheduleStatsController {
             return ResponseEntity.ok(ApiResponse.success("従業員別勤務量を取得しました", workload));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.failure("従業員別勤務量の取得に失敗しました"));
+        }
+    }
+
+    @GetMapping("/employee-days")
+    public ResponseEntity<ApiResponse<List<EmployeeDaysResponse>>> getEmployeeDays(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+
+            Map<Long, Long> workDaysByEmployeeId = assignments.stream()
+                    .collect(Collectors.groupingBy(
+                            a -> a.getEmployee().getId(),
+                            Collectors.mapping(ShiftAssignment::getWorkDate, Collectors.collectingAndThen(Collectors.toSet(), set -> (long) set.size()))
+                    ));
+
+            int daysInMonth = target.lengthOfMonth();
+
+            List<EmployeeDaysResponse> rows = employeeRepository.findAll().stream()
+                    .map(e -> {
+                        long workDays = workDaysByEmployeeId.getOrDefault(e.getId(), 0L);
+                        long restDays = daysInMonth - workDays;
+                        return new EmployeeDaysResponse(e.getName(), workDays, restDays, daysInMonth);
+                    })
+                    .sorted((a, b) -> Long.compare(b.workDays(), a.workDays()))
+                    .toList();
+
+            return ResponseEntity.ok(ApiResponse.success("従業員の勤務日数・休日日数を取得しました", rows));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("従業員の勤務/休日統計の取得に失敗しました"));
         }
     }
 
@@ -132,6 +169,8 @@ public class ScheduleStatsController {
     ) {}
 
     public record EmployeeWorkloadResponse(String employeeName, long shiftCount) {}
+
+    public record EmployeeDaysResponse(String employeeName, long workDays, long restDays, int totalDays) {}
 
     public record ShiftDistributionResponse(Map<String, Long> distribution) {}
 }

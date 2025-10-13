@@ -3,6 +3,7 @@ package com.example.shiftv1.schedule;
 import com.example.shiftv1.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -110,7 +111,7 @@ public class ScheduleController {
             Map<String, Object> meta = new HashMap<>();
             meta.put("year", target.getYear());
             meta.put("month", target.getMonthValue());
-            return ResponseEntity.ok(ApiResponse.success("対象月のシフトを初期化しました", List.of(), meta));
+            return ResponseEntity.ok(ApiResponse.success("対象月のシフトを初期化しました", Map.of(), meta));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
         } catch (Exception e) {

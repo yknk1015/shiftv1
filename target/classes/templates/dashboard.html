@@ -901,9 +901,12 @@
                 updateMonthlyStats(monthly.data);
                 const workload = await callApi(`/api/schedule/stats/employee-workload?year=${year}&month=${month}`);
                 updateWorkload(workload.data || []);
+                const days = await callApi(`/api/schedule/stats/employee-days?year=${year}&month=${month}`);
+                renderEmployeeDays(days.data || []);
             } catch (error) {
                 updateMonthlyStats(null);
                 updateWorkload([]);
+                renderEmployeeDays([]);
                 setMessage('stats-message', error.message || '統計の取得に失敗しました。', 'error');
             }
         }
@@ -1026,6 +1029,34 @@
                 li.textContent = 'データがありません';
                 list.appendChild(li);
             }
+        }
+
+        function renderEmployeeDays(rows) {
+            const host = document.getElementById('employee-days');
+            host.innerHTML = '';
+            const table = document.createElement('table');
+            table.className = 'data-table';
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th>従業員</th><th>勤務日数</th><th>休日日数</th><th>月日数</th></tr>';
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            if (!rows || rows.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 4;
+                td.className = 'muted';
+                td.textContent = 'データがありません';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            } else {
+                rows.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${r.employeeName}</td><td>${r.workDays}</td><td>${r.restDays}</td><td>${r.totalDays}</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+            table.appendChild(tbody);
+            host.appendChild(table);
         }
 
         function updateWorkload(data) {
@@ -1412,3 +1443,7 @@
     </script>
 </body>
 </html>
+                <div class="stat-subsection">
+                    <h3>従業員の勤務/休日日数</h3>
+                    <div id="employee-days" class="table-wrapper"></div>
+                </div>
