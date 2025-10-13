@@ -67,3 +67,4 @@ public class ShiftConfigDataInitializer implements CommandLineRunner {
     }
 }
 
+

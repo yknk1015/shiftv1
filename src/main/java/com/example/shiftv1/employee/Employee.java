@@ -6,8 +6,11 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import jakarta.persistence.PrePersist;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "employees")
@@ -26,12 +29,23 @@ public class Employee {
     @Size(max = 30, message = "役職は30文字以下で入力してください")
     private String role;
 
+    @Column(name = "created_at")
+    private LocalDateTime createdAt;
+
     protected Employee() {
     }
 
     public Employee(String name, String role) {
         this.name = name;
         this.role = role;
+        this.createdAt = LocalDateTime.now();
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
     public Long getId() {
@@ -52,5 +66,13 @@ public class Employee {
 
     public void setRole(String role) {
         this.role = role;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 }

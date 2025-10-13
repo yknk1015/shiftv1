@@ -88,4 +88,14 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     List<Employee> findAvailableEmployeesForTimeSlot(@Param("workDate") LocalDate workDate,
                                                     @Param("startTime") java.time.LocalTime startTime,
                                                     @Param("endTime") java.time.LocalTime endTime);
+
+    /**
+     * 最新のシフト割り当てを取得
+     */
+    java.util.Optional<ShiftAssignment> findTopByOrderByWorkDateDesc();
+
+    /**
+     * 最古のシフト割り当てを取得
+     */
+    java.util.Optional<ShiftAssignment> findTopByOrderByWorkDateAsc();
 }
