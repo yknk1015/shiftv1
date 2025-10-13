@@ -32,10 +32,8 @@ public class ScheduleController {
         try {
             YearMonth target = resolveYearMonth(year, month);
             List<ShiftAssignment> assignments = scheduleService.generateMonthlySchedule(target.getYear(), target.getMonthValue());
-            Map<String, Object> meta = new HashMap<>();
+            Map<String, Object> meta = buildScheduleMeta(assignments, target);
             meta.put("generatedCount", assignments.size());
-            meta.put("year", target.getYear());
-            meta.put("month", target.getMonthValue());
             List<ShiftAssignmentDto> data = assignments.stream()
                     .map(ShiftAssignmentDto::from)
                     .collect(Collectors.toList());
@@ -54,10 +52,7 @@ public class ScheduleController {
         try {
             YearMonth target = resolveYearMonth(year, month);
             List<ShiftAssignment> assignments = scheduleService.getMonthlySchedule(target.getYear(), target.getMonthValue());
-            Map<String, Object> meta = new HashMap<>();
-            meta.put("count", assignments.size());
-            meta.put("year", target.getYear());
-            meta.put("month", target.getMonthValue());
+            Map<String, Object> meta = buildScheduleMeta(assignments, target);
             List<ShiftAssignmentDto> data = assignments.stream()
                     .map(ShiftAssignmentDto::from)
                     .collect(Collectors.toList());
@@ -79,5 +74,23 @@ public class ScheduleController {
         }
         LocalDate today = LocalDate.now();
         return YearMonth.of(today.getYear(), today.getMonthValue());
+    }
+
+    private Map<String, Object> buildScheduleMeta(List<ShiftAssignment> assignments, YearMonth target) {
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("year", target.getYear());
+        meta.put("month", target.getMonthValue());
+        meta.put("count", assignments.size());
+        long uniqueEmployees = assignments.stream()
+                .map(assignment -> assignment.getEmployee().getId())
+                .distinct()
+                .count();
+        long workingDays = assignments.stream()
+                .map(ShiftAssignment::getWorkDate)
+                .distinct()
+                .count();
+        meta.put("uniqueEmployees", uniqueEmployees);
+        meta.put("workingDays", workingDays);
+        return meta;
     }
 }
