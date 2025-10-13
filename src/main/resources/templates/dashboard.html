@@ -189,6 +189,7 @@
                         'Content-Type': 'application/json',
                     }
                 };
+                options.credentials = 'include';
                 if (body) {
                     options.body = JSON.stringify(body);
                 }
@@ -284,7 +285,9 @@
 
         async function exportEmployeesCsv() {
             try {
-                const response = await fetch('/api/data/export/employees/csv');
+                const response = await fetch('/api/data/export/employees/csv', {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -306,7 +309,9 @@
 
         async function exportScheduleCsv() {
             try {
-                const response = await fetch('/api/data/export/schedule/csv');
+                const response = await fetch('/api/data/export/schedule/csv', {
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
@@ -328,7 +333,10 @@
 
         async function createBackup() {
             try {
-                const response = await fetch('/api/data/backup/export', {method: 'POST'});
+                const response = await fetch('/api/data/backup/export', {
+                    method: 'POST',
+                    credentials: 'include'
+                });
                 if (response.ok) {
                     const blob = await response.blob();
                     const url = window.URL.createObjectURL(blob);
