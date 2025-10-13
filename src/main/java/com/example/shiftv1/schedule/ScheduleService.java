@@ -13,18 +13,20 @@ import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DateTimeException;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
-import java.util.Comparator;
-import java.util.Collections;
 import java.util.stream.Collectors;
 
 @Service
@@ -64,13 +66,20 @@ public class ScheduleService {
             throw new IllegalArgumentException("無効な年月です: " + year + "年" + month + "月");
         }
 
-        List<Employee> employees = employeeRepository.findAll().stream()
+        List<Employee> baseEmployees = employeeRepository.findAll().stream()
                 .sorted(Comparator.comparing(Employee::getId))
                 .toList();
-        if (employees.isEmpty()) {
+        if (baseEmployees.isEmpty()) {
             logger.error("従業員が登録されていません");
             throw new IllegalStateException("従業員が登録されていません。シフト生成前に従業員を追加してください。");
         }
+
+        Optional<ShiftAssignment> lastAssignmentBeforePeriod =
+                assignmentRepository.findTopByWorkDateBeforeOrderByWorkDateDesc(start);
+        List<Employee> employees = rotateEmployees(baseEmployees,
+                determineRotationOffset(lastAssignmentBeforePeriod, baseEmployees));
+
+        List<ShiftAssignment> recentAssignments = loadRecentAssignments(start);
 
         logger.info("登録従業員数: {}名", employees.size());
         assignmentRepository.deleteByWorkDateBetween(start, end);
@@ -108,6 +117,7 @@ public class ScheduleService {
                         Collectors.groupingBy(constraint -> constraint.getEmployee().getId())));
 
         Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+        preloadAssignmentCounts(monthlyAssignmentCounts, recentAssignments);
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
         List<ShiftAssignment> results = new ArrayList<>();
 
@@ -274,5 +284,74 @@ public class ScheduleService {
         LocalTime preferredStart = constraint.getStartTime() != null ? constraint.getStartTime() : LocalTime.MIN;
         LocalTime preferredEnd = constraint.getEndTime() != null ? constraint.getEndTime() : LocalTime.MAX;
         return !shiftEnd.isBefore(preferredStart) && !shiftStart.isAfter(preferredEnd);
+    }
+
+    private List<Employee> rotateEmployees(List<Employee> employees, int offset) {
+        if (employees.isEmpty()) {
+            return employees;
+        }
+
+        int normalizedOffset = offset % employees.size();
+        if (normalizedOffset == 0) {
+            return employees;
+        }
+
+        List<Employee> rotated = new ArrayList<>(employees.size());
+        for (int i = 0; i < employees.size(); i++) {
+            rotated.add(employees.get((i + normalizedOffset) % employees.size()));
+        }
+        logger.debug("従業員リストを{}ポジション回転しました", normalizedOffset);
+        return rotated;
+    }
+
+    private int determineRotationOffset(Optional<ShiftAssignment> lastAssignmentBeforePeriod, List<Employee> employees) {
+        if (lastAssignmentBeforePeriod.isEmpty() || employees.isEmpty()) {
+            return 0;
+        }
+
+        Employee lastEmployee = lastAssignmentBeforePeriod.get().getEmployee();
+        if (lastEmployee == null || lastEmployee.getId() == null) {
+            return 0;
+        }
+
+        for (int i = 0; i < employees.size(); i++) {
+            if (lastEmployee.getId().equals(employees.get(i).getId())) {
+                int offset = (i + 1) % employees.size();
+                logger.debug("前回の割り当て従業員{}に基づきオフセット{}を使用", lastEmployee.getId(), offset);
+                return offset;
+            }
+        }
+        return 0;
+    }
+
+    private List<ShiftAssignment> loadRecentAssignments(LocalDate startDate) {
+        try {
+            LocalDate historyEnd = startDate.minusDays(1);
+            YearMonth previousMonth = YearMonth.from(startDate).minusMonths(1);
+            LocalDate historyStart = previousMonth.atDay(1);
+
+            if (historyEnd.isBefore(historyStart)) {
+                return List.of();
+            }
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(historyStart, historyEnd);
+            logger.debug("過去期間{}から{}の{}件の割り当てを読み込み", historyStart, historyEnd, assignments.size());
+            return assignments;
+        } catch (DateTimeException e) {
+            logger.debug("過去割り当ての取得に失敗しました: {}", e.getMessage());
+            return List.of();
+        }
+    }
+
+    private void preloadAssignmentCounts(Map<Long, Integer> monthlyAssignmentCounts, List<ShiftAssignment> recentAssignments) {
+        for (ShiftAssignment assignment : recentAssignments) {
+            Employee employee = assignment.getEmployee();
+            if (employee != null && employee.getId() != null) {
+                monthlyAssignmentCounts.merge(employee.getId(), 1, Integer::sum);
+            }
+        }
+        if (!monthlyAssignmentCounts.isEmpty()) {
+            logger.debug("過去の割り当てを{}件分プリロードしました", monthlyAssignmentCounts.size());
+        }
     }
 }
