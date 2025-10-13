@@ -120,17 +120,34 @@ public class ScheduleService {
             }
         }
 
+        results.sort(getAssignmentComparator());
+
         List<ShiftAssignment> savedAssignments = assignmentRepository.saveAll(results);
         logger.info("シフト生成が完了しました: {}件の割り当てを生成", savedAssignments.size());
-        return savedAssignments;
+        return sortAssignments(savedAssignments);
     }
 
+    @Transactional(readOnly = true)
     @Cacheable(value = "monthly-schedules", key = "#year + '-' + #month")
     public List<ShiftAssignment> getMonthlySchedule(int year, int month) {
         YearMonth target = YearMonth.of(year, month);
         LocalDate start = target.atDay(1);
         LocalDate end = target.atEndOfMonth();
-        return assignmentRepository.findByWorkDateBetween(start, end);
+        return sortAssignments(assignmentRepository.findByWorkDateBetween(start, end));
+    }
+
+    private List<ShiftAssignment> sortAssignments(List<ShiftAssignment> assignments) {
+        return assignments.stream()
+                .sorted(getAssignmentComparator())
+                .toList();
+    }
+
+    private Comparator<ShiftAssignment> getAssignmentComparator() {
+        return Comparator
+                .comparing(ShiftAssignment::getWorkDate)
+                .thenComparing(ShiftAssignment::getStartTime)
+                .thenComparing(ShiftAssignment::getShiftName)
+                .thenComparing(assignment -> assignment.getEmployee().getId());
     }
 
     private List<ShiftAssignment> assignEmployeesForShift(LocalDate day,

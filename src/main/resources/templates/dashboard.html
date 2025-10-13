@@ -3,370 +3,1380 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>シフト管理システム</title>
+    <title>シフト管理ダッシュボード</title>
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            margin: 0;
-            padding: 20px;
-            background-color: #f5f5f5;
+        :root {
+            color-scheme: light;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+            --success-bg: #dcfce7;
+            --success-text: #14532d;
+            --error-bg: #fee2e2;
+            --error-text: #7f1d1d;
+            --info-bg: #e0f2fe;
+            --info-text: #0c4a6e;
         }
-        .container {
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Hiragino Sans', 'ヒラギノ角ゴシック', 'Yu Gothic', sans-serif;
+        }
+
+        .page-container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            padding: 30px;
-            border-radius: 10px;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            padding: 32px 24px 48px;
         }
-        h1 {
-            color: #333;
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        .section {
-            margin-bottom: 30px;
-            padding: 20px;
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            background-color: #fafafa;
-        }
-        .section h2 {
-            color: #555;
-            margin-top: 0;
-        }
-        .button-group {
+
+        .page-header {
             display: flex;
-            gap: 10px;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: flex-start;
+            margin-bottom: 24px;
         }
-        button {
-            padding: 10px 20px;
-            border: none;
-            border-radius: 5px;
-            cursor: pointer;
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .user-info {
+            color: var(--text-secondary);
             font-size: 14px;
-            transition: background-color 0.3s;
         }
-        .btn-primary {
-            background-color: #007bff;
-            color: white;
+
+        .user-buttons {
+            display: flex;
+            gap: 8px;
         }
-        .btn-primary:hover {
-            background-color: #0056b3;
+
+        .period-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border);
         }
-        .btn-success {
-            background-color: #28a745;
-            color: white;
+
+        .period-picker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .btn-success:hover {
-            background-color: #1e7e34;
+
+        .period-inputs {
+            display: flex;
+            gap: 12px;
+            align-items: center;
         }
-        .btn-warning {
-            background-color: #ffc107;
-            color: #212529;
+
+        .period-inputs label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
         }
-        .btn-warning:hover {
-            background-color: #e0a800;
+
+        .period-inputs input,
+        .period-inputs select {
+            font-size: 16px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text-primary);
+            min-width: 90px;
         }
-        .btn-danger {
-            background-color: #dc3545;
-            color: white;
+
+        .period-label {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
         }
-        .btn-danger:hover {
-            background-color: #c82333;
+
+        .period-label strong {
+            font-size: 18px;
+            color: var(--text-primary);
         }
-        .result {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 5px;
-            background-color: #e9ecef;
-            border-left: 4px solid #007bff;
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
         }
-        .error {
-            background-color: #f8d7da;
-            border-left-color: #dc3545;
-            color: #721c24;
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
         }
-        .success {
-            background-color: #d4edda;
-            border-left-color: #28a745;
-            color: #155724;
+
+        .card.span-2 {
+            grid-column: span 2;
         }
-        .api-info {
-            background-color: #d1ecf1;
-            border-left-color: #17a2b8;
-            color: #0c5460;
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
         }
-        pre {
-            background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
-            overflow-x: auto;
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .section-header.compact h2 {
+            font-size: 20px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-subtitle {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .button {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: #fff;
+        }
+
+        .button.secondary {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .button.ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .button.danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .button.subtle {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .info-card {
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #f8fafc, #ffffff);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .message {
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.info {
+            display: block;
+            background: var(--info-bg);
+            color: var(--info-text);
+        }
+
+        .message.success {
+            display: block;
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .message.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        .loading {
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .empty-state {
+            padding: 18px;
+            text-align: center;
+            color: var(--text-muted);
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+        }
+
+        .table-container {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .table-container.small {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead th {
+            background: #f1f5f9;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        .weekend-row {
+            background: #fff7ed;
+        }
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-grid.small {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .stat-subsection h3 {
+            margin: 8px 0;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .pill-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill-list li {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 13px;
+        }
+
+        .ranking-list {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-primary);
+        }
+
+        .ranking-list li {
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-grid label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="time"],
+        input[type="date"],
+        select {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .checkbox {
+            flex-direction: row !important;
+            align-items: center;
+            gap: 8px !important;
+            font-weight: 600;
+        }
+
+        .checkbox input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+        }
+
+        .badge.active {
+            background: #dcfce7;
+            color: var(--success-text);
+        }
+
+        .badge.inactive {
+            background: #fee2e2;
+            color: var(--error-text);
+        }
+
+        @media (max-width: 900px) {
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .user-actions {
+                align-items: flex-start;
+            }
+
+            .period-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+            }
+
+            .period-picker {
+                justify-content: space-between;
+            }
+
+            .card.span-2 {
+                grid-column: span 1;
+            }
         }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1>シフト管理システム デモ</h1>
+    <div class="page-container">
+        <header class="page-header">
             <div>
-                <span id="user-info" style="margin-right: 15px; color: #666;"></span>
-                <button class="btn-danger" onclick="logout()">ログアウト</button>
+                <h1>シフト管理ダッシュボード</h1>
+                <p class="subtitle">従業員管理から自動シフト生成まで、この画面で完結します。</p>
             </div>
-        </div>
-        
-        <div class="section">
-            <h2>システム管理</h2>
-            <div class="button-group">
-                <button class="btn-primary" onclick="checkSystemStatus()">システム状態確認</button>
-                <button class="btn-success" onclick="initializeEmployees()">従業員初期化</button>
-                <button class="btn-warning" onclick="resetEmployees()">従業員リセット</button>
+            <div class="user-actions">
+                <span id="user-info" class="user-info">ログイン情報を取得しています...</span>
+                <div class="user-buttons">
+                    <button class="button ghost" id="open-calendar">カレンダー</button>
+                    <button class="button danger" onclick="logout()">ログアウト</button>
+                </div>
             </div>
-            <div id="admin-result"></div>
-        </div>
+        </header>
 
-        <div class="section">
-            <h2>シフト管理</h2>
-            <div class="button-group">
-                <button class="btn-primary" onclick="window.location.href='/calendar'">カレンダー表示</button>
-                <button class="btn-primary" onclick="generateSchedule()">今月のシフト生成</button>
-                <button class="btn-primary" onclick="getSchedule()">シフト取得</button>
-                <button class="btn-primary" onclick="getMonthlyStats()">月次統計</button>
-                <button class="btn-primary" onclick="getEmployeeWorkload()">従業員別勤務量</button>
+        <section class="period-toolbar">
+            <div class="period-picker">
+                <button class="button ghost" id="prev-month">前月</button>
+                <div class="period-inputs">
+                    <label>
+                        <span>年</span>
+                        <input type="number" id="year-input" min="2000" max="2100">
+                    </label>
+                    <label>
+                        <span>月</span>
+                        <select id="month-input"></select>
+                    </label>
+                </div>
+                <button class="button ghost" id="next-month">次月</button>
             </div>
-            <div id="schedule-result"></div>
-        </div>
+            <div class="period-label">
+                <span>対象:</span>
+                <strong id="schedule-period"></strong>
+            </div>
+        </section>
 
-        <div class="section">
-            <h2>従業員管理</h2>
-            <div class="button-group">
-                <button class="btn-primary" onclick="getAllEmployees()">全従業員取得</button>
-                <button class="btn-primary" onclick="getEmployeeCount()">従業員数取得</button>
-            </div>
-            <div id="employee-result"></div>
-        </div>
+        <div class="grid">
+            <section class="card span-2" id="schedule-card">
+                <div class="section-header">
+                    <div>
+                        <h2>シフト生成</h2>
+                        <p class="section-subtitle">対象月のシフトを自動生成し、担当者を一覧で確認できます。</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="button secondary" id="refresh-schedule">最新シフト取得</button>
+                        <button class="button primary" id="generate-schedule">シフトを生成</button>
+                    </div>
+                </div>
 
-        <div class="section">
-            <h2>データ管理</h2>
-            <div class="button-group">
-                <button class="btn-primary" onclick="exportEmployeesCsv()">従業員データエクスポート (CSV)</button>
-                <button class="btn-primary" onclick="exportScheduleCsv()">シフトデータエクスポート (CSV)</button>
-                <button class="btn-primary" onclick="createBackup()">データベースバックアップ</button>
-                <button class="btn-primary" onclick="getDataStatistics()">データ統計</button>
-            </div>
-            <div id="data-result"></div>
-        </div>
+                <div id="schedule-message" class="message"></div>
 
-        <div class="section">
-            <h2>API情報</h2>
-            <div class="api-info">
-                <p><strong>利用可能なAPIエンドポイント:</strong></p>
-                <ul>
-                    <li><code>GET /api/admin/status</code> - システム状態確認</li>
-                    <li><code>POST /api/admin/initialize-employees</code> - 従業員初期化</li>
-                    <li><code>POST /api/schedule/generate</code> - シフト生成</li>
-                    <li><code>GET /api/schedule</code> - シフト取得</li>
-                    <li><code>GET /api/schedule/stats/monthly</code> - 月次統計</li>
-                    <li><code>GET /api/employees</code> - 全従業員取得</li>
-                    <li><code>GET /api/data/export/employees/csv</code> - 従業員データエクスポート</li>
-                    <li><code>GET /api/data/export/schedule/csv</code> - シフトデータエクスポート</li>
-                    <li><code>POST /api/data/backup/export</code> - データベースバックアップ</li>
-                </ul>
-            </div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-label">シフト件数</div>
+                        <div class="info-value" id="assignment-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">従業員数</div>
+                        <div class="info-value" id="employee-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">稼働日数</div>
+                        <div class="info-value" id="working-day-count">0</div>
+                    </div>
+                </div>
+
+                <div id="schedule-loading" class="loading" style="display: none;">シフトを読み込み中です...</div>
+                <div id="schedule-empty" class="empty-state" style="display: none;">まだシフトが登録されていません。まずは「シフトを生成」を押してください。</div>
+
+                <div class="table-container">
+                    <table id="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>曜日</th>
+                                <th>シフト</th>
+                                <th>時間</th>
+                                <th>担当者</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card" id="stats-card">
+                <div class="section-header compact">
+                    <h2>月次サマリー</h2>
+                    <button class="button ghost" id="refresh-stats">更新</button>
+                </div>
+                <div id="stats-message" class="message"></div>
+                <div class="stat-grid">
+                    <div>
+                        <div class="stat-label">総シフト数</div>
+                        <div class="stat-value" id="stat-total-shifts">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">稼働従業員</div>
+                        <div class="stat-value" id="stat-unique-employees">0</div>
+                    </div>
+                </div>
+                <div class="stat-subsection">
+                    <h3>シフトタイプ別件数</h3>
+                    <ul id="shift-type-list" class="pill-list"></ul>
+                </div>
+                <div class="stat-subsection">
+                    <h3>勤務数トップ</h3>
+                    <ol id="workload-list" class="ranking-list"></ol>
+                </div>
+            </section>
+
+            <section class="card" id="employee-card">
+                <div class="section-header compact">
+                    <h2>従業員管理</h2>
+                    <button class="button ghost" id="reload-employees">再読み込み</button>
+                </div>
+                <p class="section-subtitle">シフト対象の従業員を登録・削除できます。</p>
+                <form id="employee-form" class="form-grid">
+                    <label>
+                        <span>氏名</span>
+                        <input type="text" id="employee-name" required placeholder="例: 佐藤 花子">
+                    </label>
+                    <label>
+                        <span>役職</span>
+                        <input type="text" id="employee-role" placeholder="例: スタッフ">
+                    </label>
+                    <button type="submit" class="button primary">従業員を追加</button>
+                </form>
+                <div id="employee-message" class="message"></div>
+                <div class="table-container small">
+                    <table id="employee-table">
+                        <thead>
+                            <tr>
+                                <th>氏名</th>
+                                <th>役職</th>
+                                <th>登録日</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card" id="shift-config-card">
+                <div class="section-header compact">
+                    <h2>シフト設定</h2>
+                    <button class="button ghost" id="reload-shift-configs">再読み込み</button>
+                </div>
+                <p class="section-subtitle">稼働時間帯と必要人数を設定します。アクティブな設定のみが自動生成で使用されます。</p>
+                <form id="shift-config-form" class="form-grid">
+                    <label>
+                        <span>名称</span>
+                        <input type="text" id="config-name" required placeholder="例: 朝シフト">
+                    </label>
+                    <label>
+                        <span>開始時間</span>
+                        <input type="time" id="config-start" required>
+                    </label>
+                    <label>
+                        <span>終了時間</span>
+                        <input type="time" id="config-end" required>
+                    </label>
+                    <label>
+                        <span>必要人数</span>
+                        <input type="number" id="config-required" min="1" value="4" required>
+                    </label>
+                    <label class="checkbox">
+                        <input type="checkbox" id="config-weekend">
+                        <span>週末専用シフト</span>
+                    </label>
+                    <button type="submit" class="button primary">設定を追加</button>
+                </form>
+                <div id="shift-config-message" class="message"></div>
+                <div class="table-container small">
+                    <table id="shift-config-table">
+                        <thead>
+                            <tr>
+                                <th>名称</th>
+                                <th>時間帯</th>
+                                <th>人数</th>
+                                <th>対象</th>
+                                <th>状態</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card" id="data-card">
+                <div class="section-header compact">
+                    <h2>データ</h2>
+                    <button class="button ghost" id="refresh-data-stats">統計更新</button>
+                </div>
+                <div id="data-message" class="message"></div>
+                <div class="stat-grid small">
+                    <div>
+                        <div class="stat-label">従業員</div>
+                        <div class="stat-value" id="data-total-employees">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">シフト割当</div>
+                        <div class="stat-value" id="data-total-assignments">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">最終更新</div>
+                        <div class="stat-value" id="data-last-updated">-</div>
+                    </div>
+                </div>
+                <div class="stat-subsection">
+                    <h3>月別シフト数</h3>
+                    <ul id="data-monthly-stats" class="pill-list"></ul>
+                </div>
+                <div class="button-row">
+                    <button class="button secondary" id="export-employees">従業員CSV</button>
+                    <button class="button secondary" id="export-schedule">シフトCSV</button>
+                    <button class="button secondary" id="create-backup">バックアップ作成</button>
+                </div>
+            </section>
         </div>
     </div>
-
     <script>
-        const API_BASE = '';
+        const monthInput = document.getElementById('month-input');
+        const yearInput = document.getElementById('year-input');
+        const schedulePeriodLabel = document.getElementById('schedule-period');
+        const scheduleTableBody = document.querySelector('#schedule-table tbody');
+        const scheduleEmpty = document.getElementById('schedule-empty');
+        const scheduleLoading = document.getElementById('schedule-loading');
 
-        async function makeRequest(url, method = 'GET', body = null) {
+        document.addEventListener('DOMContentLoaded', () => {
+            setupMonthOptions();
+            initializePeriod();
+            bindEventListeners();
+            loadUserInfo();
+            loadSchedule();
+            loadStatistics();
+            loadEmployees();
+            loadShiftConfigs();
+            loadDataStats();
+        });
+
+        function setupMonthOptions() {
+            for (let month = 1; month <= 12; month++) {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = `${month}月`;
+                monthInput.appendChild(option);
+            }
+        }
+
+        function initializePeriod() {
+            const today = new Date();
+            setPeriod(today.getFullYear(), today.getMonth() + 1);
+            yearInput.addEventListener('change', handlePeriodChange);
+            monthInput.addEventListener('change', handlePeriodChange);
+        }
+
+        function bindEventListeners() {
+            document.getElementById('prev-month').addEventListener('click', () => changeMonth(-1));
+            document.getElementById('next-month').addEventListener('click', () => changeMonth(1));
+            document.getElementById('open-calendar').addEventListener('click', () => window.location.href = '/calendar');
+            document.getElementById('generate-schedule').addEventListener('click', handleGenerateSchedule);
+            document.getElementById('refresh-schedule').addEventListener('click', () => loadSchedule(true));
+            document.getElementById('refresh-stats').addEventListener('click', loadStatistics);
+            document.getElementById('employee-form').addEventListener('submit', handleCreateEmployee);
+            document.getElementById('reload-employees').addEventListener('click', loadEmployees);
+            document.getElementById('shift-config-form').addEventListener('submit', handleCreateShiftConfig);
+            document.getElementById('reload-shift-configs').addEventListener('click', loadShiftConfigs);
+            document.getElementById('refresh-data-stats').addEventListener('click', loadDataStats);
+            document.getElementById('export-employees').addEventListener('click', () => downloadFile('/api/data/export/employees/csv', 'employees.csv'));
+            document.getElementById('export-schedule').addEventListener('click', () => {
+                const { year, month } = getPeriod();
+                const url = `/api/data/export/schedule/csv?year=${year}&month=${month}`;
+                const filename = `schedule_${year}-${String(month).padStart(2, '0')}.csv`;
+                downloadFile(url, filename);
+            });
+            document.getElementById('create-backup').addEventListener('click', () => {
+                const filename = `shift_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+                downloadFile('/api/data/backup/export', filename);
+            });
+        }
+
+        function handlePeriodChange() {
+            const { year, month } = getPeriod();
+            setPeriod(year, month);
+            loadSchedule();
+            loadStatistics();
+        }
+
+        function changeMonth(offset) {
+            const { year, month } = getPeriod();
+            const date = new Date(year, month - 1 + offset, 1);
+            setPeriod(date.getFullYear(), date.getMonth() + 1);
+            loadSchedule();
+            loadStatistics();
+        }
+
+        function setPeriod(year, month) {
+            yearInput.value = year;
+            monthInput.value = month;
+            schedulePeriodLabel.textContent = `${year}年${month}月`;
+        }
+
+        function getPeriod() {
+            return {
+                year: parseInt(yearInput.value, 10) || new Date().getFullYear(),
+                month: parseInt(monthInput.value, 10) || (new Date().getMonth() + 1)
+            };
+        }
+
+        async function handleGenerateSchedule() {
+            const { year, month } = getPeriod();
+            setMessage('schedule-message', '', 'info');
+            setScheduleLoading(true);
             try {
-                const options = {
-                    method: method,
-                    headers: {
-                        'Content-Type': 'application/json',
-                    }
-                };
-                options.credentials = 'include';
-                if (body) {
-                    options.body = JSON.stringify(body);
-                }
-                const response = await fetch(url, options);
-                const data = await response.json();
-                return { success: response.ok, data, status: response.status };
+                const response = await callApi(`/api/schedule/generate?year=${year}&month=${month}`, { method: 'POST' });
+                setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
+                await loadSchedule();
+                await loadStatistics();
+                await loadDataStats();
             } catch (error) {
-                return { success: false, error: error.message };
+                setMessage('schedule-message', error.message || 'シフト生成に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
             }
         }
 
-        function showResult(elementId, result, isError = false) {
-            const element = document.getElementById(elementId);
-            element.innerHTML = `<div class="result ${isError ? 'error' : 'success'}">
-                <pre>${JSON.stringify(result, null, 2)}</pre>
-            </div>`;
-        }
-
-        async function checkSystemStatus() {
-            const result = await makeRequest('/api/admin/status');
-            showResult('admin-result', result, !result.success);
-        }
-
-        async function initializeEmployees() {
-            const result = await makeRequest('/api/admin/initialize-employees', 'POST');
-            showResult('admin-result', result, !result.success);
-        }
-
-        async function resetEmployees() {
-            if (confirm('従業員データをリセットしますか？')) {
-                const result = await makeRequest('/api/admin/reset-employees', 'DELETE');
-                showResult('admin-result', result, !result.success);
-            }
-        }
-
-        async function generateSchedule() {
-            const result = await makeRequest('/api/schedule/generate', 'POST');
-            showResult('schedule-result', result, !result.success);
-        }
-
-        async function getSchedule() {
-            const result = await makeRequest('/api/schedule');
-            showResult('schedule-result', result, !result.success);
-        }
-
-        async function getMonthlyStats() {
-            const result = await makeRequest('/api/schedule/stats/monthly');
-            showResult('schedule-result', result, !result.success);
-        }
-
-        async function getEmployeeWorkload() {
-            const result = await makeRequest('/api/schedule/stats/employee-workload');
-            showResult('schedule-result', result, !result.success);
-        }
-
-        async function getAllEmployees() {
-            const result = await makeRequest('/api/employees');
-            showResult('employee-result', result, !result.success);
-        }
-
-        async function getEmployeeCount() {
-            const result = await makeRequest('/api/employees/count');
-            showResult('employee-result', result, !result.success);
-        }
-
-        async function logout() {
+        async function loadSchedule(showMessageOnSuccess = false) {
+            const { year, month } = getPeriod();
+            setScheduleLoading(true);
             try {
-                const result = await makeRequest('/api/auth/logout', 'POST');
-                if (result.success) {
-                    window.location.href = '/login?logout';
+                const response = await callApi(`/api/schedule?year=${year}&month=${month}`);
+                const assignments = response.data || [];
+                const hasAssignments = renderSchedule(assignments);
+                updateScheduleSummary(response.meta || {}, assignments);
+                scheduleEmpty.style.display = hasAssignments ? 'none' : 'block';
+                if (showMessageOnSuccess) {
+                    setMessage('schedule-message', response.message || 'シフトを取得しました。', 'info');
                 } else {
-                    alert('ログアウト中にエラーが発生しました');
+                    setMessage('schedule-message', '', 'info');
                 }
             } catch (error) {
-                alert('ログアウト中にエラーが発生しました');
+                renderSchedule([]);
+                updateScheduleSummary({}, []);
+                scheduleEmpty.style.display = 'block';
+                setMessage('schedule-message', error.message || 'シフトの取得に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
+            }
+        }
+
+        async function loadStatistics() {
+            const { year, month } = getPeriod();
+            setMessage('stats-message', '', 'info');
+            try {
+                const monthly = await callApi(`/api/schedule/stats/monthly?year=${year}&month=${month}`);
+                updateMonthlyStats(monthly.data);
+                const workload = await callApi(`/api/schedule/stats/employee-workload?year=${year}&month=${month}`);
+                updateWorkload(workload.data || []);
+            } catch (error) {
+                updateMonthlyStats(null);
+                updateWorkload([]);
+                setMessage('stats-message', error.message || '統計の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const response = await callApi('/api/employees');
+                renderEmployeeTable(response.data || []);
+                setMessage('employee-message', '', 'info');
+            } catch (error) {
+                renderEmployeeTable([]);
+                setMessage('employee-message', error.message || '従業員の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadShiftConfigs() {
+            try {
+                const configs = await callApi('/api/config/shift', {}, { expectSuccess: false });
+                renderShiftConfigTable(configs || []);
+                setMessage('shift-config-message', '', 'info');
+            } catch (error) {
+                renderShiftConfigTable([]);
+                setMessage('shift-config-message', error.message || 'シフト設定の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadDataStats() {
+            try {
+                const response = await callApi('/api/data/stats');
+                updateDataStats(response.data || {});
+                setMessage('data-message', '', 'info');
+            } catch (error) {
+                updateDataStats({});
+                setMessage('data-message', error.message || 'データ統計の取得に失敗しました。', 'error');
+            }
+        }
+
+        function setScheduleLoading(isLoading) {
+            scheduleLoading.style.display = isLoading ? 'block' : 'none';
+        }
+
+        function renderSchedule(assignments) {
+            scheduleTableBody.innerHTML = '';
+            if (!assignments || assignments.length === 0) {
+                return false;
+            }
+            const grouped = assignments.reduce((map, item) => {
+                if (!map[item.workDate]) {
+                    map[item.workDate] = [];
+                }
+                map[item.workDate].push(item);
+                return map;
+            }, {});
+            const dates = Object.keys(grouped).sort();
+            dates.forEach(date => {
+                const items = grouped[date].sort((a, b) => {
+                    const time = (a.startTime || '').localeCompare(b.startTime || '');
+                    if (time !== 0) return time;
+                    const shift = (a.shiftName || '').localeCompare(b.shiftName || '', 'ja');
+                    if (shift !== 0) return shift;
+                    return (a.employeeName || '').localeCompare(b.employeeName || '', 'ja');
+                });
+                items.forEach((assignment, index) => {
+                    const row = document.createElement('tr');
+                    if (isWeekend(date)) {
+                        row.classList.add('weekend-row');
+                    }
+                    if (index === 0) {
+                        const dateCell = document.createElement('td');
+                        dateCell.rowSpan = items.length;
+                        dateCell.textContent = formatDateLabel(date);
+                        row.appendChild(dateCell);
+                        const dayCell = document.createElement('td');
+                        dayCell.rowSpan = items.length;
+                        dayCell.textContent = getDayLabel(date);
+                        row.appendChild(dayCell);
+                    }
+                    const shiftCell = document.createElement('td');
+                    shiftCell.textContent = assignment.shiftName;
+                    row.appendChild(shiftCell);
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = formatTimeRange(assignment.startTime, assignment.endTime);
+                    row.appendChild(timeCell);
+                    const employeeCell = document.createElement('td');
+                    employeeCell.textContent = assignment.employeeName;
+                    row.appendChild(employeeCell);
+                    scheduleTableBody.appendChild(row);
+                });
+            });
+            return true;
+        }
+
+        function updateScheduleSummary(meta, assignments) {
+            const { year, month } = getPeriod();
+            schedulePeriodLabel.textContent = `${meta.year ?? year}年${meta.month ?? month}月`;
+            const count = meta.count ?? assignments.length;
+            document.getElementById('assignment-count').textContent = count;
+            const unique = meta.uniqueEmployees ?? new Set(assignments.map(item => item.employeeName)).size;
+            document.getElementById('employee-count').textContent = unique;
+            const days = meta.workingDays ?? new Set(assignments.map(item => item.workDate)).size;
+            document.getElementById('working-day-count').textContent = days;
+        }
+
+        function updateMonthlyStats(data) {
+            document.getElementById('stat-total-shifts').textContent = data?.totalShifts ?? 0;
+            document.getElementById('stat-unique-employees').textContent = data?.uniqueEmployees ?? 0;
+            const list = document.getElementById('shift-type-list');
+            list.innerHTML = '';
+            if (data?.shiftsByType && Object.keys(data.shiftsByType).length > 0) {
+                Object.entries(data.shiftsByType)
+                    .sort((a, b) => b[1] - a[1])
+                    .forEach(([name, count]) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${name}: ${count}`;
+                        list.appendChild(li);
+                    });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'muted';
+                li.textContent = 'データがありません';
+                list.appendChild(li);
+            }
+        }
+
+        function updateWorkload(data) {
+            const list = document.getElementById('workload-list');
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'muted';
+                li.textContent = 'データがありません';
+                list.appendChild(li);
+                return;
+            }
+            data.slice(0, 5).forEach(item => {
+                const li = document.createElement('li');
+                const name = document.createElement('span');
+                name.textContent = item.employeeName;
+                const count = document.createElement('span');
+                count.textContent = `${item.shiftCount}件`;
+                li.appendChild(name);
+                li.appendChild(count);
+                list.appendChild(li);
+            });
+        }
+
+        function renderEmployeeTable(employees) {
+            const tbody = document.querySelector('#employee-table tbody');
+            tbody.innerHTML = '';
+            if (!employees || employees.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 4;
+                cell.className = 'muted';
+                cell.textContent = '登録されている従業員はいません';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+                return;
+            }
+            employees
+                .slice()
+                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'))
+                .forEach(employee => {
+                    const row = document.createElement('tr');
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = employee.name;
+                    row.appendChild(nameCell);
+                    const roleCell = document.createElement('td');
+                    roleCell.textContent = employee.role || '-';
+                    row.appendChild(roleCell);
+                    const createdCell = document.createElement('td');
+                    createdCell.textContent = formatDateTime(employee.createdAt);
+                    row.appendChild(createdCell);
+                    const actionCell = document.createElement('td');
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'button danger subtle';
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = '削除';
+                    deleteButton.addEventListener('click', () => deleteEmployee(employee));
+                    actionCell.appendChild(deleteButton);
+                    row.appendChild(actionCell);
+                    tbody.appendChild(row);
+                });
+        }
+
+        function renderShiftConfigTable(configs) {
+            const tbody = document.querySelector('#shift-config-table tbody');
+            tbody.innerHTML = '';
+            if (!configs || configs.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 6;
+                cell.className = 'muted';
+                cell.textContent = '登録されているシフト設定はありません';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+                return;
+            }
+            configs
+                .slice()
+                .sort((a, b) => {
+                    if ((a.weekend ? 1 : 0) !== (b.weekend ? 1 : 0)) {
+                        return (a.weekend ? 1 : 0) - (b.weekend ? 1 : 0);
+                    }
+                    const time = (a.startTime || '').localeCompare(b.startTime || '');
+                    if (time !== 0) return time;
+                    return (a.name || '').localeCompare(b.name || '', 'ja');
+                })
+                .forEach(config => {
+                    const row = document.createElement('tr');
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = config.name;
+                    row.appendChild(nameCell);
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = `${(config.startTime || '').slice(0, 5)}〜${(config.endTime || '').slice(0, 5)}`;
+                    row.appendChild(timeCell);
+                    const requiredCell = document.createElement('td');
+                    requiredCell.textContent = config.requiredEmployees;
+                    row.appendChild(requiredCell);
+                    const targetCell = document.createElement('td');
+                    targetCell.textContent = config.weekend ? '週末' : '平日';
+                    row.appendChild(targetCell);
+                    const stateCell = document.createElement('td');
+                    const badge = document.createElement('span');
+                    badge.className = `badge ${config.active ? 'active' : 'inactive'}`;
+                    badge.textContent = config.active ? '有効' : '無効';
+                    stateCell.appendChild(badge);
+                    row.appendChild(stateCell);
+                    const actionCell = document.createElement('td');
+                    const toggleButton = document.createElement('button');
+                    toggleButton.className = 'button secondary subtle';
+                    toggleButton.type = 'button';
+                    toggleButton.textContent = config.active ? '停止' : '有効化';
+                    toggleButton.addEventListener('click', () => toggleShiftConfig(config));
+                    actionCell.appendChild(toggleButton);
+                    row.appendChild(actionCell);
+                    tbody.appendChild(row);
+                });
+        }
+
+        function updateDataStats(stats) {
+            document.getElementById('data-total-employees').textContent = stats.totalEmployees ?? 0;
+            document.getElementById('data-total-assignments').textContent = stats.totalAssignments ?? 0;
+            document.getElementById('data-last-updated').textContent = stats.lastUpdated ? formatDateTime(stats.lastUpdated) : '-';
+            const list = document.getElementById('data-monthly-stats');
+            list.innerHTML = '';
+            if (stats.monthlyStats && Object.keys(stats.monthlyStats).length > 0) {
+                Object.entries(stats.monthlyStats)
+                    .sort((a, b) => b[0].localeCompare(a[0]))
+                    .slice(0, 6)
+                    .forEach(([month, count]) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${month}: ${count}`;
+                        list.appendChild(li);
+                    });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'muted';
+                li.textContent = 'データがありません';
+                list.appendChild(li);
+            }
+        }
+
+        async function handleCreateEmployee(event) {
+            event.preventDefault();
+            const name = document.getElementById('employee-name').value.trim();
+            const role = document.getElementById('employee-role').value.trim();
+            if (!name) {
+                setMessage('employee-message', '氏名を入力してください。', 'error');
+                return;
+            }
+            try {
+                await callApi('/api/employees', {
+                    method: 'POST',
+                    body: { name, role }
+                });
+                document.getElementById('employee-form').reset();
+                setMessage('employee-message', '従業員を追加しました。', 'success');
+                await loadEmployees();
+                await loadDataStats();
+            } catch (error) {
+                setMessage('employee-message', error.message || '従業員の追加に失敗しました。', 'error');
+            }
+        }
+
+        async function deleteEmployee(employee) {
+            if (!confirm(`${employee.name} さんを削除しますか？`)) {
+                return;
+            }
+            try {
+                await callApi(`/api/employees/${employee.id}`, { method: 'DELETE' });
+                setMessage('employee-message', '従業員を削除しました。', 'success');
+                await loadEmployees();
+                await loadDataStats();
+                await loadSchedule();
+                await loadStatistics();
+            } catch (error) {
+                setMessage('employee-message', error.message || '従業員の削除に失敗しました。', 'error');
+            }
+        }
+
+        async function handleCreateShiftConfig(event) {
+            event.preventDefault();
+            const payload = {
+                name: document.getElementById('config-name').value.trim(),
+                startTime: document.getElementById('config-start').value,
+                endTime: document.getElementById('config-end').value,
+                requiredEmployees: Number(document.getElementById('config-required').value || 0),
+                weekend: document.getElementById('config-weekend').checked
+            };
+            if (!payload.name || !payload.startTime || !payload.endTime || payload.requiredEmployees <= 0) {
+                setMessage('shift-config-message', 'すべての項目を正しく入力してください。', 'error');
+                return;
+            }
+            try {
+                await callApi('/api/config/shift', {
+                    method: 'POST',
+                    body: payload
+                }, { expectSuccess: false });
+                document.getElementById('shift-config-form').reset();
+                document.getElementById('config-required').value = 4;
+                setMessage('shift-config-message', 'シフト設定を追加しました。', 'success');
+                await loadShiftConfigs();
+            } catch (error) {
+                setMessage('shift-config-message', error.message || 'シフト設定の追加に失敗しました。', 'error');
+            }
+        }
+
+        async function toggleShiftConfig(config) {
+            try {
+                const updated = await callApi(`/api/config/shift/${config.id}/toggle`, { method: 'POST' }, { expectSuccess: false });
+                setMessage('shift-config-message', `「${updated.name}」を${updated.active ? '有効化' : '停止'}しました。`, 'success');
+                await loadShiftConfigs();
+                await loadSchedule();
+                await loadStatistics();
+            } catch (error) {
+                setMessage('shift-config-message', error.message || 'シフト設定の更新に失敗しました。', 'error');
+            }
+        }
+
+        async function downloadFile(url, suggestedName) {
+            try {
+                const response = await fetch(url, { credentials: 'include' });
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                const blob = await response.blob();
+                const disposition = response.headers.get('content-disposition');
+                const filename = getFilenameFromDisposition(disposition) || suggestedName;
+                const link = document.createElement('a');
+                const href = URL.createObjectURL(blob);
+                link.href = href;
+                link.download = filename;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(href);
+                setMessage('data-message', `${filename} をダウンロードしました。`, 'success');
+            } catch (error) {
+                setMessage('data-message', error.message || 'ダウンロードに失敗しました。', 'error');
             }
         }
 
         async function loadUserInfo() {
             try {
-                const result = await makeRequest('/api/auth/me');
-                if (result.success) {
-                    const userInfo = document.getElementById('user-info');
-                    userInfo.textContent = `ようこそ、${result.data.username}さん (${result.data.role})`;
-                } else {
-                    // 認証されていない場合はログインページにリダイレクト
-                    window.location.href = '/login';
+                const data = await callApi('/api/auth/me', {}, { expectSuccess: false });
+                if (!data || data.success === false) {
+                    throw new Error('認証が必要です');
                 }
+                const info = document.getElementById('user-info');
+                info.textContent = `ようこそ、${data.username} さん (${data.role})`;
             } catch (error) {
                 window.location.href = '/login';
             }
         }
 
-        async function exportEmployeesCsv() {
+        async function logout() {
             try {
-                const response = await fetch('/api/data/export/employees/csv', {
-                    credentials: 'include'
-                });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'employees.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showResult('data-result', {success: true, message: '従業員データのエクスポートが完了しました'}, false);
-                } else {
-                    showResult('data-result', {success: false, message: 'エクスポートに失敗しました'}, true);
-                }
-            } catch (error) {
-                showResult('data-result', {success: false, message: 'エクスポート中にエラーが発生しました'}, true);
+                await callApi('/api/auth/logout', { method: 'POST' }, { expectSuccess: false });
+            } finally {
+                window.location.href = '/login?logout';
             }
         }
 
-        async function exportScheduleCsv() {
-            try {
-                const response = await fetch('/api/data/export/schedule/csv', {
-                    credentials: 'include'
-                });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = 'schedule.csv';
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showResult('data-result', {success: true, message: 'シフトデータのエクスポートが完了しました'}, false);
-                } else {
-                    showResult('data-result', {success: false, message: 'エクスポートに失敗しました'}, true);
+        window.logout = logout;
+
+        async function callApi(url, options = {}, config = {}) {
+            const expectSuccess = config.expectSuccess !== false;
+            const requestOptions = buildRequestOptions(options);
+            const response = await fetch(url, requestOptions);
+            const contentType = response.headers.get('content-type') || '';
+            let data = null;
+            if (contentType.includes('application/json')) {
+                data = await response.json();
+            } else {
+                const text = await response.text();
+                if (text) {
+                    try {
+                        data = JSON.parse(text);
+                    } catch {
+                        data = { message: text };
+                    }
                 }
-            } catch (error) {
-                showResult('data-result', {success: false, message: 'エクスポート中にエラーが発生しました'}, true);
             }
-        }
-
-        async function createBackup() {
-            try {
-                const response = await fetch('/api/data/backup/export', {
-                    method: 'POST',
-                    credentials: 'include'
-                });
-                if (response.ok) {
-                    const blob = await response.blob();
-                    const url = window.URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `shift_backup_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.txt`;
-                    document.body.appendChild(a);
-                    a.click();
-                    window.URL.revokeObjectURL(url);
-                    document.body.removeChild(a);
-                    showResult('data-result', {success: true, message: 'データベースバックアップが完了しました'}, false);
-                } else {
-                    showResult('data-result', {success: false, message: 'バックアップに失敗しました'}, true);
-                }
-            } catch (error) {
-                showResult('data-result', {success: false, message: 'バックアップ中にエラーが発生しました'}, true);
+            if (!response.ok) {
+                const message = data?.message || `HTTP ${response.status}`;
+                throw new Error(message);
             }
+            if (expectSuccess && data && data.success === false) {
+                throw new Error(data.message || 'リクエストに失敗しました');
+            }
+            return data;
         }
 
-        async function getDataStatistics() {
-            const result = await makeRequest('/api/data/stats');
-            showResult('data-result', result, !result.success);
+        function buildRequestOptions(options = {}) {
+            const requestOptions = {
+                credentials: 'include',
+                ...options
+            };
+            requestOptions.headers = {
+                'Content-Type': 'application/json',
+                ...(options.headers || {})
+            };
+            if (requestOptions.body && typeof requestOptions.body !== 'string') {
+                requestOptions.body = JSON.stringify(requestOptions.body);
+            }
+            return requestOptions;
         }
 
-        // ページ読み込み時にシステム状態を確認
-        window.onload = function() {
-            loadUserInfo();
-            checkSystemStatus();
-        };
+        function setMessage(id, text, type = 'info') {
+            const element = document.getElementById(id);
+            if (!element) {
+                return;
+            }
+            if (!text) {
+                element.textContent = '';
+                element.style.display = 'none';
+                element.className = 'message';
+                return;
+            }
+            element.textContent = text;
+            element.style.display = 'block';
+            element.className = `message ${type}`;
+        }
+
+        function formatDateLabel(dateString) {
+            const date = new Date(`${dateString}T00:00:00`);
+            if (Number.isNaN(date.getTime())) {
+                return dateString;
+            }
+            return `${date.getMonth() + 1}月${date.getDate()}日`;
+        }
+
+        function getDayLabel(dateString) {
+            const date = new Date(`${dateString}T00:00:00`);
+            if (Number.isNaN(date.getTime())) {
+                return '';
+            }
+            const labels = ['日', '月', '火', '水', '木', '金', '土'];
+            return labels[date.getDay()];
+        }
+
+        function isWeekend(dateString) {
+            const date = new Date(`${dateString}T00:00:00`);
+            if (Number.isNaN(date.getTime())) {
+                return false;
+            }
+            const day = date.getDay();
+            return day === 0 || day === 6;
+        }
+
+        function formatTimeRange(start, end) {
+            const startText = start ? start.slice(0, 5) : '';
+            const endText = end ? end.slice(0, 5) : '';
+            if (!startText || !endText) {
+                return '-';
+            }
+            return `${startText}〜${endText}`;
+        }
+
+        function formatDateTime(value) {
+            if (!value) {
+                return '-';
+            }
+            const date = new Date(value);
+            if (Number.isNaN(date.getTime())) {
+                return value;
+            }
+            const y = date.getFullYear();
+            const m = String(date.getMonth() + 1).padStart(2, '0');
+            const d = String(date.getDate()).padStart(2, '0');
+            return `${y}/${m}/${d}`;
+        }
+
+        function getFilenameFromDisposition(disposition) {
+            if (!disposition) {
+                return null;
+            }
+            const utfMatch = disposition.match(/filename\*=UTF-8''([^;]+)/);
+            if (utfMatch && utfMatch[1]) {
+                return decodeURIComponent(utfMatch[1]);
+            }
+            const simpleMatch = disposition.match(/filename="?([^";]+)"?/);
+            return simpleMatch ? simpleMatch[1] : null;
+        }
     </script>
 </body>
 </html>
-
