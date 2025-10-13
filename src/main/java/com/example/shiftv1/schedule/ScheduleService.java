@@ -82,7 +82,11 @@ public class ScheduleService {
         List<ShiftAssignment> recentAssignments = loadRecentAssignments(start);
 
         logger.info("登録従業員数: {}名", employees.size());
-        assignmentRepository.deleteByWorkDateBetween(start, end);
+        // 安全のため、月次一括削除は行わない
+        // assignmentRepository.deleteByWorkDateBetween(start, end);
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            assignmentRepository.deleteByWorkDate(d);
+        }
         logger.info("既存のシフト割り当てを削除しました: {} から {}", start, end);
 
         List<ShiftConfig> activeShiftConfigs = shiftConfigRepository.findByActiveTrue();
@@ -146,6 +150,171 @@ public class ScheduleService {
         return sortAssignments(assignmentRepository.findByWorkDateBetween(start, end));
     }
 
+    // ===== Generation report (shortage details) support =====
+    public static class ShortageInfo {
+        public final LocalDate workDate;
+        public final String shiftName;
+        public final int required;
+        public final int assigned;
+
+        public ShortageInfo(LocalDate workDate, String shiftName, int required, int assigned) {
+            this.workDate = workDate;
+            this.shiftName = shiftName;
+            this.required = required;
+            this.assigned = assigned;
+        }
+    }
+
+    public static class GenerationReport {
+        public final List<ShiftAssignment> assignments;
+        public final List<ShortageInfo> shortages;
+
+        public GenerationReport(List<ShiftAssignment> assignments, List<ShortageInfo> shortages) {
+            this.assignments = assignments;
+            this.shortages = shortages;
+        }
+    }
+
+    @Transactional
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
+    public GenerationReport generateMonthlyScheduleWithReport(int year, int month) {
+        YearMonth target;
+        LocalDate start;
+        LocalDate end;
+
+        try {
+            target = YearMonth.of(year, month);
+            start = target.atDay(1);
+            end = target.atEndOfMonth();
+            logger.info("シフト生成を開始します: {}年{}月", year, month);
+        } catch (Exception e) {
+            logger.error("不正な年月です: {}年{}月", year, month, e);
+            throw new IllegalArgumentException("不正な年月です: " + year + "年" + month + "月");
+        }
+
+        List<Employee> baseEmployees = employeeRepository.findAll().stream()
+                .sorted(Comparator.comparing(Employee::getId))
+                .toList();
+        if (baseEmployees.isEmpty()) {
+            logger.error("従業員が登録されていません");
+            throw new IllegalStateException("従業員が登録されていません。シフト生成の前に従業員を追加してください。");
+        }
+
+        Optional<ShiftAssignment> lastAssignmentBeforePeriod =
+                assignmentRepository.findTopByWorkDateBeforeOrderByWorkDateDesc(start);
+        List<Employee> employees = rotateEmployees(baseEmployees,
+                determineRotationOffset(lastAssignmentBeforePeriod, baseEmployees));
+
+        List<ShiftAssignment> recentAssignments = loadRecentAssignments(start);
+
+        logger.info("登録従業員数: {}名", employees.size());
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            assignmentRepository.deleteByWorkDate(d);
+        }
+        logger.info("対象月の日別シフトを削除しました: {} から {}", start, end);
+
+        List<ShiftConfig> activeShiftConfigs = shiftConfigRepository.findByActiveTrue();
+        if (activeShiftConfigs.isEmpty()) {
+            logger.error("アクティブなシフト設定が存在しません");
+            throw new IllegalStateException("アクティブなシフト設定が存在しません。シフト設定を登録してください。");
+        }
+
+        List<ShiftConfig> weekdayShiftConfigs = activeShiftConfigs.stream()
+                .filter(config -> !Boolean.TRUE.equals(config.getWeekend()))
+                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                .toList();
+
+        List<ShiftConfig> weekendShiftConfigs = activeShiftConfigs.stream()
+                .filter(config -> Boolean.TRUE.equals(config.getWeekend()))
+                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
+                .toList();
+
+        if (weekdayShiftConfigs.isEmpty()) {
+            logger.warn("平日用のシフト設定がありません。全アクティブ設定を使用します");
+            weekdayShiftConfigs = activeShiftConfigs;
+        }
+        if (weekendShiftConfigs.isEmpty()) {
+            logger.warn("週末用のシフト設定がありません。全アクティブ設定を使用します");
+            weekendShiftConfigs = activeShiftConfigs;
+        }
+
+        Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
+                .findByDateBetweenAndActiveTrue(start, end)
+                .stream()
+                .collect(Collectors.groupingBy(EmployeeConstraint::getDate,
+                        Collectors.groupingBy(constraint -> constraint.getEmployee().getId())));
+
+        Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+        preloadAssignmentCounts(monthlyAssignmentCounts, recentAssignments);
+        Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
+        List<ShiftAssignment> results = new ArrayList<>();
+        List<ShortageInfo> shortages = new ArrayList<>();
+
+        for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+            boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
+            List<ShiftConfig> configsForDay = isWeekend ? weekendShiftConfigs : weekdayShiftConfigs;
+            for (ShiftConfig config : configsForDay) {
+                results.addAll(assignEmployeesForShiftWithReport(day, config, employees, monthlyAssignmentCounts,
+                        dailyAssignments, constraintsByDate, shortages));
+            }
+        }
+
+        results.sort(getAssignmentComparator());
+        List<ShiftAssignment> savedAssignments = assignmentRepository.saveAll(results);
+        logger.info("シフト生成が完了しました: {}件の割当を作成", savedAssignments.size());
+        return new GenerationReport(sortAssignments(savedAssignments), shortages);
+    }
+
+    private List<ShiftAssignment> assignEmployeesForShiftWithReport(LocalDate day,
+                                                                    ShiftConfig shiftConfig,
+                                                                    List<Employee> employees,
+                                                                    Map<Long, Integer> monthlyAssignmentCounts,
+                                                                    Map<LocalDate, Set<Long>> dailyAssignments,
+                                                                    Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate,
+                                                                    List<ShortageInfo> shortages) {
+        List<ShiftAssignment> assignments = new ArrayList<>();
+        Set<Long> assignedToday = dailyAssignments.computeIfAbsent(day, d -> new HashSet<>());
+        Set<Long> preferredEmployees = getPreferredEmployeesForShift(day, shiftConfig, constraintsByDate);
+
+        while (assignments.size() < shiftConfig.getRequiredEmployees()) {
+            Employee candidate = selectNextCandidate(employees, assignedToday, preferredEmployees,
+                    monthlyAssignmentCounts, day, shiftConfig, constraintsByDate);
+            if (candidate == null) {
+                break;
+            }
+
+            assignments.add(new ShiftAssignment(day,
+                    shiftConfig.getName(),
+                    shiftConfig.getStartTime(),
+                    shiftConfig.getEndTime(),
+                    candidate));
+            assignedToday.add(candidate.getId());
+            preferredEmployees.remove(candidate.getId());
+            monthlyAssignmentCounts.merge(candidate.getId(), 1, Integer::sum);
+        }
+
+        if (assignments.size() < shiftConfig.getRequiredEmployees()) {
+            logger.warn("割当不足: {} の {} は必要:{} 実際:{}",
+                    day, shiftConfig.getName(), shiftConfig.getRequiredEmployees(), assignments.size());
+            shortages.add(new ShortageInfo(day, shiftConfig.getName(),
+                    shiftConfig.getRequiredEmployees(), assignments.size()));
+        }
+
+        return assignments;
+    }
+
+    @Transactional
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
+    public void resetMonthlySchedule(int year, int month) {
+        YearMonth target = YearMonth.of(year, month);
+        LocalDate start = target.atDay(1);
+        LocalDate end = target.atEndOfMonth();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+            assignmentRepository.deleteByWorkDate(d);
+        }
+        logger.info("対象月のシフトを初期化: {}-{}", year, month);
+    }
+
     private List<ShiftAssignment> sortAssignments(List<ShiftAssignment> assignments) {
         return assignments.stream()
                 .sorted(getAssignmentComparator())
@@ -188,9 +357,9 @@ public class ScheduleService {
         }
 
         if (assignments.size() < shiftConfig.getRequiredEmployees()) {
-            throw new IllegalStateException(String.format(
-                    "Not enough available employees to fill %s on %s",
-                    shiftConfig.getName(), day));
+            // 不足があっても例外にせず、警告ログのみ出して続行
+            logger.warn("割当不足: {} の {} は必要:{} 実際:{}",
+                    day, shiftConfig.getName(), shiftConfig.getRequiredEmployees(), assignments.size());
         }
 
         return assignments;

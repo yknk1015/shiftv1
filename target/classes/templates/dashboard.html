@@ -553,11 +553,13 @@
                     </div>
                     <div class="section-actions">
                         <button class="button secondary" id="refresh-schedule">最新シフト取得</button>
+                        <button class="button" id="reset-schedule">シフト初期化</button>
                         <button class="button primary" id="generate-schedule">シフトを生成</button>
                     </div>
                 </div>
 
                 <div id="schedule-message" class="message"></div>
+                <div id="shortage-details" class="message" style="display:none;"></div>
 
                 <div class="info-grid">
                     <div class="info-card">
@@ -772,6 +774,7 @@
             document.getElementById('next-month').addEventListener('click', () => changeMonth(1));
             document.getElementById('open-calendar').addEventListener('click', () => window.location.href = '/calendar');
             document.getElementById('generate-schedule').addEventListener('click', handleGenerateSchedule);
+            document.getElementById('reset-schedule').addEventListener('click', handleResetSchedule);
             document.getElementById('refresh-schedule').addEventListener('click', () => loadSchedule(true));
             document.getElementById('refresh-stats').addEventListener('click', loadStatistics);
             document.getElementById('employee-form').addEventListener('submit', handleCreateEmployee);
@@ -823,15 +826,44 @@
         async function handleGenerateSchedule() {
             const { year, month } = getPeriod();
             setMessage('schedule-message', '', 'info');
+            const shortageBox = document.getElementById('shortage-details');
+            shortageBox.style.display = 'none';
+            shortageBox.textContent = '';
             setScheduleLoading(true);
             try {
-                const response = await callApi(`/api/schedule/generate?year=${year}&month=${month}`, { method: 'POST' });
+                const response = await callApi(`/api/schedule/generate-with-report?year=${year}&month=${month}`, { method: 'POST' });
                 setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
+                const shortages = (response.meta && response.meta.shortages) || [];
+                if (shortages.length > 0) {
+                    const lines = shortages.map(s => `${s.workDate} ${s.shiftName}: ${s.assigned}/${s.required}`);
+                    shortageBox.textContent = `割当不足の詳細: ${lines.join(' / ')}`;
+                    shortageBox.style.display = 'block';
+                }
                 await loadSchedule();
                 await loadStatistics();
                 await loadDataStats();
             } catch (error) {
                 setMessage('schedule-message', error.message || 'シフト生成に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
+            }
+        }
+
+        async function handleResetSchedule() {
+            const { year, month } = getPeriod();
+            if (!confirm(`${year}年${month}月のシフトを初期化します。よろしいですか？`)) {
+                return;
+            }
+            setMessage('schedule-message', '', 'info');
+            setScheduleLoading(true);
+            try {
+                await callApi(`/api/schedule/reset?year=${year}&month=${month}`, { method: 'DELETE' });
+                setMessage('schedule-message', 'シフトを初期化しました。', 'success');
+                await loadSchedule();
+                await loadStatistics();
+                await loadDataStats();
+            } catch (error) {
+                setMessage('schedule-message', error.message || 'シフト初期化に失敗しました。', 'error');
             } finally {
                 setScheduleLoading(false);
             }

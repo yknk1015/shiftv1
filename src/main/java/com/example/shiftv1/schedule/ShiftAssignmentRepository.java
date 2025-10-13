@@ -44,6 +44,11 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     void deleteByWorkDateBetween(LocalDate startDate, LocalDate endDate);
 
     /**
+     * 指定日付のシフト割り当てを削除
+     */
+    void deleteByWorkDate(LocalDate workDate);
+
+    /**
      * 指定従業員の指定日付範囲のシフト割り当てを削除
      */
     void deleteByEmployeeAndWorkDateBetween(Employee employee, LocalDate startDate, LocalDate endDate);
