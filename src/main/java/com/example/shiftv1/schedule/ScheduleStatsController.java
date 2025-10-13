@@ -25,8 +25,8 @@ public class ScheduleStatsController {
 
     @GetMapping("/monthly")
     public ResponseEntity<ApiResponse<MonthlyStatsResponse>> getMonthlyStats(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
 
         try {
             YearMonth target = resolveYearMonth(year, month);
@@ -44,8 +44,8 @@ public class ScheduleStatsController {
 
     @GetMapping("/employee-workload")
     public ResponseEntity<ApiResponse<List<EmployeeWorkloadResponse>>> getEmployeeWorkload(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
 
         try {
             YearMonth target = resolveYearMonth(year, month);
@@ -73,8 +73,8 @@ public class ScheduleStatsController {
 
     @GetMapping("/shift-distribution")
     public ResponseEntity<ApiResponse<ShiftDistributionResponse>> getShiftDistribution(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
 
         try {
             YearMonth target = resolveYearMonth(year, month);

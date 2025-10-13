@@ -80,8 +80,8 @@ public class DataManagementController {
 
     @GetMapping("/export/schedule/csv")
     public ResponseEntity<byte[]> exportScheduleToCsv(
-            @RequestParam(required = false) Integer year,
-            @RequestParam(required = false) Integer month) {
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
         try {
             logger.info("シフトデータのCSVエクスポートを開始します");
 
