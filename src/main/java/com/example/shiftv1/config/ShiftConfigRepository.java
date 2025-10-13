@@ -21,3 +21,5 @@ public interface ShiftConfigRepository extends JpaRepository<ShiftConfig, Long> 
 }
 
 
+
+
