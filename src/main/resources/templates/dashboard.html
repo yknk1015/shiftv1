@@ -347,9 +347,7 @@
             background: #f8fafc;
         }
 
-        .weekend-row {
-            background: #fff7ed;
-        }
+        
 
         .stat-grid {
             display: grid;
@@ -684,10 +682,10 @@
                         <span>必要人数</span>
                         <input type="number" id="config-required" min="1" value="4" required>
                     </label>
-                      <label class="checkbox">
-                          <input type="checkbox" id="config-weekend">
-                          <span>週末専用シフト</span>
-                      </label>
+                      <!-- removed: <label class="checkbox"> -->
+                          <!-- removed: <input type="checkbox" id="config-weekend"> -->
+                          <span>曜日の指定</span>
+                      <!-- removed: </label> -->
                       <div>
                           <span>曜日（複数選択可・未選択は全日）</span>
                           <div class="checkbox-row" id="config-days">
@@ -724,9 +722,9 @@
                                   <th>名称</th>
                                   <th>時間帯</th>
                                   <th>人数</th>
-                                  <th>対象</th>
+                                  
                                   <th>曜日</th>
-                                  <th>祝日</th>
+                                  
                                   <th>状態</th>
                                   <th></th>
                               </tr>
@@ -1006,9 +1004,6 @@
                 });
                 items.forEach((assignment, index) => {
                     const row = document.createElement('tr');
-                    if (isWeekend(date)) {
-                        row.classList.add('weekend-row');
-                    }
                     if (index === 0) {
                         const dateCell = document.createElement('td');
                         dateCell.rowSpan = items.length;
@@ -1161,7 +1156,7 @@
             if (!configs || configs.length === 0) {
                 const row = document.createElement('tr');
                 const cell = document.createElement('td');
-                cell.colSpan = 8;
+                cell.colSpan = 6;
                 cell.className = 'muted';
                 cell.textContent = '登録されているシフト設定はありません';
                 row.appendChild(cell);
@@ -1171,9 +1166,6 @@
             configs
                 .slice()
                 .sort((a, b) => {
-                    if ((a.weekend ? 1 : 0) !== (b.weekend ? 1 : 0)) {
-                        return (a.weekend ? 1 : 0) - (b.weekend ? 1 : 0);
-                    }
                     const time = (a.startTime || '').localeCompare(b.startTime || '');
                     if (time !== 0) return time;
                     return (a.name || '').localeCompare(b.name || '', 'ja');
@@ -1189,19 +1181,22 @@
                     const requiredCell = document.createElement('td');
                     requiredCell.textContent = config.requiredEmployees;
                     row.appendChild(requiredCell);
-                    const targetCell = document.createElement('td');
-                    targetCell.textContent = config.weekend ? '週末' : '平日';
-                    row.appendChild(targetCell);
+                    // const targetCell = document.createElement('td'); // removed 対象列
                     const dowCell = document.createElement('td');
+                    const labels = [];
+                    if (config.holiday) labels.push('祝');
                     if (config.days && Array.isArray(config.days) && config.days.length > 0) {
-                        dowCell.textContent = config.days.map(dayOfWeekLabel).join('、');
-                    } else {
-                        dowCell.textContent = config.dayOfWeek ? dayOfWeekLabel(config.dayOfWeek) : '-';
+                        labels.push(...config.days.map(dayOfWeekLabel));
+                    } else if (config.dayOfWeek) {
+                        labels.push(dayOfWeekLabel(config.dayOfWeek));
                     }
+                    dowCell.textContent = labels.length ? labels.join('・') : '-';
                     row.appendChild(dowCell);
-                    const holidayCell = document.createElement('td');
-                    holidayCell.textContent = config.holiday ? '祝日' : '-';
-                    row.appendChild(holidayCell);
+                    // 祝日の指定は曜日欄に統合表示
+                    if (config.holiday) {
+                        dowCell.textContent = dowCell.textContent && dowCell.textContent !== '-' ? `祝・${dowCell.textContent}` : '祝';
+                    }
+                    // 祝日は曜日欄に統合したため常に'-'表示
                     const stateCell = document.createElement('td');
                     const badge = document.createElement('span');
                     badge.className = `badge ${config.active ? 'active' : 'inactive'}`;
@@ -1222,6 +1217,13 @@
                     editButton.style.marginLeft = '8px';
                     editButton.addEventListener('click', () => startEditShiftConfig(config));
                     actionCell.appendChild(editButton);
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'button danger subtle';
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = '削除';
+                    deleteButton.style.marginLeft = '8px';
+                    deleteButton.addEventListener('click', () => deleteShiftConfig(config));
+                    actionCell.appendChild(deleteButton);
                     row.appendChild(actionCell);
                     tbody.appendChild(row);
                 });
@@ -1288,6 +1290,21 @@
             }
         }
 
+        async function deleteShiftConfig(config) {
+            if (!confirm(`「${config.name}」を削除しますか？`)) {
+                return;
+            }
+            try {
+                await callApi(`/api/config/shift/${config.id}`, { method: 'DELETE' }, { expectSuccess: false });
+                setMessage('shift-config-message', 'シフト設定を削除しました。', 'success');
+                await loadShiftConfigs();
+                await loadSchedule();
+                await loadStatistics();
+            } catch (error) {
+                setMessage('shift-config-message', error.message || 'シフト設定の削除に失敗しました。', 'error');
+            }
+        }
+
         let editingConfigId = null;
 
         function dayOfWeekLabel(dow) {
@@ -1301,7 +1318,7 @@
             document.getElementById('config-start').value = (config.startTime || '').slice(0,5);
             document.getElementById('config-end').value = (config.endTime || '').slice(0,5);
             document.getElementById('config-required').value = config.requiredEmployees ?? 1;
-            document.getElementById('config-weekend').checked = !!config.weekend;
+            // 対象(平日/週末)は廃止: weekend の編集項目は無し
             // multiple days
             const boxes = document.querySelectorAll('#config-days input[type="checkbox"]');
             boxes.forEach(b => b.checked = (config.days || []).includes(b.value));
@@ -1335,7 +1352,7 @@
                 startTime: document.getElementById('config-start').value,
                 endTime: document.getElementById('config-end').value,
                 requiredEmployees: Number(document.getElementById('config-required').value || 0),
-                weekend: document.getElementById('config-weekend').checked,
+                // 対象(平日/週末)は廃止（送信しない）
                 dayOfWeek: null,
                 holiday: document.getElementById('config-holiday')?.checked || false,
                 days: Array.from(document.querySelectorAll('#config-days input[type="checkbox"]:checked')).map(b => b.value)
@@ -1493,14 +1510,7 @@
             return labels[date.getDay()];
         }
 
-        function isWeekend(dateString) {
-            const date = new Date(`${dateString}T00:00:00`);
-            if (Number.isNaN(date.getTime())) {
-                return false;
-            }
-            const day = date.getDay();
-            return day === 0 || day === 6;
-        }
+        
 
         function formatTimeRange(start, end) {
             const startText = start ? start.slice(0, 5) : '';

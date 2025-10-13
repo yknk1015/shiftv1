@@ -131,7 +131,7 @@
             background-color: #ffc107;
             color: #212529;
         }
-        .shift-item.weekend {
+        .shift-item.other {
             background-color: #dc3545;
         }
         .legend {
@@ -297,7 +297,7 @@
                     } else if (shift.shiftName.includes('夜') || shift.shiftName.includes('15:00-21:00')) {
                         shiftItem.classList.add('evening');
                     } else {
-                        shiftItem.classList.add('weekend');
+                        shiftItem.classList.add('other');
                     }
                     
                     dayCell.appendChild(shiftItem);

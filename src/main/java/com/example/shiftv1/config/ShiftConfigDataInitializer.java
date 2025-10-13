@@ -32,8 +32,7 @@ public class ShiftConfigDataInitializer implements CommandLineRunner {
                 "朝シフト",
                 LocalTime.of(9, 0),
                 LocalTime.of(15, 0),
-                4,
-                false
+                4
             );
             shiftConfigRepository.save(morningShift);
             logger.info("デフォルト朝シフト設定を作成しました");
@@ -45,8 +44,7 @@ public class ShiftConfigDataInitializer implements CommandLineRunner {
                 "夜シフト",
                 LocalTime.of(15, 0),
                 LocalTime.of(21, 0),
-                4,
-                false
+                4
             );
             shiftConfigRepository.save(eveningShift);
             logger.info("デフォルト夜シフト設定を作成しました");
@@ -58,9 +56,13 @@ public class ShiftConfigDataInitializer implements CommandLineRunner {
                 "土日シフト",
                 LocalTime.of(9, 0),
                 LocalTime.of(18, 0),
-                5,
-                true
+                5
             );
+            // �y�b�g�E���𔽉f
+            java.util.Set<java.time.DayOfWeek> days = new java.util.HashSet<>();
+            days.add(java.time.DayOfWeek.SATURDAY);
+            days.add(java.time.DayOfWeek.SUNDAY);
+            weekendShift.setDays(days);
             shiftConfigRepository.save(weekendShift);
             logger.info("デフォルト土日シフト設定を作成しました");
         }

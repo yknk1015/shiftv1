@@ -99,24 +99,7 @@ public class ScheduleService {
             throw new IllegalStateException("アクティブなシフト設定が存在しません。シフト設定を登録してください。");
         }
 
-        List<ShiftConfig> weekdayShiftConfigs = activeShiftConfigs.stream()
-                .filter(config -> !Boolean.TRUE.equals(config.getWeekend()))
-                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
-                .toList();
-
-        List<ShiftConfig> weekendShiftConfigs = activeShiftConfigs.stream()
-                .filter(config -> Boolean.TRUE.equals(config.getWeekend()))
-                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
-                .toList();
-
-        if (weekdayShiftConfigs.isEmpty()) {
-            logger.warn("平日用のシフト設定が見つかりません。全アクティブ設定を使用します");
-            weekdayShiftConfigs = activeShiftConfigs;
-        }
-        if (weekendShiftConfigs.isEmpty()) {
-            logger.warn("週末用のシフト設定が見つかりません。全アクティブ設定を使用します");
-            weekendShiftConfigs = activeShiftConfigs;
-        }
+        // 「対象（平日/週末）」の概念は廃止。以降は曜日/祝日の指定のみを使用する。
 
         Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
                 .findByDateBetweenAndActiveTrue(start, end)
@@ -129,9 +112,16 @@ public class ScheduleService {
         Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
         List<ShiftAssignment> results = new ArrayList<>();
 
+        // 祝日・曜日の指定に基づいて日別に適用設定を選択
+        Map<LocalDate, Boolean> holidayMap = new HashMap<>();
+        try {
+            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
+            for (LocalDate d0 = start; !d0.isAfter(end); d0 = d0.plusDays(1)) { holidayMap.put(d0, false); }
+            for (LocalDate hd : holidays) holidayMap.put(hd, true);
+        } catch (Exception ignored) {}
+
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            boolean isWeekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
-            List<ShiftConfig> configsForDay = isWeekend ? weekendShiftConfigs : weekdayShiftConfigs;
+            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap.getOrDefault(day, false));
             for (ShiftConfig config : configsForDay) {
                 results.addAll(assignEmployeesForShift(day, config, employees, monthlyAssignmentCounts,
                         dailyAssignments, constraintsByDate));
@@ -223,24 +213,7 @@ public class ScheduleService {
             throw new IllegalStateException("アクティブなシフト設定が存在しません。シフト設定を登録してください。");
         }
 
-        List<ShiftConfig> weekdayShiftConfigs = activeShiftConfigs.stream()
-                .filter(config -> !Boolean.TRUE.equals(config.getWeekend()))
-                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
-                .toList();
-
-        List<ShiftConfig> weekendShiftConfigs = activeShiftConfigs.stream()
-                .filter(config -> Boolean.TRUE.equals(config.getWeekend()))
-                .sorted(Comparator.comparing(ShiftConfig::getStartTime))
-                .toList();
-
-        if (weekdayShiftConfigs.isEmpty()) {
-            logger.warn("平日用のシフト設定がありません。全アクティブ設定を使用します");
-            weekdayShiftConfigs = activeShiftConfigs;
-        }
-        if (weekendShiftConfigs.isEmpty()) {
-            logger.warn("週末用のシフト設定がありません。全アクティブ設定を使用します");
-            weekendShiftConfigs = activeShiftConfigs;
-        }
+        // 旧「対象（平日/週末）」区分は廃止。曜日/祝日の指定に集約。
 
         Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
                 .findByDateBetweenAndActiveTrue(start, end)
@@ -535,7 +508,7 @@ public class ScheduleService {
         }
     }
 
-    // 祝日・曜日・週末対応の設定選択
+    // 祝日・曜日に基づく設定選択（対象=平日/週末は廃止）
     private List<ShiftConfig> selectConfigsForDay(List<ShiftConfig> activeConfigs, LocalDate day, boolean isHoliday) {
         if (isHoliday) {
             List<ShiftConfig> holidayConfigs = activeConfigs.stream()
@@ -556,12 +529,13 @@ public class ScheduleService {
                 .sorted(Comparator.comparing(ShiftConfig::getStartTime))
                 .toList();
         if (!dowConfigs.isEmpty()) return dowConfigs;
-        boolean weekend = day.getDayOfWeek() == DayOfWeek.SATURDAY || day.getDayOfWeek() == DayOfWeek.SUNDAY;
-        List<ShiftConfig> weekendFiltered = activeConfigs.stream()
-                .filter(c -> Boolean.TRUE.equals(c.getWeekend()) == weekend)
+        // 特に曜日/祝日指定が無い設定のみ（以前の「対象」には依存しない）
+        return activeConfigs.stream()
+                .filter(c -> !Boolean.TRUE.equals(c.getHoliday()))
+                .filter(c -> c.getDayOfWeek() == null)
+                .filter(c -> c.getDays() == null || c.getDays().isEmpty())
+                // 既存データの後方互換: 週末フラグが立っている設定は平日では除外
                 .sorted(Comparator.comparing(ShiftConfig::getStartTime))
                 .toList();
-        if (!weekendFiltered.isEmpty()) return weekendFiltered;
-        return activeConfigs.stream().sorted(Comparator.comparing(ShiftConfig::getStartTime)).toList();
     }
 }

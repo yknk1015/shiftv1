@@ -39,8 +39,6 @@ public class ShiftConfig {
     @Column(name = "is_active")
     private Boolean active = true;
 
-    @Column(name = "is_weekend")
-    private Boolean weekend = false;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "day_of_week")
@@ -65,19 +63,18 @@ public class ShiftConfig {
     public ShiftConfig() {
     }
 
-    public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees, Boolean weekend) {
+    public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees) {
         this.name = name;
         this.startTime = startTime;
         this.endTime = endTime;
         this.requiredEmployees = requiredEmployees;
-        this.weekend = weekend;
         this.createdAt = java.time.LocalDateTime.now();
         this.updatedAt = java.time.LocalDateTime.now();
     }
 
     public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees,
-                       Boolean weekend, DayOfWeek dayOfWeek, Boolean holiday) {
-        this(name, startTime, endTime, requiredEmployees, weekend);
+                       DayOfWeek dayOfWeek, Boolean holiday) {
+        this(name, startTime, endTime, requiredEmployees);
         this.dayOfWeek = dayOfWeek;
         this.holiday = holiday != null ? holiday : false;
     }
@@ -142,13 +139,6 @@ public class ShiftConfig {
         this.active = active;
     }
 
-    public Boolean getWeekend() {
-        return weekend;
-    }
-
-    public void setWeekend(Boolean weekend) {
-        this.weekend = weekend;
-    }
 
     public DayOfWeek getDayOfWeek() {
         return dayOfWeek;
@@ -212,7 +202,6 @@ public class ShiftConfig {
                 ", endTime=" + endTime +
                 ", requiredEmployees=" + requiredEmployees +
                 ", active=" + active +
-                ", weekend=" + weekend +
                 ", dayOfWeek=" + dayOfWeek +
                 ", holiday=" + holiday +
                 ", days=" + days +

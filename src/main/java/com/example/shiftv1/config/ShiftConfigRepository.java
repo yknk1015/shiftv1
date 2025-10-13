@@ -11,10 +11,6 @@ public interface ShiftConfigRepository extends JpaRepository<ShiftConfig, Long> 
     
     List<ShiftConfig> findByActiveTrue();
     
-    List<ShiftConfig> findByWeekend(Boolean weekend);
-    
-    List<ShiftConfig> findByActiveTrueAndWeekend(Boolean weekend);
-    
     Optional<ShiftConfig> findByName(String name);
     
     boolean existsByName(String name);

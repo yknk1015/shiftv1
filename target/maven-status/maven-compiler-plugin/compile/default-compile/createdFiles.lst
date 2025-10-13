@@ -10,7 +10,10 @@ com\example\shiftv1\config\ShiftConfigController$ShiftConfigRequest.class
 com\example\shiftv1\exception\BusinessException.class
 com\example\shiftv1\constraint\EmployeeConstraintService.class
 com\example\shiftv1\exception\ConstraintViolationException.class
+com\example\shiftv1\schedule\ScheduleService$GenerationReport.class
+com\example\shiftv1\holiday\Holiday.class
 com\example\shiftv1\employee\EmployeeController$EmployeeRequest.class
+com\example\shiftv1\schedule\ScheduleStatsController$EmployeeDaysResponse.class
 com\example\shiftv1\constraint\ConstraintDataInitializer.class
 com\example\shiftv1\schedule\ScheduleStatsController.class
 com\example\shiftv1\config\ShiftConfigDataInitializer.class
@@ -33,6 +36,7 @@ com\example\shiftv1\constraint\EmployeeConstraintRepository.class
 com\example\shiftv1\employee\EmployeeController.class
 com\example\shiftv1\schedule\ScheduleService$1.class
 com\example\shiftv1\auth\UserDataInitializer.class
+com\example\shiftv1\schedule\ScheduleService$ShortageInfo.class
 com\example\shiftv1\auth\AuthController$RegisterRequest.class
 com\example\shiftv1\employee\Employee.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestService.class
@@ -57,7 +61,9 @@ com\example\shiftv1\employee\EmployeeController$EmployeeCountResponse.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestController.class
 com\example\shiftv1\schedule\ScheduleStatsController$MonthlyStatsResponse.class
 com\example\shiftv1\auth\AuthController$LoginRequest.class
+com\example\shiftv1\holiday\HolidayRepository.class
 com\example\shiftv1\admin\AdminController$InitializeResponse.class
+com\example\shiftv1\holiday\HolidayController.class
 com\example\shiftv1\admin\AdminController$ResetResponse.class
 com\example\shiftv1\config\ShiftConfig.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestRepository.class

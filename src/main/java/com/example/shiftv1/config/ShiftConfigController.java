@@ -73,7 +73,6 @@ public class ShiftConfigController {
                 request.startTime(),
                 request.endTime(),
                 request.requiredEmployees(),
-                request.weekend(),
                 request.dayOfWeek(),
                 request.holiday()
             );
@@ -118,7 +117,6 @@ public class ShiftConfigController {
             config.setStartTime(request.startTime());
             config.setEndTime(request.endTime());
             config.setRequiredEmployees(request.requiredEmployees());
-            config.setWeekend(request.weekend());
             config.setDayOfWeek(request.dayOfWeek());
             config.setHoliday(request.holiday());
             if (request.days() != null && !request.days().isEmpty()) {
@@ -188,7 +186,6 @@ public class ShiftConfigController {
             LocalTime startTime,
             LocalTime endTime,
             Integer requiredEmployees,
-            Boolean weekend,
             java.time.DayOfWeek dayOfWeek,
             Boolean holiday,
             java.util.List<java.time.DayOfWeek> days
