@@ -1,6 +1,5 @@
 package com.example.shiftv1.auth;
 
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -12,6 +11,10 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpSession;
+import jakarta.validation.Valid;
+import org.springframework.security.web.context.HttpSessionSecurityContextRepository;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
@@ -85,7 +88,8 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request) {
+    public ResponseEntity<Map<String, Object>> login(@Valid @RequestBody LoginRequest request,
+                                                    HttpServletRequest httpRequest) {
         try {
             logger.info("ログインを開始します: {}", request.username());
 
@@ -94,7 +98,11 @@ public class AuthController {
             );
 
             SecurityContextHolder.getContext().setAuthentication(authentication);
-            
+
+            HttpSession session = httpRequest.getSession(true);
+            session.setAttribute(HttpSessionSecurityContextRepository.SPRING_SECURITY_CONTEXT_KEY,
+                SecurityContextHolder.getContext());
+
             User user = userRepository.findByUsername(request.username()).orElseThrow();
             user.setLastLogin(LocalDateTime.now());
             userRepository.save(user);
@@ -120,10 +128,15 @@ public class AuthController {
     }
 
     @PostMapping("/logout")
-    public ResponseEntity<Map<String, Object>> logout() {
+    public ResponseEntity<Map<String, Object>> logout(HttpServletRequest httpRequest) {
         try {
             SecurityContextHolder.clearContext();
-            
+
+            HttpSession session = httpRequest.getSession(false);
+            if (session != null) {
+                session.invalidate();
+            }
+
             Map<String, Object> response = new HashMap<>();
             response.put("success", true);
             response.put("message", "ログアウトが完了しました");
