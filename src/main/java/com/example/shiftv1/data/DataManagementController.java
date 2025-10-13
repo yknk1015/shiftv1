@@ -1,5 +1,6 @@
 package com.example.shiftv1.data;
 
+import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
 import com.example.shiftv1.schedule.ShiftAssignment;
@@ -13,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.ByteArrayOutputStream;
-import java.io.IOException;
 import java.io.PrintWriter;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
@@ -137,7 +137,7 @@ public class DataManagementController {
     }
 
     @GetMapping("/backup/info")
-    public ResponseEntity<Map<String, Object>> getBackupInfo() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getBackupInfo() {
         try {
             logger.info("バックアップ情報を取得します");
 
@@ -161,11 +161,11 @@ public class DataManagementController {
             backupInfo.put("oldestAssignmentDate", oldestAssignment);
             backupInfo.put("backupTimestamp", java.time.LocalDateTime.now());
 
-            return ResponseEntity.ok(backupInfo);
+            return ResponseEntity.ok(ApiResponse.success("バックアップ情報を取得しました", backupInfo));
 
         } catch (Exception e) {
             logger.error("バックアップ情報の取得でエラーが発生しました", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("バックアップ情報の取得に失敗しました"));
         }
     }
 
@@ -238,7 +238,7 @@ public class DataManagementController {
     }
 
     @GetMapping("/stats")
-    public ResponseEntity<Map<String, Object>> getDataStatistics() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getDataStatistics() {
         try {
             logger.info("データ統計情報を取得します");
 
@@ -260,11 +260,11 @@ public class DataManagementController {
             stats.put("monthlyStats", monthlyStats);
             stats.put("lastUpdated", java.time.LocalDateTime.now());
 
-            return ResponseEntity.ok(stats);
+            return ResponseEntity.ok(ApiResponse.success("データ統計情報を取得しました", stats));
 
         } catch (Exception e) {
             logger.error("データ統計情報の取得でエラーが発生しました", e);
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("データ統計情報の取得に失敗しました"));
         }
     }
 }

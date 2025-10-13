@@ -1,5 +1,6 @@
 package com.example.shiftv1.schedule;
 
+import com.example.shiftv1.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -23,63 +24,75 @@ public class ScheduleStatsController {
     }
 
     @GetMapping("/monthly")
-    public ResponseEntity<MonthlyStatsResponse> getMonthlyStats(
+    public ResponseEntity<ApiResponse<MonthlyStatsResponse>> getMonthlyStats(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
-        
-        YearMonth target = resolveYearMonth(year, month);
-        LocalDate start = target.atDay(1);
-        LocalDate end = target.atEndOfMonth();
-        
-        List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
-        
-        MonthlyStatsResponse stats = calculateMonthlyStats(assignments, target);
-        return ResponseEntity.ok(stats);
+
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+
+            MonthlyStatsResponse stats = calculateMonthlyStats(assignments, target);
+            return ResponseEntity.ok(ApiResponse.success("月次統計を取得しました", stats));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("月次統計の取得に失敗しました"));
+        }
     }
 
     @GetMapping("/employee-workload")
-    public ResponseEntity<List<EmployeeWorkloadResponse>> getEmployeeWorkload(
+    public ResponseEntity<ApiResponse<List<EmployeeWorkloadResponse>>> getEmployeeWorkload(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
-        
-        YearMonth target = resolveYearMonth(year, month);
-        LocalDate start = target.atDay(1);
-        LocalDate end = target.atEndOfMonth();
-        
-        List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
-        
-        Map<String, Long> workloadByEmployee = assignments.stream()
-                .collect(Collectors.groupingBy(
-                        assignment -> assignment.getEmployee().getName(),
-                        Collectors.counting()
-                ));
-        
-        List<EmployeeWorkloadResponse> workload = workloadByEmployee.entrySet().stream()
-                .map(entry -> new EmployeeWorkloadResponse(entry.getKey(), entry.getValue()))
-                .sorted((a, b) -> Long.compare(b.shiftCount(), a.shiftCount()))
-                .toList();
-        
-        return ResponseEntity.ok(workload);
+
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+
+            Map<String, Long> workloadByEmployee = assignments.stream()
+                    .collect(Collectors.groupingBy(
+                            assignment -> assignment.getEmployee().getName(),
+                            Collectors.counting()
+                    ));
+
+            List<EmployeeWorkloadResponse> workload = workloadByEmployee.entrySet().stream()
+                    .map(entry -> new EmployeeWorkloadResponse(entry.getKey(), entry.getValue()))
+                    .sorted((a, b) -> Long.compare(b.shiftCount(), a.shiftCount()))
+                    .toList();
+
+            return ResponseEntity.ok(ApiResponse.success("従業員別勤務量を取得しました", workload));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("従業員別勤務量の取得に失敗しました"));
+        }
     }
 
     @GetMapping("/shift-distribution")
-    public ResponseEntity<ShiftDistributionResponse> getShiftDistribution(
+    public ResponseEntity<ApiResponse<ShiftDistributionResponse>> getShiftDistribution(
             @RequestParam(required = false) Integer year,
             @RequestParam(required = false) Integer month) {
-        
-        YearMonth target = resolveYearMonth(year, month);
-        LocalDate start = target.atDay(1);
-        LocalDate end = target.atEndOfMonth();
-        
-        List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
-        
-        Map<String, Long> distribution = assignments.stream()
-                .collect(Collectors.groupingBy(
-                        ShiftAssignment::getShiftName,
-                        Collectors.counting()
-                ));
-        
-        return ResponseEntity.ok(new ShiftDistributionResponse(distribution));
+
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+
+            Map<String, Long> distribution = assignments.stream()
+                    .collect(Collectors.groupingBy(
+                            ShiftAssignment::getShiftName,
+                            Collectors.counting()
+                    ));
+
+            return ResponseEntity.ok(ApiResponse.success("シフト分布を取得しました", new ShiftDistributionResponse(distribution)));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("シフト分布の取得に失敗しました"));
+        }
     }
 
     private MonthlyStatsResponse calculateMonthlyStats(List<ShiftAssignment> assignments, YearMonth target) {
