@@ -171,8 +171,8 @@ class ScheduleServiceTest {
         limitedDayAssignments.stream()
                 .filter(assignment -> limitedEmployeeAssignments.contains(assignment.getId()))
                 .forEach(assignment -> {
-                    assertThat(assignment.getStartTime()).isGreaterThanOrEqualTo(LocalTime.of(15, 0));
-                    assertThat(assignment.getEndTime()).isLessThanOrEqualTo(LocalTime.of(21, 0));
+                    assertThat(assignment.getStartTime()).isAfterOrEqualTo(LocalTime.of(15, 0));
+                    assertThat(assignment.getEndTime()).isBeforeOrEqualTo(LocalTime.of(21, 0));
                 });
     }
 }
