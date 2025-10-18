@@ -1,0 +1,7 @@
+        if (assignments.size() < shiftConfig.getRequiredEmployees()) {
+            logger.warn("割当不足: {} の {} は必要:{} 実際:{}",
+                    day, shiftConfig.getName(), shiftConfig.getRequiredEmployees(), assignments.size());
+            shortages.add(new ShortageInfo(day, shiftConfig.getName(),
+                    shiftConfig.getRequiredEmployees(), assignments.size()));
+        }
+

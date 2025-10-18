@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>タイムラインビュー</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin: 0; background: #f5f7fb; color: #0f172a; }
+        .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+        .toolbar { display: flex; gap: 12px; align-items: center; margin-bottom: 16px; }
+        .card { background:#fff; border:1px solid #e2e8f0; border-radius: 12px; padding:16px; }
+        .grid { display: grid; grid-template-columns: 120px 1fr; }
+        .times { display:flex; flex-direction: column; gap:4px; font-size: 12px; color:#475569; }
+        .rows { display:flex; flex-direction: column; gap:4px; }
+        .slot { border-bottom: 1px dashed #e2e8f0; padding: 4px 8px; min-height: 22px; }
+        .slot.badge { display:inline-block; background:#eef2ff; color:#3730a3; border-radius:999px; padding:2px 8px; font-size:12px; margin-right:6px; }
+        .row { display:flex; align-items:center; gap:8px; }
+        input, select, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+        button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+        .header { display:flex; align-items:center; justify-content: space-between; margin-bottom: 12px; }
+        .muted { color:#64748b; font-size: 12px; }
+    </style>
+    <script>
+        async function loadGrid() {
+            const date = document.getElementById('date').value;
+            const gran = document.getElementById('gran').value;
+            const res = await fetch(`/api/schedule/grid/day?date=${date}&granularity=${gran}`);
+            const json = await res.json();
+            const data = json.data || {};
+            const slots = data.slots || [];
+            const timesCol = document.getElementById('times');
+            const rowsCol = document.getElementById('rows');
+            timesCol.innerHTML = '';
+            rowsCol.innerHTML = '';
+            for (const s of slots) {
+                const divTime = document.createElement('div');
+                divTime.textContent = `${s.start}`;
+                divTime.className = 'slot';
+                timesCol.appendChild(divTime);
+
+                const divRow = document.createElement('div');
+                divRow.className = 'slot';
+                const names = s.employees || [];
+                if (names.length === 0) {
+                    const span = document.createElement('span');
+                    span.className = 'muted';
+                    span.textContent = '—';
+                    divRow.appendChild(span);
+                } else {
+                    names.forEach(n => {
+                        const badge = document.createElement('span');
+                        badge.className = 'slot badge';
+                        badge.textContent = n;
+                        divRow.appendChild(badge);
+                    });
+                }
+                rowsCol.appendChild(divRow);
+            }
+        }
+        window.addEventListener('DOMContentLoaded', () => {
+            const today = new Date().toISOString().slice(0,10);
+            document.getElementById('date').value = today;
+            loadGrid();
+        });
+    </script>
+ </head>
+ <body>
+   <div class="container">
+     <div class="header">
+        <h2>タイムラインビュー</h2>
+        <div class="muted">15分/1時間単位で従業員の割当を表示</div>
+     </div>
+     <div class="toolbar card">
+        <label>日付 <input type="date" id="date" onchange="loadGrid()" /></label>
+        <label>粒度
+            <select id="gran" onchange="loadGrid()">
+                <option value="15">15分</option>
+                <option value="60" selected>1時間</option>
+            </select>
+        </label>
+        <button onclick="loadGrid()">更新</button>
+        <a href="/dashboard" style="margin-left:auto; text-decoration:none;">ダッシュボードへ</a>
+     </div>
+     <div class="card">
+        <div class="grid">
+            <div id="times" class="times"></div>
+            <div id="rows" class="rows"></div>
+        </div>
+     </div>
+   </div>
+ </body>
+ </html>
+

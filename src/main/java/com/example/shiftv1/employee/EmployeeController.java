@@ -1,6 +1,8 @@
 package com.example.shiftv1.employee;
 
 import com.example.shiftv1.common.ApiResponse;
+import com.example.shiftv1.skill.Skill;
+import com.example.shiftv1.skill.SkillRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,9 +16,11 @@ import java.util.Optional;
 public class EmployeeController {
 
     private final EmployeeRepository employeeRepository;
+    private final SkillRepository skillRepository;
 
-    public EmployeeController(EmployeeRepository employeeRepository) {
+    public EmployeeController(EmployeeRepository employeeRepository, SkillRepository skillRepository) {
         this.employeeRepository = employeeRepository;
+        this.skillRepository = skillRepository;
     }
 
     @GetMapping
@@ -80,4 +84,27 @@ public class EmployeeController {
     public record EmployeeRequest(String name, String role) {}
     
     public record EmployeeCountResponse(long count) {}
+
+    // ===== Skill management for Employee =====
+    @PostMapping("/{id}/skills/{skillId}")
+    public ResponseEntity<ApiResponse<Employee>> addSkill(@PathVariable Long id, @PathVariable Long skillId) {
+        Optional<Employee> emp = employeeRepository.findById(id);
+        if (emp.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("従業員が見つかりません"));
+        Optional<Skill> sk = skillRepository.findById(skillId);
+        if (sk.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("スキルが見つかりません"));
+        Employee e = emp.get();
+        e.getSkills().add(sk.get());
+        return ResponseEntity.ok(ApiResponse.success("スキルを付与しました", employeeRepository.save(e)));
+    }
+
+    @DeleteMapping("/{id}/skills/{skillId}")
+    public ResponseEntity<ApiResponse<Employee>> removeSkill(@PathVariable Long id, @PathVariable Long skillId) {
+        Optional<Employee> emp = employeeRepository.findById(id);
+        if (emp.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("従業員が見つかりません"));
+        Optional<Skill> sk = skillRepository.findById(skillId);
+        if (sk.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("スキルが見つかりません"));
+        Employee e = emp.get();
+        e.getSkills().remove(sk.get());
+        return ResponseEntity.ok(ApiResponse.success("スキルを解除しました", employeeRepository.save(e)));
+    }
 }

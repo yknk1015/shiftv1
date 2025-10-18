@@ -1,0 +1,426 @@
+    private List<ShiftAssignment> assignEmployeesForShiftWithReport(LocalDate day,
+
+    }
+        return new DiagnosticReport(day, results);
+        }
+            ));
+                    employees.stream().filter(e -> preferred.contains(e.getId())).map(Employee::getName).toList()
+                    alreadyAssignedNames,
+                    limitedMismatchNames,
+                    unavailableNames,
+                    assignedNames,
+                    assignedForShift.size(),
+                    requiredForShift,
+                    config.getEndTime(),
+                    config.getStartTime(),
+                    config.getName(),
+            results.add(new ShiftDiagnostics(
+            int requiredForShift = computeRequiredForShift(day, config);
+
+            }
+                }
+                    limitedMismatchNames.add(e.getName());
+                if (limitedMismatch) {
+                        });
+                            return config.getStartTime().isBefore(s) || config.getEndTime().isAfter(t);
+                            LocalTime t = c.getEndTime() != null ? c.getEndTime() : LocalTime.MAX;
+                            LocalTime s = c.getStartTime() != null ? c.getStartTime() : LocalTime.MIN;
+                        .anyMatch(c -> {
+                        .filter(c -> c.getType() == EmployeeConstraint.ConstraintType.LIMITED)
+                boolean limitedMismatch = ecs.stream()
+                // LIMITED: 可用時間に収まらない場合を抽出
+                }
+                    continue;
+                    unavailableNames.add(e.getName());
+                if (hasUnavailable) {
+                        || c.getType() == EmployeeConstraint.ConstraintType.PERSONAL);
+                        || c.getType() == EmployeeConstraint.ConstraintType.SICK_LEAVE
+                        || c.getType() == EmployeeConstraint.ConstraintType.VACATION
+                boolean hasUnavailable = ecs.stream().anyMatch(c -> c.getType() == EmployeeConstraint.ConstraintType.UNAVAILABLE
+                List<EmployeeConstraint> ecs = constraintsForDay.getOrDefault(id, List.of());
+                }
+                    continue;
+                    alreadyAssignedNames.add(e.getName());
+                if (assignedToday.getOrDefault(id, false)) {
+                Long id = e.getId();
+            for (Employee e : employees) {
+
+            List<String> alreadyAssignedNames = new ArrayList<>();
+            List<String> limitedMismatchNames = new ArrayList<>();
+            List<String> unavailableNames = new ArrayList<>();
+
+                    Map.of(day, constraintsForDay));
+            Set<Long> preferred = getPreferredEmployeesForShift(day, config,
+
+                    .toList();
+                    .map(a -> a.getEmployee().getName())
+            List<String> assignedNames = assignedForShift.stream()
+
+                    .toList();
+                    .filter(a -> a.getEndTime().equals(config.getEndTime()))
+                    .filter(a -> a.getStartTime().equals(config.getStartTime()))
+                    .filter(a -> a.getShiftName().equals(config.getName()))
+            List<ShiftAssignment> assignedForShift = assignmentRepository.findByWorkDate(day).stream()
+            // 上記は使えないため、当日かつ同シフト名・時間の割当を絞る
+            List<ShiftAssignment> assigned = assignmentRepository.findByEmployeeAndWorkDateBetween(null, day, day);
+        for (ShiftConfig config : configsForDay) {
+        List<ShiftDiagnostics> results = new ArrayList<>();
+
+                .collect(Collectors.toMap(a -> a.getEmployee().getId(), a -> true, (a, b) -> true));
+        Map<Long, Boolean> assignedToday = assignmentRepository.findByWorkDate(day).stream()
+        // 既存の当日割当（参照用）
+
+                .collect(Collectors.groupingBy(c -> c.getEmployee().getId()));
+                .stream()
+                .findByDateBetweenAndActiveTrue(day, day)
+        Map<Long, List<EmployeeConstraint>> constraintsForDay = constraintRepository
+
+        List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, isHoliday);
+
+        } catch (Exception ignored) {}
+            isHoliday = holidayRepository.findDatesBetween(day, day).contains(day);
+        try {
+        boolean isHoliday = false;
+        }
+            return new DiagnosticReport(day, List.of());
+        if (activeShiftConfigs.isEmpty()) {
+        List<ShiftConfig> activeShiftConfigs = shiftConfigRepository.findByActiveTrue();
+                .toList();
+                .sorted(Comparator.comparing(Employee::getId))
+        List<Employee> employees = employeeRepository.findAll().stream()
+
+        LocalDate end = ym.atEndOfMonth();
+        LocalDate start = ym.atDay(1);
+        YearMonth ym = YearMonth.from(day);
+    public DiagnosticReport diagnoseDay(LocalDate day) {
+    @Transactional(readOnly = true)
+
+    }
+        return new GenerationReport(sortAssignments(savedAssignments), shortages);
+        logger.info("シフト生成が完了しました: {}件の割当を作成", savedAssignments.size());
+        List<ShiftAssignment> savedAssignments = assignmentRepository.saveAll(results);
+        results.sort(getAssignmentComparator());
+
+        }
+            }
+                        dailyAssignments, constraintsByDate, shortages));
+                results.addAll(assignEmployeesForShiftWithReport(day, config, employees, monthlyAssignmentCounts,
+            for (ShiftConfig config : configsForDay) {
+            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap2.getOrDefault(day, false));
+        for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+
+        } catch (Exception ignored) {}
+            for (LocalDate hd : holidays) holidayMap2.put(hd, true);
+            for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) { holidayMap2.put(d, false); }
+            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
+        try {
+        Map<LocalDate, Boolean> holidayMap2 = new HashMap<>();
+        // 祝日マップの準備
+
+        List<ShortageInfo> shortages = new ArrayList<>();
+        List<ShiftAssignment> results = new ArrayList<>();
+        this.dailyAssigned = dailyAssignments;
+        Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
+        preloadAssignmentCounts(monthlyAssignmentCounts, recentAssignments);
+        Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+
+                        Collectors.groupingBy(constraint -> constraint.getEmployee().getId())));
+                .collect(Collectors.groupingBy(EmployeeConstraint::getDate,
+                .stream()
+                .findByDateBetweenAndActiveTrue(start, end)
+        Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
+
+        this.dailyAssignedHours = new HashMap<>();
+        this.dailyAssigned = new HashMap<>();
+                        e -> availabilityRepository.findByEmployeeId(e.getId())));
+                .collect(Collectors.toMap(Employee::getId,
+        this.availabilityByEmployee = employeeRepository.findAll().stream()
+                        e -> employeeRuleRepository.findByEmployeeId(e.getId()).orElse(null)));
+                .collect(Collectors.toMap(Employee::getId,
+        this.ruleByEmployee = employeeRepository.findAll().stream()
+        // ルールスナップショット（従業員ごとの恒常ルール）
+
+        // 旧「対象（平日/週末）」区分は廃止。曜日/祝日の指定に集約。
+
+        }
+            throw new IllegalStateException("アクティブなシフト設定が存在しません。シフト設定を登録してください。");
+            logger.error("アクティブなシフト設定が存在しません");
+        if (activeShiftConfigs.isEmpty()) {
+        List<ShiftConfig> activeShiftConfigs = shiftConfigRepository.findByActiveTrue();
+
+        logger.info("対象月の日別シフトを削除しました: {} から {}", start, end);
+        }
+            assignmentRepository.deleteByWorkDate(d);
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+        logger.info("登録従業員数: {}名", employees.size());
+
+        List<ShiftAssignment> recentAssignments = loadRecentAssignments(start);
+
+                determineRotationOffset(lastAssignmentBeforePeriod, baseEmployees));
+        List<Employee> employees = rotateEmployees(baseEmployees,
+                assignmentRepository.findTopByWorkDateBeforeOrderByWorkDateDesc(start);
+        Optional<ShiftAssignment> lastAssignmentBeforePeriod =
+
+        }
+            throw new IllegalStateException("従業員が登録されていません。シフト生成の前に従業員を追加してください。");
+            logger.error("従業員が登録されていません");
+        if (baseEmployees.isEmpty()) {
+                .toList();
+                .sorted(Comparator.comparing(Employee::getId))
+        List<Employee> baseEmployees = employeeRepository.findAll().stream()
+
+        }
+            throw new IllegalArgumentException("不正な年月です: " + year + "年" + month + "月");
+            logger.error("不正な年月です: {}年{}月", year, month, e);
+        } catch (Exception e) {
+            logger.info("シフト生成を開始します: {}年{}月", year, month);
+            end = target.atEndOfMonth();
+            start = target.atDay(1);
+            target = YearMonth.of(year, month);
+        try {
+
+        LocalDate end;
+        LocalDate start;
+        YearMonth target;
+    public GenerationReport generateMonthlyScheduleWithReport(int year, int month) {
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
+    @Transactional
+
+    }
+        }
+            this.shifts = shifts;
+            this.date = date;
+        public DiagnosticReport(LocalDate date, List<ShiftDiagnostics> shifts) {
+
+        public final List<ShiftDiagnostics> shifts;
+        public final LocalDate date;
+    public static class DiagnosticReport {
+
+    }
+        }
+            this.preferredEmployees = preferredEmployees;
+            this.alreadyAssignedToday = alreadyAssignedToday;
+            this.limitedMismatchEmployees = limitedMismatchEmployees;
+            this.unavailableEmployees = unavailableEmployees;
+            this.assignedEmployees = assignedEmployees;
+            this.assigned = assigned;
+            this.required = required;
+            this.endTime = endTime;
+            this.startTime = startTime;
+            this.shiftName = shiftName;
+                                List<String> preferredEmployees) {
+                                List<String> alreadyAssignedToday,
+                                List<String> limitedMismatchEmployees,
+                                List<String> unavailableEmployees,
+                                List<String> assignedEmployees,
+                                int assigned,
+                                int required,
+                                LocalTime endTime,
+                                LocalTime startTime,
+        public ShiftDiagnostics(String shiftName,
+
+        public final List<String> preferredEmployees;
+        public final List<String> alreadyAssignedToday;
+        public final List<String> limitedMismatchEmployees;
+        public final List<String> unavailableEmployees;
+        public final List<String> assignedEmployees;
+        public final int assigned;
+        public final int required;
+        public final LocalTime endTime;
+        public final LocalTime startTime;
+        public final String shiftName;
+    public static class ShiftDiagnostics {
+    // ===== Diagnostics DTOs =====
+
+    }
+        }
+            this.shortages = shortages;
+            this.assignments = assignments;
+        public GenerationReport(List<ShiftAssignment> assignments, List<ShortageInfo> shortages) {
+
+        public final List<ShortageInfo> shortages;
+        public final List<ShiftAssignment> assignments;
+    public static class GenerationReport {
+
+    }
+        }
+            this.assigned = assigned;
+            this.required = required;
+            this.shiftName = shiftName;
+            this.workDate = workDate;
+        public ShortageInfo(LocalDate workDate, String shiftName, int required, int assigned) {
+
+        public final int assigned;
+        public final int required;
+        public final String shiftName;
+        public final LocalDate workDate;
+    public static class ShortageInfo {
+    // ===== Generation report (shortage details) support =====
+
+    }
+        return sortAssignments(assignmentRepository.findByWorkDateBetween(start, end));
+        LocalDate end = target.atEndOfMonth();
+        LocalDate start = target.atDay(1);
+        YearMonth target = YearMonth.of(year, month);
+    public List<ShiftAssignment> getMonthlySchedule(int year, int month) {
+    @Cacheable(value = "monthly-schedules", key = "#year + '-' + #month")
+    @Transactional(readOnly = true)
+
+    }
+        return sortAssignments(savedAssignments);
+        logger.info("シフト生成が完了しました: {}件の割り当てを生成", savedAssignments.size());
+        List<ShiftAssignment> savedAssignments = assignmentRepository.saveAll(results);
+
+        results.sort(getAssignmentComparator());
+
+        }
+            }
+                        dailyAssignments, constraintsByDate));
+                results.addAll(assignEmployeesForShift(day, config, employees, monthlyAssignmentCounts,
+            for (ShiftConfig config : configsForDay) {
+            List<ShiftConfig> configsForDay = selectConfigsForDay(activeShiftConfigs, day, holidayMap.getOrDefault(day, false));
+        for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+
+        } catch (Exception ignored) {}
+            for (LocalDate hd : holidays) holidayMap.put(hd, true);
+            for (LocalDate d0 = start; !d0.isAfter(end); d0 = d0.plusDays(1)) { holidayMap.put(d0, false); }
+            List<LocalDate> holidays = holidayRepository.findDatesBetween(start, end);
+        try {
+        Map<LocalDate, Boolean> holidayMap = new HashMap<>();
+        // 祝日・曜日の指定に基づいて日別に適用設定を選択
+
+        List<ShiftAssignment> results = new ArrayList<>();
+        Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
+        preloadAssignmentCounts(monthlyAssignmentCounts, recentAssignments);
+        Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+
+                        Collectors.groupingBy(constraint -> constraint.getEmployee().getId())));
+                .collect(Collectors.groupingBy(EmployeeConstraint::getDate,
+                .stream()
+                .findByDateBetweenAndActiveTrue(start, end)
+        Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
+
+        // 「対象（平日/週末）」の概念は廃止。以降は曜日/祝日の指定のみを使用する。
+
+        }
+            throw new IllegalStateException("アクティブなシフト設定が存在しません。シフト設定を登録してください。");
+            logger.error("アクティブなシフト設定が存在しません");
+        if (activeShiftConfigs.isEmpty()) {
+        List<ShiftConfig> activeShiftConfigs = shiftConfigRepository.findByActiveTrue();
+
+        logger.info("既存のシフト割り当てを削除しました: {} から {}", start, end);
+        }
+            assignmentRepository.deleteByWorkDate(d);
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) {
+        // assignmentRepository.deleteByWorkDateBetween(start, end);
+        // 安全のため、月次一括削除は行わない
+        logger.info("登録従業員数: {}名", employees.size());
+
+        List<ShiftAssignment> recentAssignments = loadRecentAssignments(start);
+
+                determineRotationOffset(lastAssignmentBeforePeriod, baseEmployees));
+        List<Employee> employees = rotateEmployees(baseEmployees,
+                assignmentRepository.findTopByWorkDateBeforeOrderByWorkDateDesc(start);
+        Optional<ShiftAssignment> lastAssignmentBeforePeriod =
+
+        }
+            throw new IllegalStateException("従業員が登録されていません。シフト生成前に従業員を追加してください。");
+            logger.error("従業員が登録されていません");
+        if (baseEmployees.isEmpty()) {
+                .toList();
+                .sorted(Comparator.comparing(Employee::getId))
+        List<Employee> baseEmployees = employeeRepository.findAll().stream()
+
+        }
+            throw new IllegalArgumentException("無効な年月です: " + year + "年" + month + "月");
+            logger.error("無効な年月です: {}年{}月", year, month, e);
+        } catch (Exception e) {
+            logger.info("シフト生成を開始します: {}年{}月", year, month);
+            end = target.atEndOfMonth();
+            start = target.atDay(1);
+            target = YearMonth.of(year, month);
+        try {
+        
+        LocalDate end;
+        LocalDate start;
+        YearMonth target;
+    public List<ShiftAssignment> generateMonthlySchedule(int year, int month) {
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
+    @Transactional
+
+    private Map<LocalDate, Map<Long, Integer>> dailyAssignedHours = new HashMap<>();
+    private Map<LocalDate, Set<Long>> dailyAssigned = new HashMap<>();
+    private Map<Long, List<EmployeeAvailability>> availabilityByEmployee = Map.of();
+    private Map<Long, EmployeeRule> ruleByEmployee = Map.of();
+    // Rules snapshot for generation
+
+    }
+        this.demandRepository = demandRepository;
+        this.availabilityRepository = availabilityRepository;
+        this.employeeRuleRepository = employeeRuleRepository;
+        this.holidayRepository = holidayRepository;
+        this.constraintRepository = constraintRepository;
+        this.shiftConfigRepository = shiftConfigRepository;
+        this.assignmentRepository = assignmentRepository;
+        this.employeeRepository = employeeRepository;
+                           DemandIntervalRepository demandRepository) {
+                           EmployeeAvailabilityRepository availabilityRepository,
+                           EmployeeRuleRepository employeeRuleRepository,
+                           HolidayRepository holidayRepository,
+                           EmployeeConstraintRepository constraintRepository,
+                           ShiftConfigRepository shiftConfigRepository,
+                           ShiftAssignmentRepository assignmentRepository,
+    public ScheduleService(EmployeeRepository employeeRepository,
+
+    private final DemandIntervalRepository demandRepository;
+    private final EmployeeAvailabilityRepository availabilityRepository;
+    private final EmployeeRuleRepository employeeRuleRepository;
+    private final HolidayRepository holidayRepository;
+    private final EmployeeConstraintRepository constraintRepository;
+    private final ShiftConfigRepository shiftConfigRepository;
+    private final ShiftAssignmentRepository assignmentRepository;
+    private final EmployeeRepository employeeRepository;
+
+    private static final Logger logger = LoggerFactory.getLogger(ScheduleService.class);
+
+public class ScheduleService {
+@Service
+
+import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.Optional;
+import java.util.Map;
+import java.util.List;
+import java.util.HashSet;
+import java.util.HashMap;
+import java.util.Comparator;
+import java.util.Collections;
+import java.util.ArrayList;
+import java.time.YearMonth;
+import java.time.LocalTime;
+import java.time.LocalDate;
+import java.time.DayOfWeek;
+import java.time.DateTimeException;
+
+import org.springframework.transaction.annotation.Transactional;
+import org.springframework.stereotype.Service;
+import org.springframework.cache.annotation.Cacheable;
+import org.springframework.cache.annotation.CacheEvict;
+import org.slf4j.LoggerFactory;
+import org.slf4j.Logger;
+import com.example.shiftv1.employee.EmployeeRepository;
+import com.example.shiftv1.employee.EmployeeRuleRepository;
+import com.example.shiftv1.employee.EmployeeRule;
+import com.example.shiftv1.employee.EmployeeAvailabilityRepository;
+import com.example.shiftv1.employee.EmployeeAvailability;
+import com.example.shiftv1.demand.DemandIntervalRepository;
+import com.example.shiftv1.demand.DemandInterval;
+import com.example.shiftv1.holiday.HolidayRepository;
+import com.example.shiftv1.employee.Employee;
+import com.example.shiftv1.constraint.EmployeeConstraintRepository;
+import com.example.shiftv1.constraint.EmployeeConstraint;
+import com.example.shiftv1.config.ShiftConfigRepository;
+import com.example.shiftv1.config.ShiftConfig;
+
+package com.example.shiftv1.schedule;
+}

@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>有給管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    input, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    .muted { color:#64748b; font-size:12px; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e2e8f0; text-align:left; padding:8px; font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>有給管理</h2>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">残数確認</h3>
+      <div class="row">
+        <label>従業員ID <input type="number" id="emp" /></label>
+        <button onclick="loadBalance()">取得</button>
+      </div>
+      <div id="bal" class="muted"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">付与</h3>
+      <div class="row">
+        <label>従業員ID <input type="number" id="g_emp" /></label>
+        <label>日数 <input type="number" id="g_days" value="1" min="1" /></label>
+        <button onclick="grant()">付与</button>
+      </div>
+      <div id="g_msg" class="muted"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">申請（即時承認）</h3>
+      <div class="row">
+        <label>従業員ID <input type="number" id="r_emp" /></label>
+        <label>日付 <input type="date" id="r_date" /></label>
+        <button onclick="requestPto()">登録</button>
+      </div>
+      <div id="r_msg" class="muted"></div>
+    </div>
+
+    <div class="muted"><a href="/dashboard">ダッシュボード</a></div>
+  </div>
+
+  <script>
+    async function loadBalance(){
+      const emp = Number(document.getElementById('emp').value);
+      if(!emp){ alert('従業員IDを入力'); return; }
+      const res = await fetch(`/api/leave/balance/${emp}`);
+      const j = await res.json();
+      const d = j.data || {};
+      document.getElementById('bal').textContent = `残数: ${d.remaining} (付与:${d.annualGranted}/繰越:${d.carriedOver}/使用:${d.used})`;
+    }
+    async function grant(){
+      const emp = Number(document.getElementById('g_emp').value);
+      const days = Number(document.getElementById('g_days').value);
+      const res = await fetch('/api/leave/balance/grant', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ employeeId: emp, days })});
+      const j = await res.json();
+      document.getElementById('g_msg').textContent = j.message || (j.success? '付与しました':'失敗しました');
+    }
+    async function requestPto(){
+      const emp = Number(document.getElementById('r_emp').value);
+      const date = document.getElementById('r_date').value;
+      const res = await fetch('/api/leave/requests', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ employeeId: emp, date })});
+      const j = await res.json();
+      document.getElementById('r_msg').textContent = j.message || (j.success? '登録しました':'失敗しました');
+    }
+  </script>
+</body>
+</html>
+

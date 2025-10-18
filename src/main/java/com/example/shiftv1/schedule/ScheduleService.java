@@ -6,6 +6,8 @@ import com.example.shiftv1.constraint.EmployeeConstraint;
 import com.example.shiftv1.constraint.EmployeeConstraintRepository;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.holiday.HolidayRepository;
+import com.example.shiftv1.demand.DemandInterval;
+import com.example.shiftv1.demand.DemandIntervalRepository;
 import com.example.shiftv1.employee.EmployeeAvailability;
 import com.example.shiftv1.employee.EmployeeAvailabilityRepository;
 import com.example.shiftv1.employee.EmployeeRule;
@@ -46,6 +48,7 @@ public class ScheduleService {
     private final HolidayRepository holidayRepository;
     private final EmployeeRuleRepository employeeRuleRepository;
     private final EmployeeAvailabilityRepository availabilityRepository;
+    private final DemandIntervalRepository demandRepository;
 
     public ScheduleService(EmployeeRepository employeeRepository,
                            ShiftAssignmentRepository assignmentRepository,
@@ -53,7 +56,8 @@ public class ScheduleService {
                            EmployeeConstraintRepository constraintRepository,
                            HolidayRepository holidayRepository,
                            EmployeeRuleRepository employeeRuleRepository,
-                           EmployeeAvailabilityRepository availabilityRepository) {
+                           EmployeeAvailabilityRepository availabilityRepository,
+                           DemandIntervalRepository demandRepository) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
         this.shiftConfigRepository = shiftConfigRepository;
@@ -61,6 +65,7 @@ public class ScheduleService {
         this.holidayRepository = holidayRepository;
         this.employeeRuleRepository = employeeRuleRepository;
         this.availabilityRepository = availabilityRepository;
+        this.demandRepository = demandRepository;
     }
 
     // Rules snapshot for generation
@@ -400,11 +405,12 @@ public class ScheduleService {
                 }
             }
 
+            int requiredForShift = computeRequiredForShift(day, config);
             results.add(new ShiftDiagnostics(
                     config.getName(),
                     config.getStartTime(),
                     config.getEndTime(),
-                    config.getRequiredEmployees(),
+                    requiredForShift,
                     assignedForShift.size(),
                     assignedNames,
                     unavailableNames,
@@ -427,7 +433,8 @@ public class ScheduleService {
         Set<Long> assignedToday = dailyAssignments.computeIfAbsent(day, d -> new HashSet<>());
         Set<Long> preferredEmployees = getPreferredEmployeesForShift(day, shiftConfig, constraintsByDate);
 
-        while (assignments.size() < shiftConfig.getRequiredEmployees()) {
+        int requiredForShift = computeRequiredForShift(day, shiftConfig);
+        while (assignments.size() < requiredForShift) {
             Employee candidate = selectNextCandidate(employees, assignedToday, preferredEmployees,
                     monthlyAssignmentCounts, day, shiftConfig, constraintsByDate);
             if (candidate == null) {
@@ -494,7 +501,8 @@ public class ScheduleService {
         if (shiftHours == 0) {
             shiftHours = (int) java.time.Duration.between(shiftConfig.getStartTime(), shiftConfig.getEndTime()).toHours();
         }
-        while (assignments.size() < shiftConfig.getRequiredEmployees()) {
+        int requiredForShift = computeRequiredForShift(day, shiftConfig);
+        while (assignments.size() < requiredForShift) {
             Employee candidate = selectNextCandidate(employees, assignedToday, preferredEmployees,
                     monthlyAssignmentCounts, day, shiftConfig, constraintsByDate);
             if (candidate == null) {
@@ -544,6 +552,14 @@ public class ScheduleService {
             boolean allowMulti = rule != null && Boolean.TRUE.equals(rule.getAllowMultipleShiftsPerDay());
             if (!allowMulti && assignedToday.contains(candidateId)) {
                 continue;
+            }
+            // required skill check
+            if (shiftConfig.getRequiredSkill() != null) {
+                boolean hasSkill = candidate.getSkills() != null &&
+                        candidate.getSkills().stream().anyMatch(s -> s.getId().equals(shiftConfig.getRequiredSkill().getId()));
+                if (!hasSkill) {
+                    continue;
+                }
             }
             if (!isEmployeeAvailable(candidate, day, shiftConfig, constraintsByDate)) {
                 continue;
@@ -738,5 +754,59 @@ public class ScheduleService {
                 // 既存データの後方互換: 週末フラグが立っている設定は平日では除外
                 .sorted(Comparator.comparing(ShiftConfig::getStartTime))
                 .toList();
+    }
+
+    // Demand integration: compute required seats for a shift based on DemandInterval
+    private int computeRequiredForShift(LocalDate day, ShiftConfig shiftConfig) {
+        try {
+            List<com.example.shiftv1.demand.DemandInterval> intervals = demandRepository.findEffectiveForDate(day, day.getDayOfWeek());
+            if (intervals == null || intervals.isEmpty()) {
+                return Math.max(1, java.util.Optional.ofNullable(shiftConfig.getRequiredEmployees()).orElse(1));
+            }
+            java.time.LocalTime s = shiftConfig.getStartTime();
+            java.time.LocalTime e = shiftConfig.getEndTime();
+            Long requiredSkillId = shiftConfig.getRequiredSkill() != null ? shiftConfig.getRequiredSkill().getId() : null;
+            // Build critical points (shift start/end + interval boundaries)
+            java.util.TreeSet<java.time.LocalTime> points = new java.util.TreeSet<>();
+            points.add(s);
+            points.add(e);
+            for (com.example.shiftv1.demand.DemandInterval di : intervals) {
+                if (Boolean.FALSE.equals(di.getActive())) continue;
+                if (di.getEndTime().isAfter(s) && di.getStartTime().isBefore(e)) {
+                    points.add(di.getStartTime().isBefore(s) ? s : di.getStartTime());
+                    points.add(di.getEndTime().isAfter(e) ? e : di.getEndTime());
+                }
+            }
+            int maxRequired = 0;
+            java.time.LocalTime prev = null;
+            for (java.time.LocalTime t : points) {
+                if (prev != null) {
+                    java.time.LocalTime segStart = prev;
+                    java.time.LocalTime segEnd = t;
+                    if (!segStart.isBefore(segEnd)) continue;
+                    int global = intervals.stream()
+                            .filter(di -> di.getSkill() == null)
+                            .filter(di -> di.getEndTime().isAfter(segStart) && di.getStartTime().isBefore(segEnd))
+                            .mapToInt(com.example.shiftv1.demand.DemandInterval::getRequiredSeats)
+                            .sum();
+                    int skillReq = 0;
+                    if (requiredSkillId != null) {
+                        skillReq = intervals.stream()
+                                .filter(di -> di.getSkill() != null && requiredSkillId.equals(di.getSkill().getId()))
+                                .filter(di -> di.getEndTime().isAfter(segStart) && di.getStartTime().isBefore(segEnd))
+                                .mapToInt(com.example.shiftv1.demand.DemandInterval::getRequiredSeats)
+                                .sum();
+                    }
+                    maxRequired = Math.max(maxRequired, global + skillReq);
+                }
+                prev = t;
+            }
+            if (maxRequired <= 0) {
+                return Math.max(1, java.util.Optional.ofNullable(shiftConfig.getRequiredEmployees()).orElse(1));
+            }
+            return maxRequired;
+        } catch (Exception ex) {
+            return Math.max(1, java.util.Optional.ofNullable(shiftConfig.getRequiredEmployees()).orElse(1));
+        }
     }
 }

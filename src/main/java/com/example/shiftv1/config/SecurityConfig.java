@@ -40,7 +40,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
             .authorizeHttpRequests(authz -> authz
                 // パブリックエンドポイント
-                .requestMatchers("/", "/api/auth/**", "/dashboard", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
+                .requestMatchers("/", "/login", "/api/auth/**", "/dashboard", "/timeline", "/demand", "/breaks", "/leave", "/static/**", "/css/**", "/js/**", "/images/**").permitAll()
                 // 管理者のみアクセス可能
                 .requestMatchers("/api/admin/**").hasRole("ADMIN")
                 // 認証済みユーザーのみアクセス可能

@@ -1,5 +1,6 @@
 package com.example.shiftv1.config;
 
+import com.example.shiftv1.skill.Skill;
 import jakarta.persistence.*;
 import java.time.DayOfWeek;
 import java.util.Set;
@@ -46,6 +47,10 @@ public class ShiftConfig {
 
     @Column(name = "is_holiday")
     private Boolean holiday = false; // 祝日専用シフトかどうか
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "required_skill_id")
+    private Skill requiredSkill;
 
     @ElementCollection(fetch = FetchType.EAGER)
     @CollectionTable(name = "shift_config_days", joinColumns = @JoinColumn(name = "shift_config_id"))
@@ -155,6 +160,9 @@ public class ShiftConfig {
     public void setHoliday(Boolean holiday) {
         this.holiday = holiday;
     }
+
+    public Skill getRequiredSkill() { return requiredSkill; }
+    public void setRequiredSkill(Skill requiredSkill) { this.requiredSkill = requiredSkill; }
 
     public Set<DayOfWeek> getDays() {
         return days;

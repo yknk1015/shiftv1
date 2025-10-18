@@ -1,5 +1,7 @@
 package com.example.shiftv1.config;
 
+import com.example.shiftv1.skill.Skill;
+import com.example.shiftv1.skill.SkillRepository;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -18,9 +20,11 @@ public class ShiftConfigController {
     private static final Logger logger = LoggerFactory.getLogger(ShiftConfigController.class);
     
     private final ShiftConfigRepository shiftConfigRepository;
+    private final SkillRepository skillRepository;
 
-    public ShiftConfigController(ShiftConfigRepository shiftConfigRepository) {
+    public ShiftConfigController(ShiftConfigRepository shiftConfigRepository, SkillRepository skillRepository) {
         this.shiftConfigRepository = shiftConfigRepository;
+        this.skillRepository = skillRepository;
     }
 
     @GetMapping
@@ -82,6 +86,13 @@ public class ShiftConfigController {
             } else {
                 config.setDays(null);
             }
+            if (request.requiredSkillId() != null) {
+                Skill skill = skillRepository.findById(request.requiredSkillId())
+                        .orElseThrow(() -> new IllegalArgumentException("必須スキルが見つかりません"));
+                config.setRequiredSkill(skill);
+            } else {
+                config.setRequiredSkill(null);
+            }
             ShiftConfig savedConfig = shiftConfigRepository.save(config);
             logger.info("シフト設定が作成されました: {}", savedConfig.getName());
             
@@ -119,6 +130,13 @@ public class ShiftConfigController {
             config.setRequiredEmployees(request.requiredEmployees());
             config.setDayOfWeek(request.dayOfWeek());
             config.setHoliday(request.holiday());
+            if (request.requiredSkillId() != null) {
+                Skill skill = skillRepository.findById(request.requiredSkillId())
+                        .orElseThrow(() -> new IllegalArgumentException("必須スキルが見つかりません"));
+                config.setRequiredSkill(skill);
+            } else {
+                config.setRequiredSkill(null);
+            }
             if (request.days() != null && !request.days().isEmpty()) {
                 config.setDays(new java.util.HashSet<>(request.days()));
             } else {
@@ -188,7 +206,8 @@ public class ShiftConfigController {
             Integer requiredEmployees,
             java.time.DayOfWeek dayOfWeek,
             Boolean holiday,
-            java.util.List<java.time.DayOfWeek> days
+            java.util.List<java.time.DayOfWeek> days,
+            Long requiredSkillId
     ) {}
 }
 
