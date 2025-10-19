@@ -1547,8 +1547,35 @@
             return simpleMatch ? simpleMatch[1] : null;
         }
     </script>
+    <!-- Permanent quick access button to Management Actions -->
+    <a href="/admin-actions" style="position:fixed; right:16px; bottom:16px; z-index:9999; text-decoration:none;">
+      <span style="display:inline-block; background:#2563eb; color:#fff; padding:12px 16px; border-radius:999px; box-shadow:0 8px 16px rgba(0,0,0,0.15); font-weight:600;">管理アクション</span>
+    </a>
 </body>
 </html>
+<script>
+// Override: make delete flow resilient (avoid reporting failure when refresh fails)
+if (typeof deleteShiftConfig === 'function') {
+  const __orig_deleteShiftConfig = deleteShiftConfig;
+}
+function deleteShiftConfig(config) {
+  if (!confirm(`「${config.name}」を削除しますか？`)) {
+    return;
+  }
+  (async () => {
+    try {
+      await callApi(`/api/config/shift/${config.id}`, { method: 'DELETE' }, { expectSuccess: false });
+      setMessage('shift-config-message', 'シフト設定を削除しました', 'success');
+    } catch (error) {
+      setMessage('shift-config-message', error.message || 'シフト設定の削除に失敗しました', 'error');
+      return;
+    }
+    try { await loadShiftConfigs(); } catch (e) {}
+    try { await loadSchedule(); } catch (e) {}
+    try { await loadStatistics(); } catch (e) {}
+  })();
+}
+</script>
                 <div class="stat-subsection">
                     <h3>従業員の勤務/休日日数</h3>
                     <div id="employee-days" class="table-wrapper"></div>

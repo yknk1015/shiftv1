@@ -32,11 +32,11 @@ public class DemandController {
     ) {
         List<DemandInterval> data;
         if (date != null) {
-            data = repository.findByDate(date);
+            data = repository.findByDateOrderBySortOrderAscIdAsc(date);
         } else if (dayOfWeek != null) {
-            data = repository.findByDayOfWeek(dayOfWeek);
+            data = repository.findByDayOfWeekOrderBySortOrderAscIdAsc(dayOfWeek);
         } else {
-            data = repository.findAll();
+            data = repository.findAllByOrderBySortOrderAscIdAsc();
         }
         return ResponseEntity.ok(ApiResponse.success("需要インターバル一覧を取得しました", data));
     }
@@ -56,6 +56,9 @@ public class DemandController {
         d.setEndTime(req.endTime());
         d.setRequiredSeats(req.requiredSeats());
         d.setActive(req.active() != null ? req.active() : true);
+        // assign sort order at the end
+        Integer maxOrder = repository.findMaxSortOrder();
+        d.setSortOrder((maxOrder == null ? 0 : maxOrder) + 1);
         if (req.skillId() != null) {
             Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
             d.setSkill(s);
@@ -94,6 +97,42 @@ public class DemandController {
         return ResponseEntity.ok(ApiResponse.success("需要インターバルを削除しました", null));
     }
 
+    @PostMapping("/{id}/move")
+    public ResponseEntity<ApiResponse<DemandInterval>> move(@PathVariable Long id,
+                                                            @RequestParam("direction") String direction) {
+        Optional<DemandInterval> od = repository.findById(id);
+        if (od.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.failure("需要インターバルが見つかりません"));
+        }
+        DemandInterval current = od.get();
+        Integer order = current.getSortOrder();
+        if (order == null) {
+            Integer max = repository.findMaxSortOrder();
+            current.setSortOrder((max == null ? 0 : max) + 1);
+            repository.save(current);
+            return ResponseEntity.ok(ApiResponse.success("順序を初期化しました", current));
+        }
+        DemandInterval neighbor = null;
+        if ("up".equalsIgnoreCase(direction)) {
+            neighbor = repository.findFirstBySortOrderLessThanOrderBySortOrderDesc(order);
+        } else if ("down".equalsIgnoreCase(direction)) {
+            neighbor = repository.findFirstBySortOrderGreaterThanOrderBySortOrderAsc(order);
+        } else {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("direction は up か down を指定してください"));
+        }
+        if (neighbor == null) {
+            return ResponseEntity.ok(ApiResponse.success("これ以上移動できません", current));
+        }
+        Integer neighborOrder = neighbor.getSortOrder();
+        // swap orders
+        current.setSortOrder(neighborOrder);
+        neighbor.setSortOrder(order);
+        repository.save(neighbor);
+        DemandInterval saved = repository.save(current);
+        return ResponseEntity.ok(ApiResponse.success("順序を更新しました", saved));
+    }
+
     public record DemandRequest(
             LocalDate date,
             DayOfWeek dayOfWeek,
@@ -104,4 +143,3 @@ public class DemandController {
             Boolean active
     ) {}
 }
-

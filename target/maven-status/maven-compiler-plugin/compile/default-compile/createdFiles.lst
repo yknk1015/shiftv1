@@ -79,6 +79,7 @@ com\example\shiftv1\employee\EmployeeController.class
 com\example\shiftv1\schedule\ScheduleService$1.class
 com\example\shiftv1\employee\EmployeeRule.class
 com\example\shiftv1\schedule\ScheduleService$ShortageInfo.class
+com\example\shiftv1\schedule\HourlyScheduleController.class
 com\example\shiftv1\employee\Employee.class
 com\example\shiftv1\demand\DemandController$DemandRequest.class
 com\example\shiftv1\config\ShiftConfigController.class

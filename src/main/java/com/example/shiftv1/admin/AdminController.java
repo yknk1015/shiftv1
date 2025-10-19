@@ -3,6 +3,8 @@ package com.example.shiftv1.admin;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
+import com.example.shiftv1.skill.Skill;
+import com.example.shiftv1.skill.SkillRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -16,9 +18,11 @@ public class AdminController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
     private final EmployeeRepository employeeRepository;
+    private final SkillRepository skillRepository;
 
-    public AdminController(EmployeeRepository employeeRepository) {
+    public AdminController(EmployeeRepository employeeRepository, SkillRepository skillRepository) {
         this.employeeRepository = employeeRepository;
+        this.skillRepository = skillRepository;
     }
 
     @GetMapping("/status")
@@ -38,6 +42,48 @@ public class AdminController {
         } catch (Exception e) {
             logger.error("システム状態確認でエラーが発生しました", e);
             return ResponseEntity.internalServerError().body(ApiResponse.failure("システム状態の取得に失敗しました"));
+        }
+    }
+
+    @PostMapping("/initialize-skills")
+    public ResponseEntity<ApiResponse<java.util.Map<String,Object>>> initializeSkills() {
+        try {
+            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "基本スキルA")));
+            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "基本スキルB")));
+            return ResponseEntity.ok(ApiResponse.success("スキルA/Bを初期化しました", java.util.Map.of("A", a.getId(), "B", b.getId())));
+        } catch (Exception e) {
+            logger.error("スキル初期化でエラー", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("スキル初期化に失敗しました"));
+        }
+    }
+
+    @PostMapping("/assign-skills-ab-distribution")
+    public ResponseEntity<ApiResponse<java.util.Map<String,Object>>> assignSkillsABDistribution() {
+        try {
+            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "基本スキルA")));
+            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "基本スキルB")));
+            java.util.List<Employee> all = employeeRepository.findAll().stream()
+                    .sorted(java.util.Comparator.comparing(Employee::getId))
+                    .toList();
+            if (all.size() < 30) {
+                return ResponseEntity.badRequest().body(ApiResponse.failure("従業員が30名以上必要です"));
+            }
+            for (int i=0;i<all.size();i++) {
+                Employee e = all.get(i);
+                if (i < 10) {
+                    e.getSkills().add(a);
+                } else if (i < 20) {
+                    e.getSkills().add(b);
+                } else if (i < 30) {
+                    e.getSkills().add(a);
+                    e.getSkills().add(b);
+                }
+            }
+            employeeRepository.saveAll(all.subList(0, 30));
+            return ResponseEntity.ok(ApiResponse.success("A:10, B:10, A&B:10 を付与しました", java.util.Map.of("updated", 30)));
+        } catch (Exception e) {
+            logger.error("スキル付与でエラー", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("スキル付与に失敗しました"));
         }
     }
 

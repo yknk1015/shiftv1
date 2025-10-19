@@ -72,13 +72,40 @@
     function renderTable(id, title, rows){
       const el = document.getElementById(id);
       if(!rows.length){ el.innerHTML = `<h4>${title}</h4><div class='muted'>データなし</div>`; return; }
-      let html = `<h4>${title}</h4><table><thead><tr><th>ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>skillId</th></tr></thead><tbody>`;
+      let html = `<h4>${title}</h4><table><thead><tr><th>ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>skillId</th><th>操作</th></tr></thead><tbody>`;
       for(const r of rows){
-        html += `<tr><td>${r.id||''}</td><td>${r.date||''}</td><td>${r.dayOfWeek||''}</td>`+
-                `<td>${r.startTime} - ${r.endTime}</td><td>${r.requiredSeats}</td><td>${r.skill? r.skill.id:''}</td></tr>`;
+        const id = r.id;
+        const del = `<button data-id="${id}" class="btn-del" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;">削除</button>`;
+        const up = `<button data-id="${id}" data-dir="up" class="btn-move" style="margin-left:6px;">↑</button>`;
+        const down = `<button data-id="${id}" data-dir="down" class="btn-move" style="margin-left:4px;">↓</button>`;
+        html += `<tr><td>${id||''}</td><td>${r.date||''}</td><td>${r.dayOfWeek||''}</td>`+
+                `<td>${r.startTime} - ${r.endTime}</td><td>${r.requiredSeats}</td><td>${r.skill? r.skill.id:''}</td>`+
+                `<td>${del}${up}${down}</td></tr>`;
       }
       html += `</tbody></table>`;
       el.innerHTML = html;
+      // wire events
+      el.querySelectorAll('.btn-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if(!confirm(`ID=${id} を削除しますか？`)) return;
+          const res = await fetch(`/api/demand/${id}`, { method:'DELETE' });
+          if(!res.ok){ alert('削除に失敗しました'); return; }
+          // refresh both sections
+          if(document.getElementById('date').value){ await loadEffective(); }
+          await loadAll();
+        });
+      });
+      el.querySelectorAll('.btn-move').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          const dir = e.currentTarget.getAttribute('data-dir');
+          const res = await fetch(`/api/demand/${id}/move?direction=${dir}`, { method:'POST' });
+          if(!res.ok){ alert('並び替えに失敗しました'); return; }
+          if(document.getElementById('date').value){ await loadEffective(); }
+          await loadAll();
+        });
+      });
     }
     async function create(){
       const body = {
@@ -99,4 +126,3 @@
   </script>
 </body>
 </html>
-

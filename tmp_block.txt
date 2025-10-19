@@ -1,0 +1,16 @@
+function deleteShiftConfig(config) {
+            if (!confirm(`「${config.name}」を削除しますか？`)) {
+                return;
+            }
+            try {
+                await callApi(`/api/config/shift/${config.id}`, { method: 'DELETE' }, { expectSuccess: false });
+                setMessage('shift-config-message', 'シフト設定を削除しました。', 'success');
+                await loadShiftConfigs();
+                await loadSchedule();
+                await loadStatistics();
+            } catch (error) {
+                setMessage('shift-config-message', error.message || 'シフト設定の削除に失敗しました。', 'error');
+            }
+        }
+
+        

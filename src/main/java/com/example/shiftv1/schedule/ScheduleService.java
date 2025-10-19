@@ -13,6 +13,7 @@ import com.example.shiftv1.employee.EmployeeAvailabilityRepository;
 import com.example.shiftv1.employee.EmployeeRule;
 import com.example.shiftv1.employee.EmployeeRuleRepository;
 import com.example.shiftv1.employee.EmployeeRepository;
+import com.example.shiftv1.skill.SkillRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.CacheEvict;
@@ -49,6 +50,7 @@ public class ScheduleService {
     private final EmployeeRuleRepository employeeRuleRepository;
     private final EmployeeAvailabilityRepository availabilityRepository;
     private final DemandIntervalRepository demandRepository;
+    private final SkillRepository skillRepository;
 
     public ScheduleService(EmployeeRepository employeeRepository,
                            ShiftAssignmentRepository assignmentRepository,
@@ -57,7 +59,8 @@ public class ScheduleService {
                            HolidayRepository holidayRepository,
                            EmployeeRuleRepository employeeRuleRepository,
                            EmployeeAvailabilityRepository availabilityRepository,
-                           DemandIntervalRepository demandRepository) {
+                           DemandIntervalRepository demandRepository,
+                           SkillRepository skillRepository) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
         this.shiftConfigRepository = shiftConfigRepository;
@@ -66,6 +69,7 @@ public class ScheduleService {
         this.employeeRuleRepository = employeeRuleRepository;
         this.availabilityRepository = availabilityRepository;
         this.demandRepository = demandRepository;
+        this.skillRepository = skillRepository;
     }
 
     // Rules snapshot for generation
@@ -163,6 +167,80 @@ public class ScheduleService {
         LocalDate start = target.atDay(1);
         LocalDate end = target.atEndOfMonth();
         return sortAssignments(assignmentRepository.findByWorkDateBetween(start, end));
+    }
+
+    @Transactional
+    public List<ShiftAssignment> generateHourlyForDay(LocalDate day, int startHour, int endHour, Long requiredSkillId) {
+        List<Employee> employees = employeeRepository.findAll().stream()
+                .sorted(Comparator.comparing(Employee::getId)).toList();
+        // Clear the day to avoid duplicates
+        assignmentRepository.deleteByWorkDate(day);
+
+        Map<LocalDate, Map<Long, List<EmployeeConstraint>>> constraintsByDate = constraintRepository
+                .findByDateBetweenAndActiveTrue(day, day)
+                .stream()
+                .collect(Collectors.groupingBy(EmployeeConstraint::getDate,
+                        Collectors.groupingBy(constraint -> constraint.getEmployee().getId())));
+
+        Map<Long, Integer> monthlyAssignmentCounts = new HashMap<>();
+        Map<LocalDate, Set<Long>> dailyAssignments = new HashMap<>();
+        List<ShiftAssignment> results = new ArrayList<>();
+
+        for (int h = startHour; h < endHour; h++) {
+            java.time.LocalTime s = java.time.LocalTime.of(h, 0);
+            java.time.LocalTime e = java.time.LocalTime.of(Math.min(h+1, 23), (h+1>23?59:0));
+            int global = demandRepository.findEffectiveForDate(day, day.getDayOfWeek()).stream()
+                    .filter(di -> di.getActive() == null || di.getActive())
+                    .filter(di -> di.getSkill() == null)
+                    .filter(di -> di.getStartTime().isBefore(e) && di.getEndTime().isAfter(s))
+                    .mapToInt(DemandInterval::getRequiredSeats).sum();
+            int skillReq = 0;
+            com.example.shiftv1.skill.Skill reqSkill = null;
+            if (requiredSkillId != null) {
+                reqSkill = skillRepository.findById(requiredSkillId).orElse(null);
+                skillReq = demandRepository.findEffectiveForDate(day, day.getDayOfWeek()).stream()
+                        .filter(di -> di.getActive() == null || di.getActive())
+                        .filter(di -> di.getSkill() != null && requiredSkillId.equals(di.getSkill().getId()))
+                        .filter(di -> di.getStartTime().isBefore(e) && di.getEndTime().isAfter(s))
+                        .mapToInt(DemandInterval::getRequiredSeats).sum();
+            }
+            int required = global + skillReq;
+            if (required <= 0) continue;
+            // Ephemeral config
+            ShiftConfig cfg = new ShiftConfig("H%02d".formatted(h), s, e, required);
+            if (reqSkill != null) cfg.setRequiredSkill(reqSkill);
+
+            // assignment loop (permit multiple hourly assignments per day)
+            List<ShiftAssignment> hourAssignments = new ArrayList<>();
+            Set<Long> assignedToday = dailyAssignments.computeIfAbsent(day, d -> new HashSet<>()); // only used for map presence
+            Set<Long> preferredEmployees = getPreferredEmployeesForShift(day, cfg, constraintsByDate);
+
+            while (hourAssignments.size() < required) {
+                // copy of selectNextCandidate but ignore per-day multiple restriction
+                List<Employee> sortedCandidates = new ArrayList<>(employees);
+                sortedCandidates.sort(Comparator
+                        .comparing((Employee e0) -> !preferredEmployees.contains(e0.getId()))
+                        .thenComparing(e0 -> monthlyAssignmentCounts.getOrDefault(e0.getId(), 0))
+                        .thenComparing(Employee::getId));
+                Employee chosen = null;
+                for (Employee cand : sortedCandidates) {
+                    // required skill check
+                    if (cfg.getRequiredSkill() != null) {
+                        boolean hasSkill = cand.getSkills() != null && cand.getSkills().stream().anyMatch(s1 -> s1.getId().equals(cfg.getRequiredSkill().getId()));
+                        if (!hasSkill) continue;
+                    }
+                    if (!isEmployeeAvailable(cand, day, cfg, constraintsByDate)) continue;
+                    chosen = cand; break;
+                }
+                if (chosen == null) break;
+                hourAssignments.add(new ShiftAssignment(day, cfg.getName(), cfg.getStartTime(), cfg.getEndTime(), chosen));
+                preferredEmployees.remove(chosen.getId());
+                monthlyAssignmentCounts.merge(chosen.getId(), 1, Integer::sum);
+            }
+            results.addAll(hourAssignments);
+        }
+
+        return sortAssignments(assignmentRepository.saveAll(results));
     }
 
     // ===== Generation report (shortage details) support =====

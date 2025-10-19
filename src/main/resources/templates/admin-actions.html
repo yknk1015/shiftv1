@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理アクション</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    input, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- NOTE: このページは検証用の簡易UIです。のちに不要になれば削除してください。 -->
+    <h2>管理アクション（簡易）</h2>
+    <div class="card">
+      <h3 style="margin:0 0 8px;">スキル初期化と割当</h3>
+      <div class="row">
+        <button onclick="initSkills()">スキルA/Bの初期化</button>
+        <button onclick="assignAB()">30名に A:10 / B:10 / A&B:10</button>
+      </div>
+      <div id="msg1" class="muted"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">時間単位のシフト作成</h3>
+      <div class="row">
+        <label>日付 <input type="date" id="h_date" /></label>
+        <label>開始時 <input type="number" id="h_start" value="9" min="0" max="23" /></label>
+        <label>終了時 <input type="number" id="h_end" value="18" min="1" max="24" /></label>
+        <label>SkillId(任意) <input type="number" id="h_skill" /></label>
+        <button onclick="genHourly()">作成</button>
+        <a href="/timeline">タイムライン</a>
+      </div>
+      <div id="msg2" class="muted"></div>
+    </div>
+
+    <div class="muted">
+      <strong>リンク:</strong>
+      <a href="/dashboard">ダッシュボード</a> /
+      <a href="/timeline">タイムライン</a> /
+      <a href="/demand">需要</a> /
+      <a href="/breaks">休憩</a> /
+      <a href="/leave">有給</a> /
+      <a href="/calendar">カレンダー</a> /
+      <a href="/rules">ルール</a> /
+      <a href="/login">ログイン</a>
+    </div>
+  </div>
+
+  <script>
+    async function initSkills(){
+      const res = await fetch('/api/admin/initialize-skills', { method:'POST' });
+      const j = await res.json();
+      document.getElementById('msg1').textContent = j.message || (j.success? 'OK':'NG');
+    }
+    async function assignAB(){
+      const res = await fetch('/api/admin/assign-skills-ab-distribution', { method:'POST' });
+      const j = await res.json();
+      document.getElementById('msg1').textContent = j.message || (j.success? 'OK':'NG');
+    }
+    async function genHourly(){
+      const date = document.getElementById('h_date').value;
+      const start = Number(document.getElementById('h_start').value);
+      const end = Number(document.getElementById('h_end').value);
+      const skill = document.getElementById('h_skill').value;
+      if(!date){ alert('日付を指定してください'); return; }
+      const url = new URL('/api/schedule/generate-hourly', window.location.origin);
+      url.searchParams.set('date', date);
+      url.searchParams.set('startHour', start);
+      url.searchParams.set('endHour', end);
+      if(skill) url.searchParams.set('skillId', Number(skill));
+      const res = await fetch(url, { method:'POST' });
+      const j = await res.json();
+      document.getElementById('msg2').textContent = j.message || (j.success? `作成件数: ${j.meta?.count||''}`:'NG');
+    }
+    window.addEventListener('DOMContentLoaded', ()=>{ const t=new Date().toISOString().slice(0,10); const d=document.getElementById('h_date'); if(d) d.value=t; });
+  </script>
+</body>
+</html>

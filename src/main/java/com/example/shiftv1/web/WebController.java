@@ -35,4 +35,16 @@ public class WebController {
     public String leave() {
         return "leave";
     }
+
+    @GetMapping("/admin-actions")
+    public String adminActions() {
+        return "admin-actions";
+    }
+
+    // Simple mappings to expose existing templates for quick access
+    @GetMapping("/calendar")
+    public String calendar() { return "calendar"; }
+
+    @GetMapping("/rules")
+    public String rules() { return "rules"; }
 }
