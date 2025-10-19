@@ -5,6 +5,9 @@ import com.example.shiftv1.skill.Skill;
 import com.example.shiftv1.skill.SkillRepository;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -17,6 +20,7 @@ public class EmployeeController {
 
     private final EmployeeRepository employeeRepository;
     private final SkillRepository skillRepository;
+    private static final Logger logger = LoggerFactory.getLogger(EmployeeController.class);
 
     public EmployeeController(EmployeeRepository employeeRepository, SkillRepository skillRepository) {
         this.employeeRepository = employeeRepository;
@@ -86,6 +90,31 @@ public class EmployeeController {
     public record EmployeeCountResponse(long count) {}
 
     // ===== Skill management for Employee =====
+    @GetMapping("/{id}/skills")
+    public ResponseEntity<ApiResponse<java.util.Set<Skill>>> listSkills(@PathVariable Long id) {
+        Optional<Employee> emp = employeeRepository.findById(id);
+        if (emp.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("従業員が見つかりません"));
+        return ResponseEntity.ok(ApiResponse.success("スキル一覧を取得しました", emp.get().getSkills()));
+    }
+
+    @PutMapping("/{id}/skills")
+    @Transactional
+    public ResponseEntity<ApiResponse<Employee>> setSkills(@PathVariable Long id, @RequestBody java.util.List<Long> skillIds) {
+        Optional<Employee> emp = employeeRepository.findById(id);
+        if (emp.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("従業員が見つかりません"));
+        java.util.Set<Skill> skills = new java.util.HashSet<>();
+        if (skillIds != null) {
+            for (Long sid : skillIds) {
+                skillRepository.findById(sid).ifPresent(skills::add);
+            }
+        }
+        Employee e = emp.get();
+        logger.info("Setting skills for employee {} -> {} ids", e.getId(), (skillIds==null?0:skillIds.size()));
+        e.setSkills(skills);
+        Employee saved = employeeRepository.save(e);
+        logger.info("Updated skills count: {}", saved.getSkills()==null?0:saved.getSkills().size());
+        return ResponseEntity.ok(ApiResponse.success("スキルを更新しました", saved));
+    }
     @PostMapping("/{id}/skills/{skillId}")
     public ResponseEntity<ApiResponse<Employee>> addSkill(@PathVariable Long id, @PathVariable Long skillId) {
         Optional<Employee> emp = employeeRepository.findById(id);

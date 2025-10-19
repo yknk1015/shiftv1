@@ -39,6 +39,8 @@
             margin: 0 auto;
             padding: 32px 24px 48px;
         }
+        /* Hide deprecated Shift Config card */
+        #shift-config-card { display: none; }
 
         .page-header {
             display: flex;
@@ -540,6 +542,14 @@
                         <span>月</span>
                         <select id="month-input"></select>
                     </label>
+                    <label>
+                        <span>粒度</span>
+                        <select id="granularity-select">
+                            <option value="60" selected>60分</option>
+                            <option value="30">30分</option>
+                            <option value="15">15分</option>
+                        </select>
+                    </label>
                 </div>
                 <button class="button ghost" id="next-month">次月</button>
             </div>
@@ -626,7 +636,7 @@
                 </div>
             </section>
 
-            <section class="card" id="employee-card">
+            <section class="card" id="employee-card" style="display:none;">
                 <div class="section-header compact">
                     <h2>従業員管理</h2>
                     <button class="button ghost" id="reload-employees">再読み込み</button>
@@ -810,8 +820,12 @@
             document.getElementById('reset-schedule').addEventListener('click', handleResetSchedule);
             document.getElementById('refresh-schedule').addEventListener('click', () => loadSchedule(true));
             document.getElementById('refresh-stats').addEventListener('click', loadStatistics);
-            document.getElementById('employee-form').addEventListener('submit', handleCreateEmployee);
-            document.getElementById('reload-employees').addEventListener('click', loadEmployees);
+            if (document.getElementById('employee-form')) {
+              document.getElementById('employee-form').addEventListener('submit', handleCreateEmployee);
+            }
+            if (document.getElementById('reload-employees')) {
+              document.getElementById('reload-employees').addEventListener('click', loadEmployees);
+            }
             document.getElementById('shift-config-form').addEventListener('submit', handleCreateShiftConfig);
             document.getElementById('reload-shift-configs').addEventListener('click', loadShiftConfigs);
             document.getElementById('refresh-data-stats').addEventListener('click', loadDataStats);
@@ -864,7 +878,9 @@
             shortageBox.textContent = '';
             setScheduleLoading(true);
             try {
-                const response = await callApi(`/api/schedule/generate-with-report?year=${year}&month=${month}`, { method: 'POST' });
+                const granSel = document.getElementById('granularity-select');
+                const gran = granSel ? Number(granSel.value) : 60;
+                const response = await callApi(`/api/schedule/generate-from-demand-async?year=${year}&month=${month}&granularity=${gran}`, { method: 'POST' });
                 setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
                 const shortages = (response.meta && response.meta.shortages) || [];
                 if (shortages.length > 0) {
@@ -1298,6 +1314,8 @@
                 await callApi(`/api/config/shift/${config.id}`, { method: 'DELETE' }, { expectSuccess: false });
                 setMessage('shift-config-message', 'シフト設定を削除しました。', 'success');
                 await loadShiftConfigs();
+                // small delay to wait for async generation to persist
+                await new Promise(r => setTimeout(r, 1500));
                 await loadSchedule();
                 await loadStatistics();
             } catch (error) {
@@ -1436,30 +1454,45 @@
 
         async function callApi(url, options = {}, config = {}) {
             const expectSuccess = config.expectSuccess !== false;
+            const timeoutMs = Number(config.timeoutMs ?? 15000);
+            const retries = Number(config.retries ?? 1);
             const requestOptions = buildRequestOptions(options);
-            const response = await fetch(url, requestOptions);
-            const contentType = response.headers.get('content-type') || '';
-            let data = null;
-            if (contentType.includes('application/json')) {
-                data = await response.json();
-            } else {
-                const text = await response.text();
-                if (text) {
-                    try {
-                        data = JSON.parse(text);
-                    } catch {
-                        data = { message: text };
+            let lastError = null;
+            for (let attempt = 0; attempt <= retries; attempt++) {
+                const controller = new AbortController();
+                const id = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const response = await fetch(url, { ...requestOptions, signal: controller.signal });
+                    clearTimeout(id);
+                    const contentType = response.headers.get('content-type') || '';
+                    let data = null;
+                    if (contentType.includes('application/json')) {
+                        data = await response.json();
+                    } else {
+                        const text = await response.text();
+                        if (text) {
+                            try { data = JSON.parse(text); } catch { data = { message: text }; }
+                        }
                     }
+                    if (!response.ok) {
+                        const message = data?.message || `HTTP ${response.status}`;
+                        throw new Error(message);
+                    }
+                    if (expectSuccess && data && data.success === false) {
+                        throw new Error(data.message || 'リクエストに失敗しました');
+                    }
+                    return data;
+                } catch (err) {
+                    lastError = err;
+                    clearTimeout(id);
+                    if (attempt < retries) {
+                        await new Promise(r => setTimeout(r, 500 * (attempt + 1)));
+                        continue;
+                    }
+                    throw err;
                 }
             }
-            if (!response.ok) {
-                const message = data?.message || `HTTP ${response.status}`;
-                throw new Error(message);
-            }
-            if (expectSuccess && data && data.success === false) {
-                throw new Error(data.message || 'リクエストに失敗しました');
-            }
-            return data;
+            throw lastError ?? new Error('Unknown error');
         }
 
         function buildRequestOptions(options = {}) {
@@ -1580,6 +1613,7 @@ function deleteShiftConfig(config) {
                     <h3>従業員の勤務/休日日数</h3>
                     <div id="employee-days" class="table-wrapper"></div>
                 </div>
+
 
 
 

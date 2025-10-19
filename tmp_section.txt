@@ -1,0 +1,74 @@
+<section class="card span-2" id="shift-config-card">
+                <div class="section-header compact">
+                    <h2>シフト設定</h2>
+                    <button class="button ghost" id="reload-shift-configs">再読み込み</button>
+                </div>
+                <p class="section-subtitle">稼働時間帯と必要人数を設定します。アクティブな設定のみが自動生成で使用されます。</p>
+                <form id="shift-config-form" class="form-grid">
+                    <label>
+                        <span>名称</span>
+                        <input type="text" id="config-name" required placeholder="例: 朝シフト">
+                    </label>
+                    <label>
+                        <span>開始時間</span>
+                        <input type="time" id="config-start" required>
+                    </label>
+                    <label>
+                        <span>終了時間</span>
+                        <input type="time" id="config-end" required>
+                    </label>
+                    <label>
+                        <span>必要人数</span>
+                        <input type="number" id="config-required" min="1" value="4" required>
+                    </label>
+                      <!-- removed: <label class="checkbox"> -->
+                          <!-- removed: <input type="checkbox" id="config-weekend"> -->
+                          <span>曜日の指定</span>
+                      <!-- removed: </label> -->
+                      <div>
+                          <span>曜日（複数選択可・未選択は全日）</span>
+                          <div class="checkbox-row" id="config-days">
+                              <label class="checkbox"><input type="checkbox" value="MONDAY">月</label>
+                              <label class="checkbox"><input type="checkbox" value="TUESDAY">火</label>
+                              <label class="checkbox"><input type="checkbox" value="WEDNESDAY">水</label>
+                              <label class="checkbox"><input type="checkbox" value="THURSDAY">木</label>
+                              <label class="checkbox"><input type="checkbox" value="FRIDAY">金</label>
+                              <label class="checkbox"><input type="checkbox" value="SATURDAY">土</label>
+                              <label class="checkbox"><input type="checkbox" value="SUNDAY">日</label>
+                          </div>
+                          <div class="button-row">
+                              <button type="button" class="button secondary subtle" id="preset-all-days">全日</button>
+                              <button type="button" class="button secondary subtle" id="preset-weekdays">月〜金</button>
+                              <button type="button" class="button secondary subtle" id="preset-sat">土</button>
+                              <button type="button" class="button secondary subtle" id="preset-weekend">土・日</button>
+                              <button type="button" class="button subtle" id="preset-clear">クリア</button>
+                          </div>
+                      </div>
+                      <label class="checkbox">
+                          <input type="checkbox" id="config-holiday">
+                          <span>祝日シフト</span>
+                      </label>
+                      <div class="button-row">
+                          <button type="submit" class="button primary" id="config-submit">設定を追加</button>
+                          <button type="button" class="button" id="config-cancel" style="display:none;">編集をキャンセル</button>
+                      </div>
+                  </form>
+                <div id="shift-config-message" class="message"></div>
+                <div class="table-container small">
+                    <table id="shift-config-table">
+                          <thead>
+                              <tr>
+                                  <th>名称</th>
+                                  <th>時間帯</th>
+                                  <th>人数</th>
+                                  
+                                  <th>曜日</th>
+                                  
+                                  <th>状態</th>
+                                  <th></th>
+                              </tr>
+                          </thead>
+                          <tbody></tbody>
+                      </table>
+                  </div>
+            </section>

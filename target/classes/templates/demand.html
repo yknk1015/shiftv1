@@ -25,15 +25,15 @@
     <div class="card">
       <div class="row">
         <label>日付 <input type="date" id="date" /></label>
-        <button onclick="loadEffective()">当日需要の読込</button>
-        <button onclick="loadAll()">全件読込</button>
+        <button onclick="loadEffective()">当日の需要を表示</button>
+        <button onclick="loadAll()">すべて表示</button>
       </div>
       <div id="effective" style="margin-top:12px"></div>
       <div id="all" style="margin-top:12px"></div>
     </div>
 
     <div class="card">
-      <h3 style="margin:0 0 8px;">需要の追加</h3>
+      <h3 style="margin:0 0 8px;">需要の追加 / 編集</h3>
       <div class="row">
         <label>日付(任意) <input type="date" id="c_date" /></label>
         <label>曜日(任意)
@@ -45,11 +45,19 @@
         </label>
         <label>開始 <input type="time" id="c_start" value="09:00" /></label>
         <label>終了 <input type="time" id="c_end" value="18:00" /></label>
-        <label>必要座席 <input type="number" id="c_req" value="5" min="0" /></label>
-        <label>スキルID(任意) <input type="number" id="c_skill" min="1" /></label>
-        <button onclick="create()">追加</button>
+        <label>必要数 <input type="number" id="c_req" value="5" min="0" /></label>
+        <label>スキル(任意)
+          <select id="c_skill_select">
+            <option value="">未指定</option>
+          </select>
+        </label>
+        <button id="c_submit" onclick="createOrUpdate()">追加</button>
+        <button id="c_cancel" style="display:none;" onclick="cancelEdit()">キャンセル</button>
       </div>
-      <div class="muted">日付か曜日のどちらかを設定。スキルID未指定は全体需要。</div>
+      <div class="muted">日付/曜日のいずれかで適用。スキル未指定で全体の需要。</div>
+      <div class="muted" style="margin-top:8px;">
+        ヘルプ: 日付指定は曜日指定を上書き、スキル需要はグローバル需要より優先して割当されます。
+      </div>
       <div id="create_msg" class="muted"></div>
     </div>
 
@@ -57,30 +65,54 @@
   </div>
 
   <script>
+    let editingId = null;
+
+    async function fetchWithTimeout(url, ms=15000, options={}){
+      const controller = new AbortController();
+      const id = setTimeout(()=>controller.abort(), ms);
+      try{
+        const res = await fetch(url, { ...options, signal: controller.signal });
+        clearTimeout(id);
+        return res;
+      }catch(e){ clearTimeout(id); throw e; }
+    }
     async function loadEffective(){
       const date = document.getElementById('date').value;
       if(!date){ alert('日付を選択してください'); return; }
-      const res = await fetch(`/api/demand/effective?date=${date}`);
-      const j = await res.json();
-      renderTable('effective', '当日適用', j.data||[]);
+      try{
+        const res = await fetchWithTimeout(`/api/demand/effective?date=${date}`);
+        const j = await res.json();
+        renderTable('effective', '当日適用', j.data||[]);
+      }catch(e){
+        document.getElementById('effective').innerHTML = `<div class='muted'>読み込みに失敗しました</div>`;
+      }
     }
     async function loadAll(){
-      const res = await fetch(`/api/demand`);
-      const j = await res.json();
-      renderTable('all', '全件', j.data||[]);
+      try{
+        const res = await fetchWithTimeout(`/api/demand`);
+        const j = await res.json();
+        renderTable('all', 'すべて', j.data||[]);
+      }catch(e){
+        document.getElementById('all').innerHTML = `<div class='muted'>読み込みに失敗しました</div>`;
+      }
     }
     function renderTable(id, title, rows){
       const el = document.getElementById(id);
       if(!rows.length){ el.innerHTML = `<h4>${title}</h4><div class='muted'>データなし</div>`; return; }
-      let html = `<h4>${title}</h4><table><thead><tr><th>ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>skillId</th><th>操作</th></tr></thead><tbody>`;
+      let html = `<h4>${title}</h4><table><thead><tr><th style="display:none;">ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>スキル</th><th style="display:none;">並び順</th><th>操作</th></tr></thead><tbody>`;
       for(const r of rows){
         const id = r.id;
-        const del = `<button data-id="${id}" class="btn-del" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;">削除</button>`;
-        const up = `<button data-id="${id}" data-dir="up" class="btn-move" style="margin-left:6px;">↑</button>`;
-        const down = `<button data-id="${id}" data-dir="down" class="btn-move" style="margin-left:4px;">↓</button>`;
-        html += `<tr><td>${id||''}</td><td>${r.date||''}</td><td>${r.dayOfWeek||''}</td>`+
-                `<td>${r.startTime} - ${r.endTime}</td><td>${r.requiredSeats}</td><td>${r.skill? r.skill.id:''}</td>`+
-                `<td>${del}${up}${down}</td></tr>`;
+        const del = `<button data-id=\"${id}\" class=\"btn-del\" style=\"background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;\">削除</button>`;
+        const up = `<button data-id=\"${id}\" data-dir=\"up\" class=\"btn-move\" style=\"margin-left:6px;\">↑</button>`;
+        const down = `<button data-id=\"${id}\" data-dir=\"down\" class=\"btn-move\" style=\"margin-left:4px;\">↓</button>`;
+        const edit = `<button data-id=\"${id}\" class=\"btn-edit\" style=\"margin-left:6px;\">編集</button>`;
+          html += `<tr data-id="${id}" data-order="${r.sortOrder||''}">`+
+                  `<td style="display:none;" class="col-id">${id||''}</td>`+
+                  `<td>${r.date||''}</td><td>${r.dayOfWeek||''}</td>`+
+                  `<td>${r.startTime} - ${r.endTime}</td><td>${r.requiredSeats}</td>`+
+                  `<td>${r.skill? (r.skill.name||r.skill.code||r.skill.id):''}</td>`+
+                  `<td style="display:none;" class="col-order">${r.sortOrder??''}</td>`+
+                  `<td>${del}${up}${down}${edit}</td></tr>`;
       }
       html += `</tbody></table>`;
       el.innerHTML = html;
@@ -91,38 +123,94 @@
           if(!confirm(`ID=${id} を削除しますか？`)) return;
           const res = await fetch(`/api/demand/${id}`, { method:'DELETE' });
           if(!res.ok){ alert('削除に失敗しました'); return; }
-          // refresh both sections
           if(document.getElementById('date').value){ await loadEffective(); }
           await loadAll();
         });
       });
       el.querySelectorAll('.btn-move').forEach(btn => {
         btn.addEventListener('click', async (e) => {
-          const id = e.currentTarget.getAttribute('data-id');
+          const id = Number(e.currentTarget.getAttribute('data-id'));
           const dir = e.currentTarget.getAttribute('data-dir');
-          const res = await fetch(`/api/demand/${id}/move?direction=${dir}`, { method:'POST' });
+          // find current list order
+          const rowsArr = Array.from(el.querySelectorAll('tbody tr'));
+          const idx = rowsArr.findIndex(tr => Number(tr.getAttribute('data-id')) === id);
+          if (idx === -1) return;
+          const swapIdx = dir === 'up' ? idx - 1 : idx + 1;
+          if (swapIdx < 0 || swapIdx >= rowsArr.length) return; // no-op
+          const otherId = Number(rowsArr[swapIdx].getAttribute('data-id'));
+          const res = await fetch(`/api/demand/swap?a=${id}&b=${otherId}`, { method:'POST' });
           if(!res.ok){ alert('並び替えに失敗しました'); return; }
           if(document.getElementById('date').value){ await loadEffective(); }
           await loadAll();
         });
       });
+      el.querySelectorAll('.btn-edit').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          const id = Number(e.currentTarget.getAttribute('data-id'));
+          const row = rows.find(x => x.id === id);
+          if(!row) return;
+          startEdit(row);
+        });
+      });
     }
-    async function create(){
+    function startEdit(r){
+      editingId = r.id;
+      document.getElementById('c_date').value = r.date || '';
+      document.getElementById('c_dow').value = r.dayOfWeek || '';
+      document.getElementById('c_start').value = (r.startTime||'').slice(0,5);
+      document.getElementById('c_end').value = (r.endTime||'').slice(0,5);
+      document.getElementById('c_req').value = r.requiredSeats;
+      const sel = document.getElementById('c_skill_select');
+      sel.value = r.skill ? String(r.skill.id) : '';
+      document.getElementById('c_submit').textContent = '更新';
+      document.getElementById('c_cancel').style.display = '';
+      document.getElementById('create_msg').textContent = '編集モードです。更新後に「更新」を押してください。';
+    }
+    function cancelEdit(){
+      editingId = null;
+      document.getElementById('c_date').value = '';
+      document.getElementById('c_dow').value = '';
+      document.getElementById('c_start').value = '09:00';
+      document.getElementById('c_end').value = '18:00';
+      document.getElementById('c_req').value = 5;
+      document.getElementById('c_skill_select').value = '';
+      document.getElementById('c_submit').textContent = '追加';
+      document.getElementById('c_cancel').style.display = 'none';
+      document.getElementById('create_msg').textContent = '';
+    }
+    async function createOrUpdate(){
       const body = {
         date: document.getElementById('c_date').value || null,
         dayOfWeek: (document.getElementById('c_dow').value || null),
         startTime: document.getElementById('c_start').value,
         endTime: document.getElementById('c_end').value,
         requiredSeats: Number(document.getElementById('c_req').value),
-        skillId: (document.getElementById('c_skill').value||'')? Number(document.getElementById('c_skill').value): null,
+        skillId: (document.getElementById('c_skill_select').value||'')? Number(document.getElementById('c_skill_select').value): null,
         active: true
       };
-      const res = await fetch('/api/demand', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      let url = '/api/demand';
+      let method = 'POST';
+      if (editingId) { url = `/api/demand/${editingId}`; method = 'PUT'; }
+      const res = await fetch(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
       const j = await res.json();
-      document.getElementById('create_msg').textContent = j.message || (j.success? '作成しました':'失敗しました');
-      if(j.success){ loadAll(); }
+      document.getElementById('create_msg').textContent = j.message || (j.success? (editingId? '更新しました':'作成しました'):'失敗しました');
+      if(j.success){ cancelEdit(); await loadAll(); if(document.getElementById('date').value){ await loadEffective(); } }
     }
-    window.addEventListener('DOMContentLoaded', ()=>{ const today = new Date().toISOString().slice(0,10); document.getElementById('date').value = today; loadAll(); });
+    async function loadSkills(){
+      try{
+        const res = await fetch('/api/skills');
+        const j = await res.json();
+        const list = j.data || [];
+        const sel = document.getElementById('c_skill_select');
+        sel.innerHTML = '<option value="">未指定</option>' + list.map(s => `<option value="${s.id}">${s.name||s.code||s.id}</option>`).join('');
+      }catch(e){ /* noop */ }
+    }
+    window.addEventListener('DOMContentLoaded', async ()=>{
+      const today = new Date().toISOString().slice(0,10);
+      document.getElementById('date').value = today;
+      await loadSkills();
+      await loadAll();
+    });
   </script>
 </body>
 </html>

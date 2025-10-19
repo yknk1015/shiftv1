@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>スキル管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    input, select, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    .list { display:flex; gap:12px; }
+    .list > div { flex:1; }
+    ul { list-style:none; padding:0; margin:0; max-height: 360px; overflow:auto; border:1px solid #e2e8f0; border-radius:8px; background:#fff; }
+    li { display:flex; align-items:center; padding:6px 10px; border-bottom:1px solid #f1f5f9; }
+    li:last-child { border-bottom:none; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>スキル管理</h2>
+    <div class="card">
+      <div class="row">
+        <label>従業員
+          <select id="emp"></select>
+        </label>
+        <label>スキル検索 <input type="text" id="q" placeholder="code/name 部分一致" /></label>
+        <button onclick="loadSkills()">検索</button>
+        <button onclick="save()">保存</button>
+      </div>
+      <div class="muted" style="margin-top:8px;">ヘルプ: スキルは自由記述（codeは重複不可）。需要のスキルと従業員スキルが一致した場合に優先割当されます。</div>
+    </div>
+    <div class="card">
+      <div class="list">
+        <div>
+          <h4 style="margin:0 0 8px;">スキル一覧</h4>
+          <ul id="all-skills"></ul>
+        </div>
+        <div>
+          <h4 style="margin:0 0 8px;">割当済み</h4>
+          <ul id="emp-skills"></ul>
+        </div>
+      </div>
+    </div>
+    <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/demand">需要管理</a></div>
+  </div>
+  <script>
+    let allSkills = [];
+    let empSkills = new Set();
+
+    async function loadEmployees(){
+      const res = await fetch('/api/employees');
+      const j = await res.json();
+      const list = j.data||[];
+      const sel = document.getElementById('emp');
+      sel.innerHTML = list.map(e => `<option value="${e.id}">${e.name}</option>`).join('');
+    }
+    async function loadSkills(){
+      const q = document.getElementById('q').value.trim();
+      const res = await fetch('/api/skills'+(q?`?query=${encodeURIComponent(q)}`:''));
+      const j = await res.json();
+      allSkills = j.data||[];
+      render();
+    }
+    async function loadEmpSkills(){
+      const id = document.getElementById('emp').value;
+      const res = await fetch(`/api/employees/${id}/skills`);
+      const j = await res.json();
+      empSkills = new Set((j.data||[]).map(s=>s.id));
+      render();
+    }
+    function render(){
+      const ulAll = document.getElementById('all-skills');
+      const ulEmp = document.getElementById('emp-skills');
+      ulAll.innerHTML = '';
+      ulEmp.innerHTML = '';
+      allSkills.forEach(s => {
+        const li = document.createElement('li');
+        const cb = document.createElement('input');
+        cb.type = 'checkbox';
+        cb.checked = empSkills.has(s.id);
+        cb.addEventListener('change', () => {
+          if (cb.checked) empSkills.add(s.id); else empSkills.delete(s.id);
+          render();
+        });
+        const span = document.createElement('span');
+        span.textContent = `${s.code||''} ${s.name||''}`.trim();
+        span.style.marginLeft = '8px';
+        li.appendChild(cb); li.appendChild(span);
+        ulAll.appendChild(li);
+      });
+      // assigned list
+      allSkills.filter(s => empSkills.has(s.id)).forEach(s => {
+        const li = document.createElement('li');
+        li.textContent = `${s.code||''} ${s.name||''}`.trim();
+        ulEmp.appendChild(li);
+      });
+    }
+    async function save(){
+      const id = document.getElementById('emp').value;
+      const res = await fetch(`/api/employees/${id}/skills`, {
+        method:'PUT', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify(Array.from(empSkills))
+      });
+      if(!res.ok){ alert('保存に失敗しました'); return; }
+      alert('保存しました');
+    }
+    window.addEventListener('DOMContentLoaded', async () => {
+      await loadEmployees();
+      await loadSkills();
+      await loadEmpSkills();
+      document.getElementById('emp').addEventListener('change', loadEmpSkills);
+    });
+  </script>
+</body>
+</html>
+

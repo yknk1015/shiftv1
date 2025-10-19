@@ -16,6 +16,25 @@
 </head>
 <body>
   <div class="container">
+    <div class="card">
+      <h3 style="margin:0 0 8px;">従業員の登録</h3>
+      <div class="row">
+        <label>氏名 <input type="text" id="emp-name" placeholder="例: 佐藤 花子" /></label>
+        <label>役割 <input type="text" id="emp-role" placeholder="例: スタッフ" /></label>
+        <button onclick="createEmployeeAdmin()">追加</button>
+        <button class="secondary" onclick="loadEmployeesAdmin()">再読み込み</button>
+        <button class="danger" onclick="resetEmployeesAdmin()">全従業員をリセット</button>
+      </div>
+      <div id="emp-admin-msg" class="muted" style="margin-top:6px;"></div>
+      <div style="margin-top:8px;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr><th style="text-align:left; padding:6px; border-bottom:1px solid #e2e8f0;">氏名</th><th style="text-align:left; padding:6px; border-bottom:1px solid #e2e8f0;">役割</th><th style="padding:6px; border-bottom:1px solid #e2e8f0;">操作</th></tr>
+          </thead>
+          <tbody id="emp-admin-tbody"></tbody>
+        </table>
+      </div>
+    </div>
     <!-- NOTE: このページは検証用の簡易UIです。のちに不要になれば削除してください。 -->
     <h2>管理アクション（簡易）</h2>
     <div class="card">
@@ -38,6 +57,50 @@
         <a href="/timeline">タイムライン</a>
       </div>
       <div id="msg2" class="muted"></div>
+    </div>
+
+    <!-- Skills registration -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">スキルの登録</h3>
+      <div class="row">
+        <label>コード <input type="text" id="skill-code" placeholder="例: ENG" /></label>
+        <label>名称 <input type="text" id="skill-name" placeholder="例: エンジニア" /></label>
+        <label>説明 <input type="text" id="skill-desc" placeholder="任意" style="min-width:240px;" /></label>
+        <button onclick="createSkill()">登録</button>
+        <button class="secondary" onclick="loadSkills()">再読み込み</button>
+      </div>
+      <div id="skill-msg" class="muted"></div>
+      <div style="margin-top:8px;">
+        <table style="width:100%; border-collapse:collapse;">
+          <thead>
+            <tr><th style="text-align:left; padding:6px; border-bottom:1px solid #e2e8f0;">コード</th><th style="text-align:left; padding:6px; border-bottom:1px solid #e2e8f0;">名称</th><th style="text-align:left; padding:6px; border-bottom:1px solid #e2e8f0;">説明</th><th style="padding:6px; border-bottom:1px solid #e2e8f0;">操作</th></tr>
+          </thead>
+          <tbody id="skill-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Employee skill assignment -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">従業員へのスキル付与</h3>
+      <div class="row">
+        <label>従業員
+          <select id="emp-select"></select>
+        </label>
+        <button onclick="loadEmpSkills()">読込</button>
+        <button onclick="saveEmpSkills()">保存</button>
+      </div>
+      <div class="row" style="gap:24px; align-items:flex-start; margin-top:8px;">
+        <div style="flex:1;">
+          <div class="muted" style="margin-bottom:4px;">スキル一覧（チェックで付与）</div>
+          <div id="skill-list" style="border:1px solid #e2e8f0; border-radius:8px; background:#fff; padding:8px; max-height:260px; overflow:auto;"></div>
+        </div>
+        <div style="flex:1;">
+          <div class="muted" style="margin-bottom:4px;">割当済み</div>
+          <ul id="emp-skill-list" style="list-style:none; padding:8px; margin:0; border:1px solid #e2e8f0; border-radius:8px; background:#fff; max-height:260px; overflow:auto;"></ul>
+        </div>
+      </div>
+      <div id="emp-skill-msg" class="muted" style="margin-top:8px;"></div>
     </div>
 
     <div class="muted">
@@ -80,6 +143,161 @@
       document.getElementById('msg2').textContent = j.message || (j.success? `作成件数: ${j.meta?.count||''}`:'NG');
     }
     window.addEventListener('DOMContentLoaded', ()=>{ const t=new Date().toISOString().slice(0,10); const d=document.getElementById('h_date'); if(d) d.value=t; });
+</script>
+  <script>
+    // Supplemental script for skills management
+    async function api(url, options={}){
+      const res = await fetch(url, { headers:{'Content-Type':'application/json'}, credentials:'include', ...options });
+      const ct = res.headers.get('content-type')||''; let j=null; if(ct.includes('json')){ j=await res.json(); }
+      if(!res.ok){ throw new Error(j?.message || ('HTTP '+res.status)); }
+      if(j && j.success===false){ throw new Error(j.message||'失敗しました'); }
+      return j;
+    }
+    async function loadSkills(){
+      try{
+        const j = await api('/api/skills');
+        const list = j.data||[];
+        const tbody = document.getElementById('skill-tbody');
+        if(tbody){
+          tbody.innerHTML='';
+          list.forEach(s => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'>${s.code}</td>`+
+                           `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'>${s.name||''}</td>`+
+                           `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'>${s.description||''}</td>`+
+                           `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'><button class='danger' onclick='deleteSkill(${s.id})'>削除</button></td>`;
+            tbody.appendChild(tr);
+          });
+        }
+        renderSkillChecklist(list);
+      }catch(e){ const el=document.getElementById('skill-msg'); if(el) el.textContent = e.message||'取得に失敗しました'; }
+    }
+    async function createSkill(){
+      const codeEl=document.getElementById('skill-code'); const nameEl=document.getElementById('skill-name'); const descEl=document.getElementById('skill-desc');
+      const code = (codeEl?.value||'').trim();
+      const name = (nameEl?.value||'').trim();
+      const description = (descEl?.value||'').trim();
+      if(!code || !name){ const el=document.getElementById('skill-msg'); if(el) el.textContent='コードと名称は必須です'; return; }
+      try{
+        const j = await api('/api/skills', { method:'POST', body: JSON.stringify({ code, name, description })});
+        const el=document.getElementById('skill-msg'); if(el) el.textContent = j.message||'作成しました';
+        if(codeEl) codeEl.value=''; if(nameEl) nameEl.value=''; if(descEl) descEl.value='';
+        await loadSkills();
+      }catch(e){ const el=document.getElementById('skill-msg'); if(el) el.textContent = e.message||'作成に失敗しました'; }
+    }
+    async function deleteSkill(id){
+      if(!confirm('削除しますか？（参照がある場合は削除できません）')) return;
+      try{
+        const j = await api(`/api/skills/${id}`, { method:'DELETE' });
+        const el=document.getElementById('skill-msg'); if(el) el.textContent = j.message||'削除しました';
+        await loadSkills();
+        await loadEmpSkills();
+      }catch(e){ const el=document.getElementById('skill-msg'); if(el) el.textContent = e.message||'削除に失敗しました'; }
+    }
+    let allSkills = [];
+    let empSkillSet = new Set();
+    async function loadEmployees(){
+      try{
+        const j = await api('/api/employees');
+        const list = j.data||[];
+        const sel = document.getElementById('emp-select');
+        if(sel){ sel.innerHTML = list.map(e => `<option value="${e.id}">${e.name}</option>`).join(''); }
+      }catch(e){ const el=document.getElementById('emp-skill-msg'); if(el) el.textContent = e.message||'従業員の取得に失敗しました'; }
+    }
+
+    // Admin employees panel
+    async function loadEmployeesAdmin(){
+      try{
+        const j = await api('/api/employees');
+        const list = j.data||[];
+        const tbody = document.getElementById('emp-admin-tbody');
+        if(tbody){
+          tbody.innerHTML='';
+          list.forEach(e => {
+            const tr = document.createElement('tr');
+            tr.innerHTML = `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'>${e.name||''}</td>`+
+                           `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'>${e.role||''}</td>`+
+                           `<td style='padding:6px;border-bottom:1px solid #f1f5f9;'><button class='danger' onclick='deleteEmployeeAdmin(${e.id})'>削除</button></td>`;
+            tbody.appendChild(tr);
+          });
+        }
+        const sel = document.getElementById('emp-select');
+        if(sel){ sel.innerHTML = list.map(e => `<option value="${e.id}">${e.name}</option>`).join(''); }
+        const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=`従業員数: ${list.length}`;
+      }catch(e){ const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=e.message||'取得に失敗しました'; }
+    }
+    async function createEmployeeAdmin(){
+      const nameEl=document.getElementById('emp-name'); const roleEl=document.getElementById('emp-role');
+      const name=(nameEl?.value||'').trim(); const role=(roleEl?.value||'').trim();
+      if(!name){ const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent='氏名は必須です'; return; }
+      try{
+        const j = await api('/api/employees', { method:'POST', body: JSON.stringify({ name, role }) });
+        const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=j.message||'作成しました';
+        if(nameEl) nameEl.value=''; if(roleEl) roleEl.value='';
+        await loadEmployeesAdmin();
+      }catch(e){ const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=e.message||'作成に失敗しました'; }
+    }
+    async function deleteEmployeeAdmin(id){
+      if(!confirm('削除しますか？')) return;
+      try{
+        const j = await api(`/api/employees/${id}`, { method:'DELETE' });
+        const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=j.message||'削除しました';
+        await loadEmployeesAdmin();
+      }catch(e){ const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=e.message||'削除に失敗しました'; }
+    }
+    async function resetEmployeesAdmin(){
+      if(!confirm('全従業員を削除します。よろしいですか？')) return;
+      try{
+        const j = await api('/api/admin/reset-employees', { method:'DELETE' });
+        const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=j.message||'リセットしました';
+        await loadEmployeesAdmin();
+      }catch(e){ const msg=document.getElementById('emp-admin-msg'); if(msg) msg.textContent=e.message||'リセットに失敗しました'; }
+    }
+    // initial fetch
+    try{ loadEmployeesAdmin(); }catch(e){}
+    function renderSkillChecklist(list){
+      allSkills = list||allSkills;
+      const host = document.getElementById('skill-list'); if(!host) return;
+      host.innerHTML='';
+      allSkills.forEach(s => {
+        const id = s.id;
+        const div = document.createElement('div');
+        const cb = document.createElement('input'); cb.type='checkbox'; cb.checked = empSkillSet.has(id);
+        cb.addEventListener('change', ()=>{ if(cb.checked) empSkillSet.add(id); else empSkillSet.delete(id); renderEmpAssigned(); });
+        const label = document.createElement('label'); label.textContent = `${s.code||''} ${s.name||''}`.trim(); label.style.marginLeft='6px';
+        div.appendChild(cb); div.appendChild(label);
+        host.appendChild(div);
+      });
+      renderEmpAssigned();
+    }
+    function renderEmpAssigned(){
+      const ul = document.getElementById('emp-skill-list'); if(!ul) return;
+      ul.innerHTML='';
+      allSkills.filter(s=>empSkillSet.has(s.id)).forEach(s=>{
+        const li = document.createElement('li'); li.textContent = `${s.code||''} ${s.name||''}`.trim(); ul.appendChild(li);
+      });
+    }
+    async function loadEmpSkills(){
+      const sel=document.getElementById('emp-select'); if(!sel) return;
+      try{
+        const empId = sel.value;
+        const j = await api(`/api/employees/${empId}/skills`);
+        const skills = j.data||[];
+        empSkillSet = new Set(skills.map(s=>s.id));
+        renderSkillChecklist(allSkills);
+        const el=document.getElementById('emp-skill-msg'); if(el) el.textContent='';
+      }catch(e){ const el=document.getElementById('emp-skill-msg'); if(el) el.textContent = e.message||'読込に失敗しました'; }
+    }
+    async function saveEmpSkills(){
+      const sel=document.getElementById('emp-select'); if(!sel) return;
+      try{
+        const empId = sel.value;
+        const body = Array.from(empSkillSet);
+        await api(`/api/employees/${empId}/skills`, { method:'PUT', body: JSON.stringify(body)});
+        const el=document.getElementById('emp-skill-msg'); if(el) el.textContent='保存しました';
+      }catch(e){ const el=document.getElementById('emp-skill-msg'); if(el) el.textContent = e.message||'保存に失敗しました'; }
+    }
+    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); await loadSkills(); await loadEmpSkills(); const empSel=document.getElementById('emp-select'); if(empSel) empSel.addEventListener('change', loadEmpSkills); });
   </script>
 </body>
 </html>

@@ -19,10 +19,13 @@ public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
     private final EmployeeRepository employeeRepository;
     private final SkillRepository skillRepository;
+    private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
 
-    public AdminController(EmployeeRepository employeeRepository, SkillRepository skillRepository) {
+    public AdminController(EmployeeRepository employeeRepository, SkillRepository skillRepository,
+                           com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer) {
         this.employeeRepository = employeeRepository;
         this.skillRepository = skillRepository;
+        this.errorLogBuffer = errorLogBuffer;
     }
 
     @GetMapping("/status")
@@ -42,6 +45,19 @@ public class AdminController {
         } catch (Exception e) {
             logger.error("システム状態確認でエラーが発生しました", e);
             return ResponseEntity.internalServerError().body(ApiResponse.failure("システム状態の取得に失敗しました"));
+        }
+    }
+
+    @GetMapping("/error-logs")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getErrorLogs() {
+        try {
+            java.util.List<com.example.shiftv1.common.error.ErrorLogBuffer.Entry> list = errorLogBuffer.recent();
+            java.util.Map<String, Object> resp = new java.util.HashMap<>();
+            resp.put("count", list.size());
+            resp.put("items", list);
+            return ResponseEntity.ok(ApiResponse.success("エラーログ（最近のもの）を取得しました", resp));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("エラーログの取得に失敗しました"));
         }
     }
 

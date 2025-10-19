@@ -29,4 +29,6 @@ public interface DemandIntervalRepository extends JpaRepository<DemandInterval, 
 
     @Query("SELECT d FROM DemandInterval d WHERE (d.date = :date OR (d.date IS NULL AND d.dayOfWeek = :dow)) AND (d.active = true OR d.active IS NULL)")
     List<DemandInterval> findEffectiveForDate(@Param("date") LocalDate date, @Param("dow") DayOfWeek dow);
+
+    long countBySkill_Id(Long skillId);
 }

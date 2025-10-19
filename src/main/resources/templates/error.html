@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>エラーが発生しました</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f8fafc; color:#0f172a; }
+    .container { max-width: 720px; margin: 10vh auto; padding: 24px; text-align: center; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:24px; }
+    a.button { display:inline-block; background:#2563eb; color:#fff; padding:10px 14px; border-radius:8px; text-decoration:none; margin-top:12px; }
+    .muted { color:#64748b; font-size: 14px; }
+  </style>
+  <script>
+    async function tryRecover(){
+      // quick ping then redirect
+      try { await fetch('/api/health', { cache:'no-store' }); } catch(e){}
+      window.location.href = '/dashboard';
+    }
+  </script>
+  </head>
+  <body>
+    <div class="container">
+      <div class="card">
+        <h2>エラーが発生しました</h2>
+        <p class="muted">{{message}}</p>
+        <a href="/dashboard" class="button">ダッシュボードに戻る</a>
+        <div style="margin-top:8px;">
+          <a href="#" onclick="tryRecover(); return false;">復旧を試す</a>
+        </div>
+      </div>
+    </div>
+  </body>
+  </html>
+

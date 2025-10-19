@@ -97,6 +97,34 @@ public class DemandController {
         return ResponseEntity.ok(ApiResponse.success("需要インターバルを削除しました", null));
     }
 
+    @PostMapping("/swap")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> swapSortOrder(@RequestParam("a") Long idA,
+                                                                                   @RequestParam("b") Long idB) {
+        Optional<DemandInterval> oa = repository.findById(idA);
+        Optional<DemandInterval> ob = repository.findById(idB);
+        if (oa.isEmpty() || ob.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.failure("一方または両方の需要が見つかりません"));
+        }
+        DemandInterval a = oa.get();
+        DemandInterval b = ob.get();
+        Integer ao = a.getSortOrder();
+        Integer bo = b.getSortOrder();
+        if (ao == null || bo == null) {
+            Integer max = repository.findMaxSortOrder();
+            if (ao == null) { ao = (max == null ? 0 : max + 1); a.setSortOrder(ao); }
+            if (bo == null) { bo = (max == null ? 0 : max + 2); b.setSortOrder(bo); }
+        }
+        a.setSortOrder(bo);
+        b.setSortOrder(ao);
+        repository.save(a);
+        repository.save(b);
+        return ResponseEntity.ok(ApiResponse.success("並び順を入れ替えました", java.util.Map.of(
+                "a", java.util.Map.of("id", a.getId(), "sortOrder", a.getSortOrder()),
+                "b", java.util.Map.of("id", b.getId(), "sortOrder", b.getSortOrder())
+        )));
+    }
+
     @PostMapping("/{id}/move")
     public ResponseEntity<ApiResponse<DemandInterval>> move(@PathVariable Long id,
                                                             @RequestParam("direction") String direction) {

@@ -96,6 +96,53 @@ public class ScheduleController {
         }
     }
 
+    @PostMapping("/generate-from-demand")
+    public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateFromDemand(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "granularity", defaultValue = "60") int granularity,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            List<ShiftAssignment> assignments = scheduleService.generateMonthlyFromDemand(
+                    target.getYear(), target.getMonthValue(), granularity, reset);
+            Map<String, Object> meta = buildScheduleMeta(assignments, target);
+            meta.put("generatedCount", assignments.size());
+            List<ShiftAssignmentDto> data = assignments.stream()
+                    .map(ShiftAssignmentDto::from)
+                    .collect(java.util.stream.Collectors.toList());
+            return ResponseEntity.ok(ApiResponse.success("需要に基づいてシフトを生成しました", data, meta));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("需要ベースのシフト生成に失敗しました"));
+        }
+    }
+
+    // 非同期版: 即時に受付し、バックグラウンドで生成を開始
+    @PostMapping("/generate-from-demand-async")
+    public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateFromDemandAsync(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "granularity", defaultValue = "60") int granularity,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            scheduleService.generateMonthlyFromDemandAsync(target.getYear(), target.getMonthValue(), granularity, reset);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("year", target.getYear());
+            meta.put("month", target.getMonthValue());
+            meta.put("started", true);
+            meta.put("granularity", granularity);
+            meta.put("reset", reset);
+            return ResponseEntity.ok(ApiResponse.success("需要ベースのシフト生成を開始しました", List.of(), meta));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("需要ベースのシフト生成の開始に失敗しました"));
+        }
+    }
+
     @DeleteMapping("/reset")
     public ResponseEntity<ApiResponse<Map<String, Object>>> resetSchedule(
             @RequestParam(name = "year", required = false) Integer year,

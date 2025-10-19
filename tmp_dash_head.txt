@@ -1,0 +1,600 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト管理ダッシュボード</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+            --success-bg: #dcfce7;
+            --success-text: #14532d;
+            --error-bg: #fee2e2;
+            --error-text: #7f1d1d;
+            --info-bg: #e0f2fe;
+            --info-text: #0c4a6e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Hiragino Sans', 'ヒラギノ角ゴシック', 'Yu Gothic', sans-serif;
+        }
+
+        .page-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px 48px;
+        }
+        /* Hide deprecated Shift Config card */
+        #shift-config-card { display: none; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .user-info {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .user-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .period-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border);
+        }
+
+        .period-picker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .period-inputs {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .period-inputs label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .period-inputs input,
+        .period-inputs select {
+            font-size: 16px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text-primary);
+            min-width: 90px;
+        }
+
+        .period-label {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .period-label strong {
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card.span-2 {
+            grid-column: span 2;
+        }
+
+        /* Make shift-config card full width on wide screens */
+        @media (min-width: 1000px) {
+            #shift-config-card {
+                grid-column: 1 / -1;
+            }
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .section-header.compact h2 {
+            font-size: 20px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-subtitle {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .button {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: #fff;
+        }
+
+        .button.secondary {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .button.ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .button.danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .button.subtle {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .info-card {
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #f8fafc, #ffffff);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .message {
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.info {
+            display: block;
+            background: var(--info-bg);
+            color: var(--info-text);
+        }
+
+        .message.success {
+            display: block;
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .message.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        .loading {
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .empty-state {
+            padding: 18px;
+            text-align: center;
+            color: var(--text-muted);
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+        }
+
+        .table-container {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .table-container.small {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead th {
+            background: #f1f5f9;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-grid.small {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .stat-subsection h3 {
+            margin: 8px 0;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .pill-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill-list li {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 13px;
+        }
+
+        .ranking-list {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-primary);
+        }
+
+        .ranking-list li {
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-grid label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="time"],
+        input[type="date"],
+        select {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .checkbox {
+            flex-direction: row !important;
+            align-items: center;
+            gap: 8px !important;
+            font-weight: 600;
+        }
+
+        .checkbox input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+        }
+
+        .badge.active {
+            background: #dcfce7;
+            color: var(--success-text);
+        }
+
+        .badge.inactive {
+            background: #fee2e2;
+            color: var(--error-text);
+        }
+
+        @media (max-width: 900px) {
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .user-actions {
+                align-items: flex-start;
+            }
+
+            .period-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+            }
+
+            .period-picker {
+                justify-content: space-between;
+            }
+
+            .card.span-2 {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <header class="page-header">
+            <div>
+                <h1>シフト管理ダッシュボード</h1>
+                <p class="subtitle">従業員管理から自動シフト生成まで、この画面で完結します。</p>
+            </div>
+            <div class="user-actions">
+                <span id="user-info" class="user-info">ログイン情報を取得しています...</span>
+                <div class="user-buttons">
+                    <button class="button ghost" id="open-calendar">カレンダー</button>
+                    <button class="button danger" onclick="logout()">ログアウト</button>
+                </div>
+            </div>
+        </header>
+
+        <section class="period-toolbar">
+            <div class="period-picker">
+                <button class="button ghost" id="prev-month">前月</button>
+                <div class="period-inputs">
+                    <label>
+                        <span>年</span>
+                        <input type="number" id="year-input" min="2000" max="2100">
+                    </label>
+                    <label>
+                        <span>月</span>
+                        <select id="month-input"></select>
+                    </label>
+                </div>
+                <button class="button ghost" id="next-month">次月</button>
+            </div>
+            <div class="period-label">
+                <span>対象:</span>
+                <strong id="schedule-period"></strong>
+            </div>
+        </section>
+
+        <div class="grid">
+            <section class="card span-2" id="schedule-card">
+                <div class="section-header">
+                    <div>
+                        <h2>シフト生成</h2>
+                        <p class="section-subtitle">対象月のシフトを自動生成し、担当者を一覧で確認できます。</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="button secondary" id="refresh-schedule">最新シフト取得</button>
+                        <button class="button" id="reset-schedule">シフト初期化</button>
+                        <button class="button primary" id="generate-schedule">シフトを生成</button>
+                    </div>
+                </div>
+
+                <div id="schedule-message" class="message"></div>
+                <div id="shortage-details" class="message" style="display:none;"></div>
+
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-label">シフト件数</div>
+                        <div class="info-value" id="assignment-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">従業員数</div>
+                        <div class="info-value" id="employee-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">稼働日数</div>
+                        <div class="info-value" id="working-day-count">0</div>
+                    </div>
+                </div>
+
+                <div id="schedule-loading" class="loading" style="display: none;">シフトを読み込み中です...</div>
+                <div id="schedule-empty" class="empty-state" style="display: none;">まだシフトが登録されていません。まずは「シフトを生成」を押してください。</div>
+
+                <div class="table-container">
+                    <table id="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>曜日</th>
+                                <th>シフト</th>
+                                <th>時間</th>
+                                <th>担当者</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>

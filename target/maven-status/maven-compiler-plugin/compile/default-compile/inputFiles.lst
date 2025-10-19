@@ -7,6 +7,9 @@ C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\s
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\breaks\BreakPeriod.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\breaks\BreakPeriodRepository.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\ApiResponse.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\error\ErrorLogBuffer.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\HealthController.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\WebErrorAdvice.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\CacheConfig.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\PerformanceConfig.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\SecurityConfig.java

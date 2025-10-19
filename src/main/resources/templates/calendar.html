@@ -291,11 +291,17 @@
                     shiftItem.className = 'shift-item';
                     shiftItem.textContent = shift.employeeName;
                     
-                    // シフトタイプに応じてクラスを設定
-                    if (shift.shiftName.includes('朝') || shift.shiftName.includes('9:00-15:00')) {
-                        shiftItem.classList.add('morning');
-                    } else if (shift.shiftName.includes('夜') || shift.shiftName.includes('15:00-21:00')) {
-                        shiftItem.classList.add('evening');
+                    // シフト種別は開始時刻で分類（需要ベースの名称に依存しない）
+                    const st = (shift.startTime || '').toString();
+                    let hour = null;
+                    if (st && st.length >= 2) {
+                        const hh = parseInt(st.slice(0,2), 10);
+                        if (!Number.isNaN(hh)) hour = hh;
+                    }
+                    if (hour !== null) {
+                        if (hour < 12) shiftItem.classList.add('morning');
+                        else if (hour < 18) shiftItem.classList.add('evening');
+                        else shiftItem.classList.add('other');
                     } else {
                         shiftItem.classList.add('other');
                     }
@@ -390,7 +396,7 @@
                 const year = currentDate.getFullYear();
                 const month = currentDate.getMonth() + 1;
                 
-                const response = await fetch(`/api/schedule/generate?year=${year}&month=${month}`, {
+                const response = await fetch(`/api/schedule/generate-from-demand-async?year=${year}&month=${month}&granularity=60&reset=true`, {
                     method: 'POST'
                 });
                 const result = await response.json();

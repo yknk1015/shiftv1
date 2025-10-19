@@ -47,4 +47,7 @@ public class WebController {
 
     @GetMapping("/rules")
     public String rules() { return "rules"; }
+
+    @GetMapping("/skills")
+    public String skills() { return "skills"; }
 }

@@ -21,11 +21,41 @@
         .muted { color:#64748b; font-size: 12px; }
     </style>
     <script>
+        async function fetchWithTimeout(url, ms = 15000) {
+            const controller = new AbortController();
+            const id = setTimeout(() => controller.abort(), ms);
+            try {
+                const res = await fetch(url, { signal: controller.signal });
+                clearTimeout(id);
+                return res;
+            } catch (e) {
+                clearTimeout(id);
+                throw e;
+            }
+        }
+
+        function showError(msg){
+            const rowsCol = document.getElementById('rows');
+            const timesCol = document.getElementById('times');
+            timesCol.innerHTML = '';
+            rowsCol.innerHTML = '';
+            const div = document.createElement('div');
+            div.className = 'muted';
+            div.textContent = msg || '読み込みに失敗しました';
+            rowsCol.appendChild(div);
+        }
+
         async function loadGrid() {
             const date = document.getElementById('date').value;
             const gran = document.getElementById('gran').value;
-            const res = await fetch(`/api/schedule/grid/day?date=${date}&granularity=${gran}`);
-            const json = await res.json();
+            let json;
+            try {
+                const res = await fetchWithTimeout(`/api/schedule/grid/day?date=${date}&granularity=${gran}`, 15000);
+                json = await res.json();
+            } catch (e) {
+                showError('タイムラインの読み込みに失敗しました。リトライしてください。');
+                return;
+            }
             const data = json.data || {};
             const slots = data.slots || [];
             const timesCol = document.getElementById('times');
@@ -90,4 +120,3 @@
    </div>
  </body>
  </html>
-
