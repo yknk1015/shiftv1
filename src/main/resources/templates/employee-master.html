@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>従業員マスタ</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    input, select, button { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:8px; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .muted { color:#64748b; font-size:12px; }
+    .cols { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
+    @media (max-width: 900px){ .cols { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>従業員マスタ</h2>
+
+    <!-- 従業員の登録・一覧 -->
+    <div class="card">
+      <div class="row">
+        <label>氏名<br><input type="text" id="emp-name" placeholder="例: 田中 太郎" /></label>
+        <label>役割<br><input type="text" id="emp-role" placeholder="例: スタッフ" /></label>
+        <button id="emp-add">従業員を追加</button>
+      </div>
+      <div id="emp-msg" class="muted" style="margin-top:6px;"></div>
+      <table style="margin-top:8px;">
+        <thead><tr><th>ID</th><th>氏名</th><th>役割</th><th>操作</th></tr></thead>
+        <tbody id="emp-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="cols">
+      <!-- スキル付与 -->
+      <div class="card">
+        <h3 style="margin:0 0 8px;">スキル付与</h3>
+        <div class="row">
+          <label>従業員<br><select id="emp-select"></select></label>
+          <label>検索<br><input type="text" id="skill-q" placeholder="code/name 部分一致"/></label>
+          <button id="skill-search">検索</button>
+          <button id="skill-save">保存</button>
+        </div>
+        <div class="row" style="align-items:flex-start; gap:24px; margin-top:8px;">
+          <div style="flex:1;">
+            <div class="muted">スキル一覧</div>
+            <div id="skill-list"></div>
+          </div>
+          <div style="flex:1;">
+            <div class="muted">付与済み</div>
+            <ul id="emp-skill-list" style="list-style:none; padding-left:0; margin:0;"></ul>
+          </div>
+        </div>
+        <div id="emp-skill-msg" class="muted" style="margin-top:6px;"></div>
+      </div>
+
+      <!-- 個別勤務ルール -->
+      <div class="card">
+        <h3 style="margin:0 0 8px;">個別勤務ルール</h3>
+        <div class="row">
+          <label>週最大時間<br><input type="number" id="weeklyMax" value="40"/></label>
+          <label>日最大時間<br><input type="number" id="dailyMax" value="8"/></label>
+          <label>連勤上限(日)<br><input type="number" id="maxConsecutive" value="5"/></label>
+          <label>最低休息(時)<br><input type="number" id="minRest" value="11"/></label>
+        </div>
+        <div class="row">
+          <label><input type="checkbox" id="allowMulti"/> 1日に複数シフト可</label>
+          <label><input type="checkbox" id="allowHoliday" checked/> 休日勤務可</label>
+          <button id="rule-save">ルール保存</button>
+        </div>
+        <div class="muted" id="rule-msg" style="margin-top:6px;"></div>
+        <hr/>
+        <h4 style="margin:0 0 8px;">出勤可能時間</h4>
+        <div class="row">
+          <label>曜日
+            <select id="av-dow">
+              <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
+              <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
+            </select>
+          </label>
+          <label>開始<br><input type="time" id="av-start" value="09:00"/></label>
+          <label>終了<br><input type="time" id="av-end" value="21:00"/></label>
+          <button id="av-add">追加</button>
+          <button id="av-clear">全クリア</button>
+          <button id="av-save">保存</button>
+        </div>
+        <table style="margin-top:8px;">
+          <thead><tr><th>曜日</th><th>開始</th><th>終了</th><th>操作</th></tr></thead>
+          <tbody id="av-tbody"></tbody>
+        </table>
+        <div class="muted" id="av-msg" style="margin-top:6px;"></div>
+      </div>
+    </div>
+
+    <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/admin-actions">管理メニュー</a></div>
+  </div>
+  <script>
+    // utils
+    async function api(url, opt={}){
+      const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });
+      const ct = res.headers.get('content-type')||''; const data = ct.includes('json') ? await res.json() : await res.text();
+      if(!res.ok) throw new Error((data&&data.message) || ('HTTP '+res.status));
+      if(data && data.success===false) throw new Error(data.message||'処理に失敗しました');
+      return data;
+    }
+    function setMsg(id,t){ const el=document.getElementById(id); if(el) el.textContent=t||''; }
+
+    // employees
+    async function loadEmployees(){
+      const j = await api('/api/employees');
+      const list = j.data||[]; const tbody=document.getElementById('emp-tbody'); tbody.innerHTML='';
+      const sel = document.getElementById('emp-select'); sel.innerHTML='';
+      list.forEach(e=>{
+        const tr=document.createElement('tr');
+        tr.innerHTML = `<td>${e.id}</td><td><input value="${e.name||''}" data-k="name"/></td><td><input value="${e.role||''}" data-k="role"/></td><td><button data-a="save">保存</button> <button data-a="del" style="background:#ef4444;">削除</button></td>`;
+        tr.querySelector('[data-a="save"]').addEventListener('click', async()=>{
+          try{ const name=tr.querySelector('input[data-k="name"]').value.trim(); const role=tr.querySelector('input[data-k="role"]').value.trim(); const r=await api(`/api/employees/${e.id}`, {method:'PUT', body: JSON.stringify({name, role})}); setMsg('emp-msg', r.message||'更新しました'); await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'更新に失敗しました'); }
+        });
+        tr.querySelector('[data-a="del"]').addEventListener('click', async()=>{
+          if(!confirm('削除しますか？')) return; try{ const r=await api(`/api/employees/${e.id}`, {method:'DELETE'}); setMsg('emp-msg', r.message||'削除しました'); await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'削除に失敗しました'); }
+        });
+        tbody.appendChild(tr);
+        const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; sel.appendChild(o);
+      });
+      if(sel.value) { await onEmpChange(); }
+    }
+    async function addEmployee(){
+      const name=document.getElementById('emp-name').value.trim(); const role=document.getElementById('emp-role').value.trim();
+      if(!name){ setMsg('emp-msg','氏名は必須です'); return; }
+      try{ const r=await api('/api/employees', { method:'POST', body: JSON.stringify({name, role})}); setMsg('emp-msg', r.message||'追加しました'); document.getElementById('emp-name').value=''; document.getElementById('emp-role').value=''; await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'追加に失敗しました'); }
+    }
+
+    // skills
+    let allSkills=[]; let empSkillSet = new Set();
+    function renderSkillChecklist(){
+      const host=document.getElementById('skill-list'); host.innerHTML='';
+      allSkills.forEach(s=>{
+        const div=document.createElement('div');
+        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=empSkillSet.has(s.id);
+        cb.addEventListener('change', ()=>{ if(cb.checked) empSkillSet.add(s.id); else empSkillSet.delete(s.id); renderEmpAssigned(); });
+        const label=document.createElement('label'); label.textContent=`${s.code||''} ${s.name||''}`.trim(); label.style.marginLeft='6px';
+        div.appendChild(cb); div.appendChild(label); host.appendChild(div);
+      });
+      renderEmpAssigned();
+    }
+    function renderEmpAssigned(){ const ul=document.getElementById('emp-skill-list'); ul.innerHTML=''; allSkills.filter(s=>empSkillSet.has(s.id)).forEach(s=>{ const li=document.createElement('li'); li.textContent=`${s.code||''} ${s.name||''}`.trim(); ul.appendChild(li); }); }
+    async function loadSkills(){ const q=document.getElementById('skill-q').value.trim(); const j=await api('/api/skills'+(q?`?query=${encodeURIComponent(q)}`:'')); allSkills=j.data||[]; // no sort -> backend order
+      renderSkillChecklist(); }
+    async function loadEmpSkills(){ const id=document.getElementById('emp-select').value; const j=await api(`/api/employees/${id}/skills`); empSkillSet = new Set((j.data||[]).map(s=>s.id)); renderSkillChecklist(); setMsg('emp-skill-msg',''); }
+    async function saveEmpSkills(){ const id=document.getElementById('emp-select').value; await api(`/api/employees/${id}/skills`, { method:'PUT', body: JSON.stringify(Array.from(empSkillSet))}); setMsg('emp-skill-msg','保存しました'); }
+
+    // rules
+    async function loadRule(id){ const r=await api(`/api/employees/${id}/rule`); const d=r.data||{}; document.getElementById('weeklyMax').value=d.weeklyMaxHours??40; document.getElementById('dailyMax').value=d.dailyMaxHours??8; document.getElementById('maxConsecutive').value=d.maxConsecutiveDays??5; document.getElementById('minRest').value=d.minRestHours??11; document.getElementById('allowMulti').checked=!!d.allowMultipleShiftsPerDay; document.getElementById('allowHoliday').checked=(d.allowHolidayWork!==false); }
+    async function saveRule(){ const id=document.getElementById('emp-select').value; const body={ weeklyMaxHours:Number(document.getElementById('weeklyMax').value||'0'), dailyMaxHours:Number(document.getElementById('dailyMax').value||'0'), maxConsecutiveDays:Number(document.getElementById('maxConsecutive').value||'0'), minRestHours:Number(document.getElementById('minRest').value||'0'), allowMultipleShiftsPerDay: document.getElementById('allowMulti').checked, allowHolidayWork: document.getElementById('allowHoliday').checked }; const r=await api(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)}); setMsg('rule-msg', r.message||'保存しました'); }
+    let avItems=[];
+    function renderAv(){ const tb=document.getElementById('av-tbody'); tb.innerHTML=''; avItems.forEach((x,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${x.dayOfWeek}</td><td>${x.startTime}</td><td>${x.endTime}</td><td><button data-i="${idx}">削除</button></td>`; tr.querySelector('button').addEventListener('click',()=>{ avItems.splice(idx,1); renderAv(); }); tb.appendChild(tr); }); }
+    async function loadAv(id){ const r=await api(`/api/employees/${id}/availability`); avItems=(r.data||[]).map(a=>({ dayOfWeek:a.dayOfWeek, startTime:(a.startTime||'').substring(0,5), endTime:(a.endTime||'').substring(0,5) })); renderAv(); }
+    async function saveAv(){ const id=document.getElementById('emp-select').value; const r=await api(`/api/employees/${id}/availability`, { method:'PUT', body: JSON.stringify(avItems)}); setMsg('av-msg', r.message||'保存しました'); }
+    function addAv(){ const day=document.getElementById('av-dow').value; const st=document.getElementById('av-start').value; const et=document.getElementById('av-end').value; if(!st||!et){ setMsg('av-msg','開始・終了は必須'); return;} avItems.push({ dayOfWeek:day, startTime:st, endTime:et }); renderAv(); }
+    function clearAv(){ avItems=[]; renderAv(); }
+
+    async function onEmpChange(){ const id=document.getElementById('emp-select').value; await Promise.all([loadEmpSkills(), loadRule(id), loadAv(id)]); }
+
+    document.getElementById('emp-add').addEventListener('click', addEmployee);
+    document.getElementById('skill-save').addEventListener('click', saveEmpSkills);
+    document.getElementById('skill-search').addEventListener('click', loadSkills);
+    document.getElementById('rule-save').addEventListener('click', saveRule);
+    document.getElementById('av-add').addEventListener('click', addAv);
+    document.getElementById('av-clear').addEventListener('click', clearAv);
+    document.getElementById('av-save').addEventListener('click', saveAv);
+    document.getElementById('emp-select').addEventListener('change', onEmpChange);
+
+    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); await loadSkills(); });
+  </script>
+</body>
+</html>
+

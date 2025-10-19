@@ -53,6 +53,7 @@ public class ScheduleService {
     private final EmployeeAvailabilityRepository availabilityRepository;
     private final DemandIntervalRepository demandRepository;
     private final SkillRepository skillRepository;
+    private final com.example.shiftv1.skill.SkillPatternRepository skillPatternRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
 
     public ScheduleService(EmployeeRepository employeeRepository,
@@ -64,6 +65,7 @@ public class ScheduleService {
                            EmployeeAvailabilityRepository availabilityRepository,
                            DemandIntervalRepository demandRepository,
                            SkillRepository skillRepository,
+                           com.example.shiftv1.skill.SkillPatternRepository skillPatternRepository,
                            com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
@@ -74,6 +76,7 @@ public class ScheduleService {
         this.availabilityRepository = availabilityRepository;
         this.demandRepository = demandRepository;
         this.skillRepository = skillRepository;
+        this.skillPatternRepository = skillPatternRepository;
         this.errorLogBuffer = errorLogBuffer;
     }
 
@@ -175,40 +178,191 @@ public class ScheduleService {
                 }
             }
 
-            for (int idx=0; idx<slots; idx++) {
-                java.time.LocalTime t = java.time.LocalTime.ofSecondOfDay((long)idx * G * 60L);
-                java.time.LocalTime tEnd = t.plusMinutes(G);
-
-                // Resolve per-skill requirements with date override
-                java.util.Map<Long,Integer> perSkillReq = new java.util.HashMap<>();
-                for (Long sid : skillIdsForDay) {
-                    int req = 0;
-                    int[] dArr = skillDate.get(sid);
-                    int[] wArr = skillWeekly.get(sid);
-                    if (dArr != null && dArr[idx] > 0) req = dArr[idx];
-                    else if (wArr != null && wArr[idx] > 0) req = wArr[idx];
-                    if (req > 0) perSkillReq.put(sid, req);
+            // Build continuous seat tracks per skill (including global null skill)
+            record Key(Long skillId) {}
+            java.util.Set<Long> skillsForTracks = new java.util.HashSet<>(skillIdsForDay);
+            // include null for global if any demand
+            boolean hasGlobal = java.util.Arrays.stream(globalWeekly).anyMatch(v -> v > 0)
+                    || java.util.Arrays.stream(globalDate).anyMatch(v -> v > 0);
+            java.util.Map<Key,int[]> combined = new java.util.HashMap<>();
+            if (hasGlobal) {
+                int[] arr = new int[slots];
+                for (int i=0;i<slots;i++) arr[i] = (globalDate[i] > 0 ? globalDate[i] : globalWeekly[i]);
+                combined.put(new Key(null), arr);
+            }
+            for (Long sid : skillsForTracks) {
+                int[] dArr = skillDate.get(sid);
+                int[] wArr = skillWeekly.get(sid);
+                int[] arr = new int[slots];
+                for (int i=0;i<slots;i++) {
+                    int dv = (dArr!=null?dArr[i]:0);
+                    int wv = (wArr!=null?wArr[i]:0);
+                    arr[i] = (dv>0?dv:wv);
                 }
-                int globalReq = (globalDate[idx] > 0) ? globalDate[idx] : globalWeekly[idx];
+                combined.put(new Key(sid), arr);
+            }
 
-                // Assignments per slot: assign skill seats first
-                Set<Long> assignedToday = dailyAssigned.computeIfAbsent(day, d -> new HashSet<>());
-                Map<Long, List<EmployeeConstraint>> consForDay = constraintsByDate.getOrDefault(day, Collections.emptyMap());
-
-                if (!perSkillReq.isEmpty()) {
-                    for (Map.Entry<Long, Integer> e : perSkillReq.entrySet()) {
-                        if (e.getValue() == null || e.getValue() <= 0) continue;
-                        com.example.shiftv1.skill.Skill skill = skillMapForDay.get(e.getKey());
-                        if (skill == null) continue;
-                        java.util.List<Employee> skillPool = employeesBySkill.getOrDefault(e.getKey(), java.util.List.of());
-                        if (skillPool.isEmpty()) continue; // nobody has this skill
-                        results.addAll(assignSeatsForSlot(day, t, tEnd, skill, e.getValue(), skillPool,
-                                monthlyAssignmentCounts, dailyAssigned, consForDay));
+            // Convert seat arrays to windows via seat-tracking
+            class Track { final int startIdx; Track(int s){ this.startIdx=s; } }
+            java.util.Map<java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>, java.util.Map<Key,Integer>> winCounts = new java.util.HashMap<>();
+            for (var entry : combined.entrySet()) {
+                Key key = entry.getKey();
+                int[] arr = entry.getValue();
+                java.util.Deque<Track> open = new java.util.ArrayDeque<>();
+                int maxSlotsPerShift = (int)Math.ceil(9 * 60.0 / G); // up to 9h window（8h勤務+1h休憩想定）
+                for (int i=0;i<slots;i++) {
+                    int need = arr[i];
+                    // close if open exceeds need
+                    while (open.size() > need) {
+                        Track tr = open.removeLast();
+                        java.time.LocalTime s = java.time.LocalTime.ofSecondOfDay((long)tr.startIdx * G * 60L);
+                        java.time.LocalTime e = java.time.LocalTime.ofSecondOfDay((long)i * G * 60L);
+                        var pair = new java.util.AbstractMap.SimpleEntry<>(s,e);
+                        winCounts.computeIfAbsent(pair, k -> new java.util.HashMap<>())
+                                .merge(key, 1, Integer::sum);
+                    }
+                    // enforce max shift length: roll over tracks that exceeded
+                    if (!open.isEmpty()) {
+                        java.util.List<Track> toClose = new java.util.ArrayList<>();
+                        for (Track tr : open) {
+                            if (i - tr.startIdx >= maxSlotsPerShift) {
+                                toClose.add(tr);
+                            }
+                        }
+                        if (!toClose.isEmpty()) {
+                            for (Track tr : toClose) {
+                                open.remove(tr);
+                                java.time.LocalTime s = java.time.LocalTime.ofSecondOfDay((long)tr.startIdx * G * 60L);
+                                java.time.LocalTime e = java.time.LocalTime.ofSecondOfDay((long)i * G * 60L);
+                                var pair = new java.util.AbstractMap.SimpleEntry<>(s,e);
+                                winCounts.computeIfAbsent(pair, k -> new java.util.HashMap<>())
+                                        .merge(key, 1, Integer::sum);
+                            }
+                        }
+                    }
+                    // open if need exceeds open size
+                    while (open.size() < need) {
+                        open.addLast(new Track(i));
                     }
                 }
-                if (globalReq > 0) {
-                    results.addAll(assignSeatsForSlot(day, t, tEnd, null, globalReq, employees,
-                            monthlyAssignmentCounts, dailyAssigned, consForDay));
+                // close remaining at day end
+                while (!open.isEmpty()) {
+                    Track tr = open.removeLast();
+                    java.time.LocalTime s = java.time.LocalTime.ofSecondOfDay((long)tr.startIdx * G * 60L);
+                    java.time.LocalTime e = java.time.LocalTime.ofSecondOfDay((long)slots * G * 60L);
+                    var pair = new java.util.AbstractMap.SimpleEntry<>(s,e);
+                    winCounts.computeIfAbsent(pair, k -> new java.util.HashMap<>())
+                            .merge(key, 1, Integer::sum);
+                }
+            }
+
+            // Assign employees per window (sorted by start -> end to prioritize earlier windows)
+            Map<Long, List<EmployeeConstraint>> consForDay = constraintsByDate.getOrDefault(day, Collections.emptyMap());
+            java.util.List<java.util.Map.Entry<java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>, java.util.Map<Key,Integer>>> windows = new java.util.ArrayList<>(winCounts.entrySet());
+            // Build ordered window keys: First (earliest), then Last (latest), then Other (middle)
+            java.util.List<java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>> winKeys =
+                    new java.util.ArrayList<>(winCounts.keySet());
+            java.util.LinkedHashSet<java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>> ordered =
+                    new java.util.LinkedHashSet<>();
+            // First: earliest start -> end
+            winKeys.stream()
+                    .sorted(java.util.Comparator
+                            .comparing(java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>::getKey)
+                            .thenComparing(java.util.AbstractMap.SimpleEntry<java.time.LocalTime,java.time.LocalTime>::getValue))
+                    .forEach(ordered::add);
+            // Last: latest end first
+            winKeys.stream()
+                    .sorted((a,b) -> {
+                        int c = b.getValue().compareTo(a.getValue());
+                        if (c != 0) return c;
+                        return b.getKey().compareTo(a.getKey());
+                    })
+                    .forEach(ordered::add);
+            // Other: middle near 12:00
+            final int pivot = 12 * 60;
+            winKeys.stream()
+                    .sorted((a,b) -> {
+                        int am = a.getKey().getHour()*60 + a.getKey().getMinute();
+                        int aem = a.getValue().getHour()*60 + a.getValue().getMinute();
+                        int amid = (am + aem) / 2;
+                        int bm = b.getKey().getHour()*60 + b.getKey().getMinute();
+                        int bem = b.getValue().getHour()*60 + b.getValue().getMinute();
+                        int bmid = (bm + bem) / 2;
+                        int dc = Integer.compare(Math.abs(amid - pivot), Math.abs(bmid - pivot));
+                        if (dc != 0) return dc;
+                        return Integer.compare(amid, bmid);
+                    })
+                    .forEach(ordered::add);
+            for (var pair : ordered) {
+                java.time.LocalTime s = pair.getKey();
+                java.time.LocalTime tEnd = pair.getValue();
+                // skill windows first (deterministic order by skillId nulls last -> globals後回しにするとスキル不足時にグローバルで埋められる)
+                java.util.Map<Key,Integer> perMap = winCounts.get(pair);
+                if (perMap == null || perMap.isEmpty()) continue;
+                java.util.List<java.util.Map.Entry<Key,Integer>> perSkill = new java.util.ArrayList<>(perMap.entrySet());
+                // skill windows first -> by skill priority (1 high .. 10 low), then by id; globals last
+                perSkill.sort((a, b) -> {
+                    Long as = a.getKey().skillId();
+                    Long bs = b.getKey().skillId();
+                    if (as == null && bs == null) return 0;
+                    if (as == null) return 1; // globals last
+                    if (bs == null) return -1;
+                    com.example.shiftv1.skill.Skill sa = skillMapForDay.get(as);
+                    com.example.shiftv1.skill.Skill sb = skillMapForDay.get(bs);
+                    int pa = (sa!=null && sa.getPriority()!=null) ? sa.getPriority() : 5;
+                    int pb = (sb!=null && sb.getPriority()!=null) ? sb.getPriority() : 5;
+                    if (pa != pb) return Integer.compare(pa, pb); // 1 first
+                    return Long.compare(as, bs);
+                });
+                for (var e2 : perSkill) {
+                    Key k = e2.getKey();
+                    int seats = e2.getValue();
+                    if (seats <= 0) continue;
+                    com.example.shiftv1.skill.Skill skill = (k.skillId()==null? null : skillMapForDay.get(k.skillId()));
+                    java.util.List<Employee> pool = (k.skillId()==null? employees : employeesBySkill.getOrDefault(k.skillId(), java.util.List.of()));
+                    if (pool.isEmpty() && k.skillId()!=null) continue;
+                    // Split window into blocks per phase (First->Last->Other), using 8h primary, then 6/4h if gated
+                    java.util.List<Integer> lens = new java.util.ArrayList<>();
+                    lens.add(8);
+                    for (String tok : (shortLengthsCsv==null?"":shortLengthsCsv).split(",")) {
+                        tok = tok.trim(); if(tok.isEmpty()) continue;
+                        try { int v = Integer.parseInt(tok); if(v>0) lens.add(v); } catch(Exception ignore) {}
+                    }
+                    java.util.List<com.example.shiftv1.skill.SkillPattern> pats = (k.skillId()==null)
+                            ? java.util.List.of() : skillPatternRepository.findBySkill_IdAndActiveTrue(k.skillId());
+
+                    // remaining uncovered intervals within [s, tEnd]
+                    java.util.List<java.time.LocalTime[]> remaining = new java.util.ArrayList<>();
+                    remaining.add(new java.time.LocalTime[]{s, tEnd});
+
+                    // First (left)
+                    java.time.LocalTime lastFirstEnd = null;
+                    for (var blk : buildBlocksLeft(day, s, tEnd, skill, pool, consForDay, pats, lens)) {
+                        if (consumeIfFits(remaining, blk[0], blk[1])) {
+                            results.addAll(assignSeatsForSlot(day, blk[0], blk[1], skill, seats, pool,
+                                    monthlyAssignmentCounts, dailyAssigned, consForDay));
+                            lastFirstEnd = blk[1];
+                        }
+                    }
+                    // Last (right)
+                    for (var blk : buildBlocksRight(day, s, tEnd, skill, pool, consForDay, pats, lens)) {
+                        if (consumeIfFits(remaining, blk[0], blk[1])) {
+                            results.addAll(assignSeatsForSlot(day, blk[0], blk[1], skill, seats, pool,
+                                    monthlyAssignmentCounts, dailyAssigned, consForDay));
+                        }
+                    }
+                    // Other (center) – pivot at end of First if available, else s+8h (or midpoint fallback)
+                    java.time.LocalTime pivotTime = (lastFirstEnd != null) ? lastFirstEnd : s.plusHours(8);
+                    if (pivotTime.isAfter(tEnd) || pivotTime.isBefore(s)) {
+                        int midSec = (s.toSecondOfDay()+tEnd.toSecondOfDay())/2;
+                        pivotTime = java.time.LocalTime.ofSecondOfDay(midSec);
+                    }
+                    for (var blk : buildBlocksCenter(day, s, tEnd, pivotTime, skill, pool, consForDay, pats, lens)) {
+                        if (consumeIfFits(remaining, blk[0], blk[1])) {
+                            results.addAll(assignSeatsForSlot(day, blk[0], blk[1], skill, seats, pool,
+                                    monthlyAssignmentCounts, dailyAssigned, consForDay));
+                        }
+                    }
                 }
             }
         }
@@ -218,6 +372,7 @@ public class ScheduleService {
 
     // Async fire-and-forget starter for UI responsiveness
     @Async("scheduleExecutor")
+    @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")
     public void generateMonthlyFromDemandAsync(int year, int month, int granularityMinutes, boolean resetMonth) {
         try {
             generateMonthlyFromDemand(year, month, granularityMinutes, resetMonth);
@@ -240,8 +395,13 @@ public class ScheduleService {
         Set<Long> preferred = getPreferredEmployeesForShift(day, new ShiftConfig("slot", start, end, seats),
                 Map.of(day, consForDay));
         List<Employee> sorted = new ArrayList<>(employees);
+        final int blockHours = Math.max(1, (int) java.time.Duration.between(start, end).toHours());
         sorted.sort(Comparator
-                .comparing((Employee e) -> !preferred.contains(e.getId()))
+                // short-shift candidates first for compliance/preferences
+                .comparing((Employee e) -> !isShortCandidate(e, blockHours, day))
+                // then those preferred by constraints
+                .thenComparing((Employee e) -> !preferred.contains(e.getId()))
+                // then by fairness accumulated in month
                 .thenComparing(e -> monthlyAssignmentCounts.getOrDefault(e.getId(), 0))
                 .thenComparing(Employee::getId));
         while (created.size() < seats) {
@@ -284,6 +444,223 @@ public class ScheduleService {
     private Map<LocalDate, java.util.List<com.example.shiftv1.demand.DemandInterval>> demandCache = java.util.Map.of();
     // Holidays snapshot for the current generation run
     private java.util.Set<LocalDate> holidaysThisRun = java.util.Set.of();
+
+    // Configurable short-shift behavior (defaults aligned with request)
+    @org.springframework.beans.factory.annotation.Value("${shift.short.enabled:true}")
+    private boolean shortEnabled;
+    // c_or / a_only / b_only
+    @org.springframework.beans.factory.annotation.Value("${shift.short.logic:c_or}")
+    private String shortLogic;
+    // comma separated hours e.g. 6,4
+    @org.springframework.beans.factory.annotation.Value("${shift.short.lengths:6,4}")
+    private String shortLengthsCsv;
+    @org.springframework.beans.factory.annotation.Value("${shift.short.minLength:4}")
+    private int shortMinLengthHours;
+    @org.springframework.beans.factory.annotation.Value("${shift.window.roundingMinutes:60}")
+    private int windowRoundingMinutes;
+
+    // --- Helpers for short-shift gating and block generation ---
+    private boolean isShortCandidate(Employee e, int lengthHours, LocalDate day) {
+        if (lengthHours >= 8) return false; // short only matters for < 8h
+        boolean a = false, b = false;
+        // a) rule-based
+        EmployeeRule rule = ruleByEmployee.get(e.getId());
+        if (rule != null && rule.getDailyMaxHours() != null) {
+            a = rule.getDailyMaxHours() <= lengthHours;
+        }
+        // b) availability-based (max contiguous availability in minutes on that day)
+        int maxAvail = maxAvailableMinutes(e.getId(), day.getDayOfWeek());
+        b = maxAvail > 0 && maxAvail <= lengthHours * 60;
+        String logic = (shortLogic == null ? "c_or" : shortLogic.trim().toLowerCase());
+        return switch (logic) {
+            case "a_only" -> a;
+            case "b_only" -> b;
+            default -> (a || b);
+        };
+    }
+
+    private int maxAvailableMinutes(Long empId, DayOfWeek dow) {
+        List<EmployeeAvailability> list = availabilityByEmployee.getOrDefault(empId, List.of());
+        List<int[]> mins = new ArrayList<>();
+        for (EmployeeAvailability av : list) {
+            if (av.getDayOfWeek() != dow) continue;
+            int s = av.getStartTime().getHour()*60 + av.getStartTime().getMinute();
+            int e = av.getEndTime().getHour()*60 + av.getEndTime().getMinute();
+            mins.add(new int[]{s,e});
+        }
+        if (mins.isEmpty()) return 0;
+        mins.sort(Comparator.comparingInt(a -> a[0]));
+        int max = 0; int curS = mins.get(0)[0]; int curE = mins.get(0)[1];
+        for (int i=1;i<mins.size();i++){
+            int s = mins.get(i)[0], e = mins.get(i)[1];
+            if (s <= curE) { curE = Math.max(curE, e); }
+            else { max = Math.max(max, curE - curS); curS = s; curE = e; }
+        }
+        max = Math.max(max, curE - curS);
+        return max;
+    }
+
+    private boolean patternAllowsLength(List<com.example.shiftv1.skill.SkillPattern> pats,
+                                        Long skillId, DayOfWeek dow,
+                                        java.time.LocalTime bs, java.time.LocalTime be,
+                                        int lengthHours) {
+        if (pats == null || pats.isEmpty() || skillId == null) return false;
+        for (var p : pats) {
+            if (p.getSkill() == null || !Objects.equals(p.getSkill().getId(), skillId)) continue;
+            if (Boolean.FALSE.equals(p.getActive())) continue;
+            if (p.getDayOfWeek() != null && p.getDayOfWeek() != dow) continue;
+            boolean timeOk = true;
+            if (p.getStartTime() != null && p.getEndTime() != null) {
+                timeOk = !bs.isBefore(p.getStartTime()) && !be.isAfter(p.getEndTime());
+            }
+            if (!timeOk) continue;
+            String csv = p.getAllowedLengthsCsv()==null?"":p.getAllowedLengthsCsv();
+            for (String tok : csv.split(",")) {
+                try { if (Integer.parseInt(tok.trim()) == lengthHours) return true; } catch(Exception ignore) {}
+            }
+        }
+        return false;
+    }
+
+    // Returns list of blocks as [start,end] arrays
+    private List<java.time.LocalTime[]> buildBlocksLeft(LocalDate day,
+                                                        java.time.LocalTime s, java.time.LocalTime e,
+                                                        com.example.shiftv1.skill.Skill skill,
+                                                        List<Employee> pool,
+                                                        Map<Long, List<EmployeeConstraint>> consForDay,
+                                                        List<com.example.shiftv1.skill.SkillPattern> pats,
+                                                        List<Integer> lens) {
+        List<java.time.LocalTime[]> out = new ArrayList<>();
+        java.time.LocalTime cur = s;
+        while (cur.plusHours(shortMinLengthHours).isBefore(e) || cur.plusHours(shortMinLengthHours).equals(e)) {
+            boolean placed = false;
+            for (int L : lens) {
+                java.time.LocalTime end = cur.plusHours(L);
+                if (end.isAfter(e)) continue;
+                if (L < 8 && !allowShortBlock(day, cur, end, skill, pool, consForDay, pats, L)) continue;
+                out.add(new java.time.LocalTime[]{cur, end});
+                cur = end; placed = true; break;
+            }
+            if (!placed) break;
+        }
+        return out;
+    }
+
+    private List<java.time.LocalTime[]> buildBlocksRight(LocalDate day,
+                                                         java.time.LocalTime s, java.time.LocalTime e,
+                                                         com.example.shiftv1.skill.Skill skill,
+                                                         List<Employee> pool,
+                                                         Map<Long, List<EmployeeConstraint>> consForDay,
+                                                         List<com.example.shiftv1.skill.SkillPattern> pats,
+                                                         List<Integer> lens) {
+        List<java.time.LocalTime[]> out = new ArrayList<>();
+        java.time.LocalTime curEnd = e;
+        while (s.plusHours(shortMinLengthHours).isBefore(curEnd) || s.plusHours(shortMinLengthHours).equals(curEnd)) {
+            boolean placed = false;
+            for (int L : lens) {
+                java.time.LocalTime start = curEnd.minusHours(L);
+                if (start.isBefore(s)) continue;
+                if (L < 8 && !allowShortBlock(day, start, curEnd, skill, pool, consForDay, pats, L)) continue;
+                out.add(new java.time.LocalTime[]{start, curEnd});
+                curEnd = start; placed = true; break;
+            }
+            if (!placed) break;
+        }
+        return out;
+    }
+
+    private List<java.time.LocalTime[]> buildBlocksCenter(LocalDate day,
+                                                          java.time.LocalTime s, java.time.LocalTime e,
+                                                          java.time.LocalTime pivot,
+                                                          com.example.shiftv1.skill.Skill skill,
+                                                          List<Employee> pool,
+                                                          Map<Long, List<EmployeeConstraint>> consForDay,
+                                                          List<com.example.shiftv1.skill.SkillPattern> pats,
+                                                          List<Integer> lens) {
+        List<java.time.LocalTime[]> out = new ArrayList<>();
+        // left side (ending at pivot)
+        java.time.LocalTime rightCursor = (!pivot.isBefore(s) && !pivot.isAfter(e)) ? pivot : s.plusSeconds((e.toSecondOfDay()-s.toSecondOfDay())/2);
+        java.time.LocalTime leftCursor = rightCursor;
+        // fill leftwards
+        while (!leftCursor.minusHours(shortMinLengthHours).isBefore(s)) {
+            boolean placed = false;
+            for (int L : lens) {
+                java.time.LocalTime start = leftCursor.minusHours(L);
+                if (start.isBefore(s)) continue;
+                if (L < 8 && !allowShortBlock(day, start, leftCursor, skill, pool, consForDay, pats, L)) continue;
+                out.add(new java.time.LocalTime[]{start, leftCursor});
+                leftCursor = start; placed = true; break;
+            }
+            if (!placed) break;
+        }
+        // fill rightwards
+        while (!rightCursor.plusHours(shortMinLengthHours).isAfter(e)) {
+            boolean placed = false;
+            for (int L : lens) {
+                java.time.LocalTime end = rightCursor.plusHours(L);
+                if (end.isAfter(e)) continue;
+                if (L < 8 && !allowShortBlock(day, rightCursor, end, skill, pool, consForDay, pats, L)) continue;
+                out.add(new java.time.LocalTime[]{rightCursor, end});
+                rightCursor = end; placed = true; break;
+            }
+            if (!placed) break;
+        }
+        return out;
+    }
+
+    private boolean allowShortBlock(LocalDate day,
+                                    java.time.LocalTime bs, java.time.LocalTime be,
+                                    com.example.shiftv1.skill.Skill skill,
+                                    List<Employee> pool,
+                                    Map<Long, List<EmployeeConstraint>> consForDay,
+                                    List<com.example.shiftv1.skill.SkillPattern> pats,
+                                    int lengthHours) {
+        // Skill patterns gate
+        boolean patternOk = (skill != null) && patternAllowsLength(pats, skill.getId(), day.getDayOfWeek(), bs, be, lengthHours);
+        boolean shortOk = false;
+        if (shortEnabled) {
+            ShiftConfig tmpCfg = new ShiftConfig("blk", bs, be, 1);
+            if (skill != null) tmpCfg.setRequiredSkill(skill);
+            for (Employee cand : pool) {
+                if (!isShortCandidate(cand, lengthHours, day)) continue;
+                if (isEmployeeAvailable(cand, day, tmpCfg, Map.of(day, consForDay))) { shortOk = true; break; }
+            }
+        }
+        return patternOk || shortOk;
+    }
+
+    // interval coverage helpers (operate on LocalTime[] {start,end} list assumed non-overlapping, sorted)
+    private boolean consumeIfFits(List<java.time.LocalTime[]> remaining,
+                                  java.time.LocalTime a, java.time.LocalTime b) {
+        int idx = findCoveringIntervalIndex(remaining, a, b);
+        if (idx < 0) return false;
+        subtractInterval(remaining, idx, a, b);
+        return true;
+    }
+
+    private int findCoveringIntervalIndex(List<java.time.LocalTime[]> rem,
+                                          java.time.LocalTime a, java.time.LocalTime b) {
+        for (int i=0;i<rem.size();i++){
+            var it = rem.get(i);
+            if ((a.equals(it[0]) || a.isAfter(it[0])) && (b.equals(it[1]) || b.isBefore(it[1]))) return i;
+        }
+        return -1;
+    }
+
+    private void subtractInterval(List<java.time.LocalTime[]> rem, int idx,
+                                  java.time.LocalTime a, java.time.LocalTime b) {
+        var it = rem.remove(idx);
+        // left remainder
+        if (a.isAfter(it[0])) {
+            rem.add(idx++, new java.time.LocalTime[]{it[0], a});
+        }
+        // right remainder
+        if (b.isBefore(it[1])) {
+            rem.add(idx, new java.time.LocalTime[]{b, it[1]});
+        }
+        // keep sorted by start
+        rem.sort(java.util.Comparator.comparing(t -> t[0]));
+    }
 
     @Transactional
     @CacheEvict(value = "monthly-schedules", key = "#year + '-' + #month")

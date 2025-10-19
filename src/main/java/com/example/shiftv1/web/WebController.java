@@ -50,4 +50,13 @@ public class WebController {
 
     @GetMapping("/skills")
     public String skills() { return "skills"; }
+
+    @GetMapping("/skill-management")
+    public String skillManagement() { return "skill-management"; }
+
+    @GetMapping("/employee-master")
+    public String employeeMaster() { return "employee-master"; }
+
+    @GetMapping("/skill-patterns")
+    public String skillPatterns() { return "skill-patterns"; }
 }

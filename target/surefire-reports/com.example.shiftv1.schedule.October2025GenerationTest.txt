@@ -1,4 +1,0 @@
--------------------------------------------------------------------------------
-Test set: com.example.shiftv1.schedule.October2025GenerationTest
--------------------------------------------------------------------------------
-Tests run: 1, Failures: 0, Errors: 0, Skipped: 0, Time elapsed: 16.07 s -- in com.example.shiftv1.schedule.October2025GenerationTest

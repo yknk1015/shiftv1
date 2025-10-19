@@ -52,7 +52,10 @@ public class SkillController {
         if (skillRepository.existsByCodeIgnoreCase(code)) {
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.failure("同じコードのスキルは既に存在します"));
         }
-        Skill saved = skillRepository.save(new Skill(code, name, req.description()));
+        Skill s = new Skill(code, name, req.description());
+        Integer pr = normalizePriority(req.priority());
+        if (pr != null) s.setPriority(pr);
+        Skill saved = skillRepository.save(s);
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("スキルを作成しました", saved));
     }
 
@@ -69,6 +72,8 @@ public class SkillController {
         skill.setCode(code);
         skill.setName(name);
         skill.setDescription(req.description());
+        Integer pr = normalizePriority(req.priority());
+        if (pr != null) skill.setPriority(pr);
         return ResponseEntity.ok(ApiResponse.success("スキルを更新しました", skillRepository.save(skill)));
     }
 
@@ -80,15 +85,21 @@ public class SkillController {
         long refEmployees = employeeRepository.countBySkills_Id(id);
         long refDemands = demandRepository.countBySkill_Id(id);
         if (refEmployees > 0 || refDemands > 0) {
-            String msg = String.format("このスキルは参照されています（従業員: %d, 需要: %d）。削除できません", refEmployees, refDemands);
+            String msg = String.format("このスキルは参照されています（従業員: %d, 需要: %d）ため削除できません", refEmployees, refDemands);
             return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.failure(msg));
         }
         skillRepository.deleteById(id);
         return ResponseEntity.ok(ApiResponse.success("スキルを削除しました", null));
     }
 
-    public record SkillRequest(String code, String name, String description) {}
+    public record SkillRequest(String code, String name, String description, Integer priority) {}
 
     private String normalizeCode(String code) { return code == null ? null : code.trim().toUpperCase(); }
     private String normalizeName(String name) { return name == null ? null : name.trim(); }
+    private Integer normalizePriority(Integer p) {
+        if (p == null) return null;
+        int v = Math.max(1, Math.min(10, p));
+        return v;
+    }
 }
+

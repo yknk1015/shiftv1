@@ -23,6 +23,10 @@ public class Skill {
     @Column(length = 200)
     private String description;
 
+    // 1 (highest) .. 10 (lowest)
+    @Column(name = "priority")
+    private Integer priority = 5;
+
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
@@ -55,7 +59,8 @@ public class Skill {
     public void setName(String name) { this.name = name; }
     public String getDescription() { return description; }
     public void setDescription(String description) { this.description = description; }
+    public Integer getPriority() { return priority; }
+    public void setPriority(Integer priority) { this.priority = priority; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 }
-

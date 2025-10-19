@@ -888,7 +888,23 @@
                     shortageBox.textContent = `割当不足の詳細: ${lines.join(' / ')}`;
                     shortageBox.style.display = 'block';
                 }
-                await loadSchedule();
+                // Poll a few times because generation runs asynchronously
+                let attempts = 0; let updated = false;
+                while (attempts < 6) {
+                    attempts++;
+                    try {
+                        const res = await callApi(`/api/schedule?year=${year}&month=${month}`);
+                        const assignments = res.data || [];
+                        const has = renderSchedule(assignments);
+                        updateScheduleSummary(res.meta || {}, assignments);
+                        scheduleEmpty.style.display = has ? 'none' : 'block';
+                        if (has) { updated = true; break; }
+                    } catch (_) { }
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+                if (!updated) {
+                    await loadSchedule();
+                }
                 await loadStatistics();
                 await loadDataStats();
             } catch (error) {
