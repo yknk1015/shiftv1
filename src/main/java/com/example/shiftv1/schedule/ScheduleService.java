@@ -150,12 +150,24 @@ public class ScheduleService {
                                 com.example.shiftv1.skill.Skill::getId,
                                 java.util.function.Function.identity()
                         ));
+            // Preload skill patterns for skills used in the day (avoid per-window lookups)
+            java.util.Map<Long, java.util.List<com.example.shiftv1.skill.SkillPattern>> patternsBySkill;
+            if (skillIdsForDay.isEmpty()) {
+                patternsBySkill = java.util.Map.of();
+            } else {
+                java.util.List<com.example.shiftv1.skill.SkillPattern> activePats =
+                        com.example.shiftv1.schedule.ScheduleService.this.skillPatternRepository.findByActiveTrue();
+                patternsBySkill = activePats.stream()
+                        .filter(p -> p.getSkill() != null && p.getSkill().getId() != null && skillIdsForDay.contains(p.getSkill().getId()))
+                        .collect(java.util.stream.Collectors.groupingBy(p -> p.getSkill().getId()));
+            }
 
             // Pre-aggregate seat requirements per slot to avoid per-slot filtering
             final int G = Math.max(1, granularityMinutes);
             final int slots = (int)Math.ceil(24 * 60.0 / G);
-            int[] globalWeekly = new int[slots];
-            int[] globalDate = new int[slots];
+            // Global (skill=null) demand is deprecated and ignored
+            int[] globalWeekly = new int[0];
+            int[] globalDate = new int[0];
             java.util.Map<Long,int[]> skillWeekly = new java.util.HashMap<>();
             java.util.Map<Long,int[]> skillDate = new java.util.HashMap<>();
 
@@ -166,10 +178,7 @@ public class ScheduleService {
                 int sIdx = Math.max(0, (int)Math.floor(sMin / (double)G));
                 int eIdx = Math.min(slots, (int)Math.ceil(eMin / (double)G));
                 boolean dateSpecific = di.getDate() != null;
-                if (di.getSkill() == null) {
-                    int[] arr = dateSpecific ? globalDate : globalWeekly;
-                    for (int i=sIdx;i<eIdx;i++) arr[i] += Math.max(0, di.getRequiredSeats());
-                } else {
+                if (di.getSkill() != null) {
                     Long sid = di.getSkill().getId();
                     if (sid == null) continue;
                     java.util.Map<Long,int[]> targetMap = dateSpecific ? skillDate : skillWeekly;
@@ -181,15 +190,7 @@ public class ScheduleService {
             // Build continuous seat tracks per skill (including global null skill)
             record Key(Long skillId) {}
             java.util.Set<Long> skillsForTracks = new java.util.HashSet<>(skillIdsForDay);
-            // include null for global if any demand
-            boolean hasGlobal = java.util.Arrays.stream(globalWeekly).anyMatch(v -> v > 0)
-                    || java.util.Arrays.stream(globalDate).anyMatch(v -> v > 0);
             java.util.Map<Key,int[]> combined = new java.util.HashMap<>();
-            if (hasGlobal) {
-                int[] arr = new int[slots];
-                for (int i=0;i<slots;i++) arr[i] = (globalDate[i] > 0 ? globalDate[i] : globalWeekly[i]);
-                combined.put(new Key(null), arr);
-            }
             for (Long sid : skillsForTracks) {
                 int[] dArr = skillDate.get(sid);
                 int[] wArr = skillWeekly.get(sid);
@@ -328,8 +329,8 @@ public class ScheduleService {
                         tok = tok.trim(); if(tok.isEmpty()) continue;
                         try { int v = Integer.parseInt(tok); if(v>0) lens.add(v); } catch(Exception ignore) {}
                     }
-                    java.util.List<com.example.shiftv1.skill.SkillPattern> pats = (k.skillId()==null)
-                            ? java.util.List.of() : skillPatternRepository.findBySkill_IdAndActiveTrue(k.skillId());
+                    // Preloaded patterns per skill (loaded earlier for the day)
+                    java.util.List<com.example.shiftv1.skill.SkillPattern> pats = patternsBySkill.getOrDefault(k.skillId(), java.util.List.of());
 
                     // remaining uncovered intervals within [s, tEnd]
                     java.util.List<java.time.LocalTime[]> remaining = new java.util.ArrayList<>();
@@ -785,14 +786,6 @@ public class ScheduleService {
             java.time.LocalTime s = java.time.LocalTime.of(h, 0);
             java.time.LocalTime e = java.time.LocalTime.of(Math.min(h+1, 23), (h+1>23?59:0));
             java.util.List<DemandInterval> allIntervals = demandRepository.findEffectiveForDate(day, day.getDayOfWeek());
-            java.util.List<DemandInterval> globalIntervals = allIntervals.stream()
-                    .filter(di -> di.getActive() == null || di.getActive())
-                    .filter(di -> di.getSkill() == null)
-                    .filter(di -> di.getStartTime().isBefore(e) && di.getEndTime().isAfter(s))
-                    .toList();
-            boolean hasDateSpecificGlobal = globalIntervals.stream().anyMatch(di -> di.getDate() != null);
-            int global = (hasDateSpecificGlobal ? globalIntervals.stream().filter(di -> di.getDate() != null) : globalIntervals.stream())
-                    .mapToInt(DemandInterval::getRequiredSeats).sum();
             int skillReq = 0;
             com.example.shiftv1.skill.Skill reqSkill = null;
             if (requiredSkillId != null) {
@@ -806,9 +799,7 @@ public class ScheduleService {
                 skillReq = (hasDateSpecificSkill ? skillIntervals.stream().filter(di -> di.getDate() != null) : skillIntervals.stream())
                         .mapToInt(DemandInterval::getRequiredSeats).sum();
             }
-            int required = (requiredSkillId != null)
-                    ? (skillReq > 0 ? skillReq : global)
-                    : global;
+            int required = (requiredSkillId != null) ? skillReq : 0; // global demand abolished
             if (required <= 0) continue;
             // Ephemeral config
             ShiftConfig cfg = new ShiftConfig("H%02d".formatted(h), s, e, required);

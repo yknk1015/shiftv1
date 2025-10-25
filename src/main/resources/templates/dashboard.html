@@ -626,10 +626,7 @@
                         <div class="stat-value" id="stat-unique-employees">0</div>
                     </div>
                 </div>
-                <div class="stat-subsection">
-                    <h3>シフトタイプ別件数</h3>
-                    <ul id="shift-type-list" class="pill-list"></ul>
-                </div>
+                
                 <div class="stat-subsection">
                     <h3>勤務数トップ</h3>
                     <ol id="workload-list" class="ranking-list"></ol>
@@ -744,36 +741,7 @@
                   </div>
             </section>
 
-            <section class="card" id="data-card">
-                <div class="section-header compact">
-                    <h2>データ</h2>
-                    <button class="button ghost" id="refresh-data-stats">統計更新</button>
-                </div>
-                <div id="data-message" class="message"></div>
-                <div class="stat-grid small">
-                    <div>
-                        <div class="stat-label">従業員</div>
-                        <div class="stat-value" id="data-total-employees">0</div>
-                    </div>
-                    <div>
-                        <div class="stat-label">シフト割当</div>
-                        <div class="stat-value" id="data-total-assignments">0</div>
-                    </div>
-                    <div>
-                        <div class="stat-label">最終更新</div>
-                        <div class="stat-value" id="data-last-updated">-</div>
-                    </div>
-                </div>
-                <div class="stat-subsection">
-                    <h3>月別シフト数</h3>
-                    <ul id="data-monthly-stats" class="pill-list"></ul>
-                </div>
-                <div class="button-row">
-                    <button class="button secondary" id="export-employees">従業員CSV</button>
-                    <button class="button secondary" id="export-schedule">シフトCSV</button>
-                    <button class="button secondary" id="create-backup">バックアップ作成</button>
-                </div>
-            </section>
+            
         </div>
     </div>
     <script>
@@ -1596,9 +1564,13 @@
             return simpleMatch ? simpleMatch[1] : null;
         }
     </script>
-    <!-- Permanent quick access button to Management Actions -->
-    <a href="/admin-actions" style="position:fixed; right:16px; bottom:16px; z-index:9999; text-decoration:none;">
+    
+    </div>
       <span style="display:inline-block; background:#2563eb; color:#fff; padding:12px 16px; border-radius:999px; box-shadow:0 8px 16px rgba(0,0,0,0.15); font-weight:600;">管理アクション</span>
+    </a>
+    <!-- Quick link: Management Actions (fallback) -->
+    <a href="/admin-actions" style="position:fixed; right:16px; top:16px; z-index:9999; text-decoration:none;">
+      <span style="display:inline-block; background:#2563eb; color:#fff; padding:8px 12px; border-radius:999px; box-shadow:0 6px 12px rgba(0,0,0,0.12); font-weight:600;">管理アクション</span>
     </a>
 </body>
 </html>
@@ -1629,6 +1601,7 @@ function deleteShiftConfig(config) {
                     <h3>従業員の勤務/休日日数</h3>
                     <div id="employee-days" class="table-wrapper"></div>
                 </div>
+
 
 
 

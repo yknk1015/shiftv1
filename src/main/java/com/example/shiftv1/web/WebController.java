@@ -26,6 +26,11 @@ public class WebController {
         return "demand";
     }
 
+    @GetMapping("/demand-analytics")
+    public String demandAnalytics() {
+        return "demand-analytics";
+    }
+
     @GetMapping("/breaks")
     public String breaks() {
         return "breaks";
