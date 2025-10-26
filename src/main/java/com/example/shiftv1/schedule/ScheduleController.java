@@ -2,6 +2,7 @@ package com.example.shiftv1.schedule;
 
 import com.example.shiftv1.common.ApiResponse;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -123,7 +124,75 @@ public class ScheduleController {
         }
     }
 
-    @PostMapping("/generate-from-demand")
+    // Synchronous demand-based generation (for debugging/proof)
+    @PreAuthorize("hasRole('ADMIN')")
+    @RequestMapping(value = "/generate-from-demand-sync", method = {RequestMethod.POST, RequestMethod.GET})
+    public ResponseEntity<ApiResponse<Map<String,Object>>> generateFromDemandSync(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "granularity", defaultValue = "60") int granularity,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            List<ShiftAssignment> res = scheduleService.generateMonthlyFromDemand(target.getYear(), target.getMonthValue(), granularity, reset);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("year", target.getYear());
+            meta.put("month", target.getMonthValue());
+            meta.put("generated", res == null ? 0 : res.size());
+            return ResponseEntity.ok(ApiResponse.success("デマンドベース同期生成が完了しました", meta));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("デマンド同期生成に失敗しました: " + e.getMessage()));
+        }
+    }
+
+    // One-day generation (debugging aid)
+    @PreAuthorize("hasRole('ADMIN')")
+    @RequestMapping(value = "/generate-from-demand-sync-day", method = {RequestMethod.POST, RequestMethod.GET})
+    public ResponseEntity<ApiResponse<Map<String,Object>>> generateFromDemandSyncDay(
+            @RequestParam(name = "date") LocalDate date,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        try {
+            List<ShiftAssignment> res = scheduleService.generateForDateFromDemand(date, reset);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("date", date.toString());
+            meta.put("generated", res == null ? 0 : res.size());
+            return ResponseEntity.ok(ApiResponse.success("一日分の同期生成が完了しました", meta));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("一日分の同期生成に失敗しました: " + e.getMessage()));
+        }
+    }
+
+    // --- Formalized endpoints (stable) ---
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/generate/demand")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> generateDemandStable(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "granularity", defaultValue = "60") int granularity,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        return generateFromDemandSync(year, month, granularity, reset);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/generate/demand/day")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> generateDemandDayStable(
+            @RequestParam(name = "date") LocalDate date,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        return generateFromDemandSyncDay(date, reset);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @PostMapping("/generate/demand/async")
+    public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateDemandAsyncStable(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month,
+            @RequestParam(name = "granularity", defaultValue = "60") int granularity,
+            @RequestParam(name = "reset", defaultValue = "true") boolean reset) {
+        return generateFromDemandAsync(year, month, granularity, reset);
+    }
+
+    @PreAuthorize("hasRole('ADMIN')")
+    @RequestMapping(value = "/generate-from-demand", method = {RequestMethod.POST, RequestMethod.GET})
     public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateFromDemand(
             @RequestParam(name = "year", required = false) Integer year,
             @RequestParam(name = "month", required = false) Integer month,
@@ -147,7 +216,8 @@ public class ScheduleController {
     }
 
     // 非同期版: 即時に受付し、バックグラウンドで生成を開始
-    @PostMapping("/generate-from-demand-async")
+    @PreAuthorize("hasRole('ADMIN')")
+    @RequestMapping(value = "/generate-from-demand-async", method = {RequestMethod.POST, RequestMethod.GET})
     public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateFromDemandAsync(
             @RequestParam(name = "year", required = false) Integer year,
             @RequestParam(name = "month", required = false) Integer month,

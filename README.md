@@ -1,136 +1,66 @@
-# シフト管理システム
+# Shift Scheduler Demo
 
-Java 17 / Spring Boot / SQLite を利用した本格的なシフト管理システムです。従業員のシフトを自動生成・管理し、直感的なWeb UIで操作できます。
+Java 17 / Spring Boot / SQLite を利用したシフト管理デモ。デマンド（需要）ブロックからシフトを自動生成し、制約・スキルを考慮します。
 
-## 🚀 主な機能
+## 概要 / Overview
 
-### 🔐 セキュリティ機能
-- **ユーザー認証**: ログイン・ログアウト機能
-- **権限管理**: 管理者・一般ユーザーの役割分離
-- **セキュアなAPI**: Spring Securityによる保護
+本アプリは「需要（デマンド）ベース」でブロック単位のシフトを自動生成します。
 
-### 📅 シフト管理
-- **自動シフト生成**: 公平なラウンドロビン方式
-- **カレンダー表示**: 視覚的なシフト確認
-- **柔軟な設定**: シフト時間・従業員数のカスタマイズ
-- **統計機能**: 月次統計・従業員別勤務量
+- 需要（デマンド）は時間帯ブロック（開始/終了/必要席数/スキル）で表現
+- 従業員はスキル・日別の制約（UNAVAILABLE/LIMITED）を持ち、適合する時間帯のみ割当
+- オプションで短時間ペアリング（午前・午後の組合せ→フルブロック）を実施
+- 管理者は同期/非同期の生成APIを利用可能
 
-### 👥 従業員管理
-- **CRUD操作**: 従業員の追加・編集・削除
-- **役職管理**: 役職別のシフト割り当て
+## 生成ポリシー / Generation Policy
 
-### 📊 データ管理
-- **データエクスポート**: CSV形式での出力
-- **バックアップ機能**: データベースの完全バックアップ
-- **統計情報**: 詳細なデータ分析
+- デマンド行ごとに requiredSeats を満たす人数を割当（重複・時間重なりを回避）
+- スキルが指定されているデマンドは、同スキル保有者のみ対象
+- 制約（UNAVAILABLE: 終日不可 / LIMITED: 指定時間内のみ可）を尊重
+- 短時間ペアリングが有効な場合、朝(例:09:00-13:00)と午後(13:00-18:00)を1名に結合してフル(09:00-18:00)として割当を優先
 
-## 🛠 技術スタック
-- **Java 17**
-- **Spring Boot 3.2.5**
-- **Spring Security**
-- **Spring Data JPA**
-- **SQLite**
-- **Thymeleaf**
-- **Maven**
+## 正式API / Stable APIs
 
-## 📋 必要環境
-- Java 17
-- Maven 3.9 以降
+管理者権限（ROLE_ADMIN）が必要です。
 
-## 🚀 クイックスタート
+- POST `/api/schedule/generate/demand` ・・・ 月単位の同期生成（パラメータ: `year, month, granularity=60, reset=true`）
+- POST `/api/schedule/generate/demand/day` ・・・ 1日の同期生成（`date`, `reset=true`）
+- POST `/api/schedule/generate/demand/async` ・・・ 月単位の非同期生成（`year, month, granularity=60, reset=true`）
 
-### 1. アプリケーションの起動
-```bash
+補助API:
+
+- GET `/api/schedule/stats/monthly?year=YYYY&month=M` ・・・ 月次統計
+- GET `/api/admin/error-logs` ・・・ 直近のエラーログ（生成失敗や未割当日の記録）
+
+既存の旧パス（`/generate-from-demand*`）は当面の互換のため残していますが、正式APIの利用を推奨します。
+
+## 管理画面（デバッグ）
+
+- `/admin-debug` ・・・ 生成APIの実行と結果を画面で確認できます（管理者向け）
+
+## 起動 / Getting Started
+
+```
 mvn spring-boot:run
 ```
 
-### 2. アクセス
-起動後、以下のURLでアクセスできます：
-- **ダッシュボード**: http://localhost:8080/dashboard
-- **カレンダー**: http://localhost:8080/calendar
-- **ログイン**: http://localhost:8080/login
+既定のユーザー（デモ）:
 
-### 3. デフォルトアカウント
-- **管理者**: `admin` / `admin123`
-- **一般ユーザー**: `user` / `user123`
+- 管理: `admin` / `admin123`
+- 一般: `user` / `user123`
 
-## 📖 使用方法
+主要画面:
 
-### 基本的な操作フロー
-1. **ログイン**: デフォルトアカウントでログイン
-2. **従業員初期化**: ダッシュボードで従業員データを作成
-3. **シフト生成**: カレンダーまたはダッシュボードでシフトを生成
-4. **確認**: カレンダーでシフトを視覚的に確認
+- Dashboard: http://localhost:8080/dashboard
+- Calendar: http://localhost:8080/calendar
+- Login: http://localhost:8080/login
 
-### カレンダー機能
-- **月間表示**: 月単位でのシフト確認
-- **色分け**: シフトタイプ別の色分け表示
-  - 🟢 朝シフト (9:00-15:00)
-  - 🟡 夜シフト (15:00-21:00)
-  - 🔴 土日シフト (9:00-18:00)
-- **ナビゲーション**: 前月・次月への移動
+## 技術スタック
 
-## 🔌 API エンドポイント
+- Java 17, Spring Boot 3, Spring Security, Spring Data JPA
+- SQLite, Thymeleaf, Maven
 
-### 認証
-- `POST /api/auth/login` - ログイン
-- `POST /api/auth/logout` - ログアウト
-- `POST /api/auth/register` - ユーザー登録
-- `GET /api/auth/me` - 現在のユーザー情報
+## その他
 
-### シフト管理
-- `POST /api/schedule/generate` - シフト生成
-- `GET /api/schedule` - シフト取得
-- `GET /api/schedule/stats/monthly` - 月次統計
-- `GET /api/schedule/stats/employee-workload` - 従業員別勤務量
-
-### 従業員管理
-- `GET /api/employees` - 全従業員取得
-- `POST /api/employees` - 従業員作成
-- `PUT /api/employees/{id}` - 従業員更新
-- `DELETE /api/employees/{id}` - 従業員削除
-
-### 設定管理
-- `GET /api/config/shift` - シフト設定一覧
-- `POST /api/config/shift` - シフト設定作成
-- `PUT /api/config/shift/{id}` - シフト設定更新
-
-### データ管理
-- `GET /api/data/export/employees/csv` - 従業員データエクスポート
-- `GET /api/data/export/schedule/csv` - シフトデータエクスポート
-- `POST /api/data/backup/export` - データベースバックアップ
-
-### 管理機能
-- `GET /api/admin/status` - システム状態確認
-- `POST /api/admin/initialize-employees` - 従業員初期化
-- `DELETE /api/admin/reset-employees` - 従業員リセット
-
-## 💾 データベース
-`shift-demo.db` という SQLite ファイルがプロジェクト直下に作成されます。
-
-## 🔧 カスタマイズ
-
-### シフト設定の変更
-1. ダッシュボードの「設定管理」セクションを使用
-2. または `/api/config/shift` API を直接呼び出し
-
-### デフォルト設定
-- **朝シフト**: 9:00-15:00 (4名)
-- **夜シフト**: 15:00-21:00 (4名)
-- **土日シフト**: 9:00-18:00 (5名)
-
-## 🛡️ セキュリティ
-- 管理者のみアクセス可能な機能
-- セッション管理
-- CSRF保護
-- 入力値検証
-
-## 📈 今後の拡張予定
-- 祝日データの対応
-- 従業員の希望シフト入力機能
-- シフト変更申請・承認機能
-- メール通知機能
-- モバイルアプリ対応
-
-## 🤝 サポート
-質問や問題がある場合は、GitHubのIssuesでお知らせください。
+- 月次取得は空結果をキャッシュしません（生成直後の反映を確実にするため）
+- 非同期生成はトランザクション境界を確保（@Transactional）
+- 需要のある日に未割当ならエラーバッファに記録、DEBUGログで日別の席数・生成件数を出力

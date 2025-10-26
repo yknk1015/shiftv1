@@ -72,4 +72,7 @@ public class WebController {
 
     @GetMapping("/pairing-settings")
     public String pairingSettings() { return "pairing-settings"; }
+
+    @GetMapping("/admin-debug")
+    public String adminDebug() { return "admin-debug"; }
 }

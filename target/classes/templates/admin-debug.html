@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理者デバッグ</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+    input, button, select { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    pre { background:#0b1020; color:#e5e7eb; padding:12px; border-radius:8px; overflow:auto; max-height:300px; }
+    a { color:#2563eb; text-decoration:none; }
+  </style>
+  <script>
+    async function call(path, method='GET', params={}){
+      const url = new URL(path, window.location.origin);
+      Object.entries(params).forEach(([k,v]) => { if(v!==undefined && v!==null && v!=='') url.searchParams.set(k, v); });
+      const res = await fetch(url, { method, credentials:'include' });
+      const ct = res.headers.get('content-type')||''; const data = ct.includes('json')? await res.json(): await res.text();
+      if(!res.ok || (data && data.success===false)) throw new Error((data && data.message) || ('HTTP '+res.status));
+      return data;
+    }
+    async function genSync(){
+      setMsg('sync','実行中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const g = document.getElementById('gran').value; const r = document.getElementById('reset').checked;
+        const data = await call('/api/schedule/generate/demand', 'POST', { year:y, month:m, granularity:g, reset:r });
+        setMsg('sync', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('sync', 'ERROR: '+e.message); }
+    }
+    async function genDay(){
+      setMsg('day','実行中...');
+      try{
+        const d = document.getElementById('date').value; const r = document.getElementById('resetDay').checked;
+        const data = await call('/api/schedule/generate/demand/day', 'POST', { date:d, reset:r });
+        setMsg('day', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('day', 'ERROR: '+e.message); }
+    }
+    async function genAsync(){
+      setMsg('async','実行中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const g = document.getElementById('gran').value; const r = document.getElementById('reset').checked;
+        const data = await call('/api/schedule/generate/demand/async', 'POST', { year:y, month:m, granularity:g, reset:r });
+        setMsg('async', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('async', 'ERROR: '+e.message); }
+    }
+    async function stats(){
+      setMsg('stats','取得中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const data = await call('/api/schedule/stats/monthly', 'GET', { year:y, month:m });
+        setMsg('stats', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('stats', 'ERROR: '+e.message); }
+    }
+    async function errors(){
+      setMsg('logs','取得中...');
+      try{
+        const data = await call('/api/admin/error-logs', 'GET', {});
+        setMsg('logs', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('logs', 'ERROR: '+e.message); }
+    }
+    function setMsg(id, text){ document.getElementById('out_'+id).textContent=text; }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h2>管理者デバッグ</h2>
+
+    <div class="card">
+      <div class="row">
+        <label>年 <input type="number" id="year" min="2020" max="2100" value="2025" /></label>
+        <label>月 <input type="number" id="month" min="1" max="12" value="10" /></label>
+        <label>粒度(min) <input type="number" id="gran" min="5" max="240" value="60" /></label>
+        <label><input type="checkbox" id="reset" checked /> リセットして生成</label>
+      </div>
+      <div class="row">
+        <button onclick="genSync()">月同期生成 /api/schedule/generate/demand</button>
+        <button onclick="genAsync()">月非同期生成 /api/schedule/generate/demand/async</button>
+        <button onclick="stats()">月次統計 /api/schedule/stats/monthly</button>
+      </div>
+      <pre id="out_sync"></pre>
+      <pre id="out_async"></pre>
+      <pre id="out_stats"></pre>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label>日付 <input type="date" id="date" value="2025-10-01" /></label>
+        <label><input type="checkbox" id="resetDay" checked /> 当日をリセット</label>
+      </div>
+      <div class="row">
+        <button onclick="genDay()">1日同期生成 /api/schedule/generate/demand/day</button>
+        <button onclick="errors()">エラーログ /api/admin/error-logs</button>
+        <a href="/dashboard">ダッシュボード</a>
+      </div>
+      <pre id="out_day"></pre>
+      <pre id="out_logs"></pre>
+    </div>
+  </div>
+</body>
+</html>
+
