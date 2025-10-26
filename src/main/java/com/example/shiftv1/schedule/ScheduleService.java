@@ -220,9 +220,8 @@ public class ScheduleService {
                                     employees, day, mornS, aftE, entry.getKey(),
                                     BlockType.FULL, dayEmpWindows.computeIfAbsent(day, d -> new HashMap<>()));
                             if (emp == null) break;
-                            created.add(new ShiftAssignment(day,
-                                    buildDemandShiftName(entry.getKey()),
-                                    mornS, aftE, emp));
+                            String shiftName = buildDemandShiftName(entry.getKey(), mornS, aftE);
+                            created.add(new ShiftAssignment(day, shiftName, mornS, aftE, emp));
                             morning.seats -= 1; afternoon.seats -= 1;
                             dayEmpWindows.get(day).computeIfAbsent(emp.getId(), x -> new ArrayList<>()).add(new LocalTime[]{mornS, aftE});
                         }
@@ -234,8 +233,7 @@ public class ScheduleService {
                     LocalTime s = w.d.getStartTime();
                     LocalTime e = w.d.getEndTime();
                     Long skillId = (w.d.getSkill() == null ? null : w.d.getSkill().getId());
-                    String skillCode = (w.d.getSkill() == null ? null : w.d.getSkill().getCode());
-                    final String shiftName = (skillCode == null || skillCode.isBlank()) ? "Demand" : ("Demand-" + skillCode);
+                    final String shiftName = buildDemandShiftName(skillId, s, e);
                     BlockType bt = BlockType.GENERIC;
                     if (mornS != null && mornE != null && s.equals(mornS) && e.equals(mornE)) bt = BlockType.MORNING;
                     else if (aftS != null && aftE != null && s.equals(aftS) && e.equals(aftE)) bt = BlockType.AFTERNOON;
@@ -266,8 +264,7 @@ public class ScheduleService {
                 int seats = di.getRequiredSeats() == null ? 0 : di.getRequiredSeats();
                 if (s == null || e == null || !s.isBefore(e) || seats <= 0) continue;
                 Long skillId = (di.getSkill() == null ? null : di.getSkill().getId());
-                String skillCode = (di.getSkill() == null ? null : di.getSkill().getCode());
-                final String shiftName = (skillCode == null || skillCode.isBlank()) ? "Demand" : ("Demand-" + skillCode);
+                final String shiftName = buildDemandShiftName(skillId, s, e);
 
                 for (int k = 0; k < seats; k++) {
                     BlockType bt = BlockType.GENERIC;
@@ -371,19 +368,7 @@ public class ScheduleService {
         assignmentRepository.deleteByWorkDateBetween(s, e);
     }
 
-    public GenerationReport generateMonthlyScheduleWithReport(int year, int month) {
-        List<ShiftAssignment> list = generateMonthlySchedule(year, month);
-        return new GenerationReport(list, List.of());
-    }
-
-    public List<ShiftAssignment> generateHourlyForDay(LocalDate date, int startHour, int endHour, Long skillId) {
-        logger.info("generateHourlyForDay({}, {}, {}) - stub", date, startHour, endHour);
-        return assignmentRepository.findByWorkDate(date);
-    }
-
-    public DiagnosticReport diagnoseDay(LocalDate date) {
-        return new DiagnosticReport(date, new HashMap<>());
-    }
+    // report/diagnostics removed
 
     public Map<String, Object> addCoreTime(LocalDate day, Long skillId, String skillCode, java.time.LocalTime windowStart, java.time.LocalTime windowEnd, int seats) {
         Map<String, Object> result = new HashMap<>();
@@ -467,34 +452,7 @@ public class ScheduleService {
         return result;
     }
 
-    public static class GenerationReport {
-        public final List<ShiftAssignment> assignments;
-        public final List<Shortage> shortages;
-        public GenerationReport(List<ShiftAssignment> assignments, List<Shortage> shortages) {
-            this.assignments = assignments;
-            this.shortages = shortages;
-        }
-    }
-    public static class Shortage {
-        public final LocalDate workDate;
-        public final String shiftName;
-        public final int required;
-        public final int assigned;
-        public Shortage(LocalDate workDate, String shiftName, int required, int assigned) {
-            this.workDate = workDate;
-            this.shiftName = shiftName;
-            this.required = required;
-            this.assigned = assigned;
-        }
-    }
-    public static class DiagnosticReport {
-        public final LocalDate date;
-        public final Map<String, Object> metrics;
-        public DiagnosticReport(LocalDate date, Map<String, Object> metrics) {
-            this.date = date;
-            this.metrics = metrics;
-        }
-    }
+    // report/diagnostics removed
     
     // ---- Private helpers ----
     private List<com.example.shiftv1.config.ShiftConfig> resolveConfigsForDay(
@@ -567,13 +525,21 @@ public class ScheduleService {
 
     private enum BlockType { FULL, MORNING, AFTERNOON, GENERIC }
 
-    private String buildDemandShiftName(Long skillId) {
-        if (skillId == null) return "Demand";
-        try {
-            var s = skillRepository.findById(skillId).orElse(null);
-            if (s == null || s.getCode() == null || s.getCode().isBlank()) return "Demand";
-            return "Demand-" + s.getCode();
-        } catch (Exception ex) { return "Demand"; }
+    private String buildDemandShiftName(Long skillId, LocalTime start, LocalTime end) {
+        String label = "Demand";
+        if (skillId != null) {
+            try {
+                var sk = skillRepository.findById(skillId).orElse(null);
+                if (sk != null && sk.getCode() != null && !sk.getCode().isBlank()) {
+                    label = "Demand-" + sk.getCode();
+                }
+            } catch (Exception ignored) {}
+        }
+        String s = start == null ? "" : start.toString();
+        String e = end == null ? "" : end.toString();
+        if (s.length() >= 5) s = s.substring(0,5);
+        if (e.length() >= 5) e = e.substring(0,5);
+        return String.format("%s %s-%s", label, s, e).trim();
     }
 
     private com.example.shiftv1.employee.Employee pickEmployeeForWindow(
@@ -633,3 +599,4 @@ public class ScheduleService {
         return null;
     }
 }
+
