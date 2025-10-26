@@ -350,6 +350,80 @@ public class DemandController {
         )));
     }
 
+    @PostMapping("/reorder")
+    public ResponseEntity<ApiResponse<Void>> reorder(@RequestBody java.util.List<Long> orderedIds) {
+        if (orderedIds == null || orderedIds.isEmpty()) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("並び順のIDリストが空です"));
+        }
+        int order = 1;
+        for (Long id : orderedIds) {
+            repository.findById(id).ifPresent(d -> {
+                d.setSortOrder(order);
+                repository.save(d);
+            });
+            order++;
+        }
+        return ResponseEntity.ok(ApiResponse.success("並び順を更新しました", null));
+    }
+
+    @PostMapping("/{id}/copy")
+    public ResponseEntity<ApiResponse<DemandInterval>> copy(@PathVariable Long id, @RequestBody(required = false) DemandCopyRequest overrides) {
+        var od = repository.findById(id);
+        if (od.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("需要が見つかりません"));
+        }
+        DemandInterval src = od.get();
+        DemandInterval d = new DemandInterval();
+        d.setDate(overrides!=null && overrides.date()!=null ? overrides.date() : src.getDate());
+        d.setDayOfWeek(overrides!=null && overrides.dayOfWeek()!=null ? overrides.dayOfWeek() : src.getDayOfWeek());
+        d.setStartTime(overrides!=null && overrides.startTime()!=null ? overrides.startTime() : src.getStartTime());
+        d.setEndTime(overrides!=null && overrides.endTime()!=null ? overrides.endTime() : src.getEndTime());
+        d.setRequiredSeats(overrides!=null && overrides.requiredSeats()!=null ? overrides.requiredSeats() : src.getRequiredSeats());
+        d.setActive(overrides!=null && overrides.active()!=null ? overrides.active() : (src.getActive()!=null? src.getActive(): true));
+        // sort order at the end
+        Integer maxOrder = repository.findMaxSortOrder();
+        d.setSortOrder((maxOrder == null ? 0 : maxOrder) + 1);
+        Long skillId = overrides!=null && overrides.skillId()!=null ? overrides.skillId() : (src.getSkill()!=null? src.getSkill().getId() : null);
+        if (skillId == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("スキルが指定されていません"));
+        }
+        Skill s = skillRepository.findById(skillId).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
+        d.setSkill(s);
+        DemandInterval saved = repository.save(d);
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("需要を複製しました", saved));
+    }
+
+    @PostMapping("/bulk/by-weekday")
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> bulkByWeekday(@RequestBody BulkWeekdayRequest req) {
+        // validate
+        if (req.skillId() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("スキルは必須です"));
+        if (req.year() == null || req.month() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("年と月は必須です"));
+        if (req.dayOfWeek() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("曜日は必須です"));
+        if (req.startTime() == null || req.endTime() == null || !req.startTime().isBefore(req.endTime())) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("開始・終了時刻が不正です"));
+        }
+        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
+        java.time.YearMonth ym = java.time.YearMonth.of(req.year(), req.month());
+        int created = 0;
+        Integer maxOrder = repository.findMaxSortOrder();
+        int order = (maxOrder == null ? 0 : maxOrder);
+        for (java.time.LocalDate d = ym.atDay(1); !d.isAfter(ym.atEndOfMonth()); d = d.plusDays(1)) {
+            if (d.getDayOfWeek() != req.dayOfWeek()) continue;
+            DemandInterval di = new DemandInterval();
+            di.setDate(d);
+            di.setDayOfWeek(null);
+            di.setStartTime(req.startTime());
+            di.setEndTime(req.endTime());
+            di.setRequiredSeats(java.util.Optional.ofNullable(req.requiredSeats()).orElse(1));
+            di.setActive(true);
+            di.setSortOrder(++order);
+            di.setSkill(s);
+            repository.save(di);
+            created++;
+        }
+        return ResponseEntity.ok(ApiResponse.success("一括追加が完了しました", java.util.Map.of("created", created)));
+    }
+
     @PostMapping("/{id}/move")
     public ResponseEntity<ApiResponse<DemandInterval>> move(@PathVariable Long id,
                                                             @RequestParam("direction") String direction) {
@@ -394,5 +468,25 @@ public class DemandController {
             Integer requiredSeats,
             Long skillId,
             Boolean active
+    ) {}
+
+    public record DemandCopyRequest(
+            LocalDate date,
+            DayOfWeek dayOfWeek,
+            java.time.LocalTime startTime,
+            java.time.LocalTime endTime,
+            Integer requiredSeats,
+            Long skillId,
+            Boolean active
+    ) {}
+
+    public record BulkWeekdayRequest(
+            Integer year,
+            Integer month,
+            DayOfWeek dayOfWeek,
+            java.time.LocalTime startTime,
+            java.time.LocalTime endTime,
+            Integer requiredSeats,
+            Long skillId
     ) {}
 }

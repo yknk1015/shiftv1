@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
   <meta charset="UTF-8" />
@@ -64,6 +64,32 @@
     <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/timeline">タイムライン</a></div>
   </div>
 
+    <!-- 一括追加（曜日ベース） -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">曜日で一括追加</h3>
+      <div class="row">
+        <label>年 <input type="number" id="b_year" style="width:90px;" min="2000" max="2100" /></label>
+        <label>月 <input type="number" id="b_month" style="width:70px;" min="1" max="12" /></label>
+        <label>曜日
+          <select id="b_dow">
+            <option value="">未選択</option>
+            <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
+            <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
+          </select>
+        </label>
+        <label>開始 <input type="time" id="b_start" value="09:00" /></label>
+        <label>終了 <input type="time" id="b_end" value="18:00" /></label>
+        <label>必要 <input type="number" id="b_req" value="5" min="0" /></label>
+        <label>スキル
+          <select id="b_skill_select">
+            <option value="">未選択</option>
+          </select>
+        </label>
+        <button id="b_submit" onclick="bulkAddByWeekday()">追加</button>
+      </div>
+      <div id="bulk_msg" class="muted"></div>
+    </div>
+
   <script>
     let editingId = null;
 
@@ -99,7 +125,7 @@
     function renderTable(id, title, rows){
       const el = document.getElementById(id);
       if(!rows.length){ el.innerHTML = `<h4>${title}</h4><div class='muted'>データなし</div>`; return; }
-      let html = `<h4>${title}</h4><table><thead><tr><th style="display:none;">ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>スキル</th><th style="display:none;">並び順</th><th>操作</th></tr></thead><tbody>`;
+      let html = `<h4>${title}</h4><table><thead><tr><th style=\"display:none;\">ID</th><th></th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>スキル</th><th style="display:none;">並び順</th><th>操作</th></tr></thead><tbody>`;
       for(const r of rows){
         const id = r.id;
         const del = `<button data-id=\"${id}\" class=\"btn-del\" style=\"background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;\">削除</button>`;
@@ -116,6 +142,52 @@
       }
       html += `</tbody></table>`;
       el.innerHTML = html;
+      // enhance: add copy buttons and drag & drop reorder
+      const tbodyEnh = el.querySelector('tbody');
+      if (tbodyEnh) {
+        tbodyEnh.querySelectorAll('tr').forEach(tr => {
+          const idVal = Number(tr.getAttribute('data-id'));
+          // add copy button
+          const actionTd = tr.querySelector('td:last-child');
+          if (actionTd && !actionTd.querySelector('.btn-copy')) {
+            const btn = document.createElement('button');
+            btn.className = 'btn-copy';
+            btn.textContent = 'コピー';
+            btn.style.marginLeft = '6px';
+            btn.addEventListener('click', async () => {
+              try{
+                const res = await fetch(`/api/demand/${idVal}/copy`, { method:'POST', headers:{'Content-Type':'application/json'}, body: '{}' });
+                if(!res.ok){ alert('コピーに失敗しました'); return; }
+                if(document.getElementById('date').value){ await loadEffective(); }
+                await loadAll();
+              }catch(_){ alert('コピーに失敗しました'); }
+            });
+            actionTd.appendChild(btn);
+          }
+          // enable drag
+          tr.setAttribute('draggable','true');
+          tr.addEventListener('dragstart', (ev) => { tr.classList.add('dragging'); ev.dataTransfer.effectAllowed = 'move'; });
+          tr.addEventListener('dragend', () => tr.classList.remove('dragging'));
+        });
+        tbodyEnh.addEventListener('dragover', (ev) => {
+          ev.preventDefault();
+          const dragging = tbodyEnh.querySelector('tr.dragging');
+          const after = Array.from(tbodyEnh.querySelectorAll('tr:not(.dragging)')).find(row => {
+            const rect = row.getBoundingClientRect();
+            return ev.clientY <= rect.top + rect.height/2;
+          });
+          if (!dragging) return;
+          if (after) tbodyEnh.insertBefore(dragging, after); else tbodyEnh.appendChild(dragging);
+        });
+        tbodyEnh.addEventListener('drop', async (ev) => {
+          ev.preventDefault();
+          const ids = Array.from(tbodyEnh.querySelectorAll('tr')).map(r=>Number(r.getAttribute('data-id')));
+          try{
+            const res = await fetch('/api/demand/reorder', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(ids)});
+            if(!res.ok){ alert('並び替えの保存に失敗しました'); }
+          }catch(_){ alert('並び替えの保存に失敗しました'); }
+        });
+      }
       // wire events
       el.querySelectorAll('.btn-del').forEach(btn => {
         btn.addEventListener('click', async (e) => {
@@ -210,6 +282,43 @@
       document.getElementById('date').value = today;
       await loadSkills();
       await loadAll();
+    });
+  </script>
+  <script>
+    async function bulkAddByWeekday(){
+      const year = Number(document.getElementById('b_year')?.value);
+      const month = Number(document.getElementById('b_month')?.value);
+      const dayOfWeek = document.getElementById('b_dow')?.value;
+      const startTime = document.getElementById('b_start')?.value;
+      const endTime = document.getElementById('b_end')?.value;
+      const requiredSeats = Number(document.getElementById('b_req')?.value);
+      const sel = document.getElementById('b_skill_select');
+      const skillId = (sel && sel.value)? Number(sel.value): null;
+      const msg = document.getElementById('bulk_msg');
+      if (msg) msg.textContent = '';
+      if(!year || !month || !dayOfWeek || !startTime || !endTime || !skillId){ if(msg) msg.textContent = '年/月/曜日/時間/スキルは必須です'; return; }
+      try{
+        const res = await fetch('/api/demand/bulk/by-weekday', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ year, month, dayOfWeek, startTime, endTime, requiredSeats, skillId }) });
+        const j = await res.json();
+        if(msg) msg.textContent = j.message || '一括追加を実行しました';
+        await loadAll(); if(document.getElementById('date').value){ await loadEffective(); }
+      }catch(e){ if(msg) msg.textContent = '一括追加に失敗しました'; }
+    }
+    document.addEventListener('DOMContentLoaded', async () => {
+      const by = document.getElementById('b_year');
+      const bm = document.getElementById('b_month');
+      const bs = document.getElementById('b_skill_select');
+      try{
+        const d = new Date();
+        if (by) by.value = d.getFullYear();
+        if (bm) bm.value = d.getMonth()+1;
+        if (bs) {
+          const res = await fetch('/api/skills');
+          const j = await res.json();
+          const list = j.data || [];
+          bs.innerHTML = '<option value="">未選択</option>' + list.map(s => `<option value="${s.id}">${s.name||s.code||s.id}</option>`).join('');
+        }
+      }catch(_){ /* noop */ }
     });
   </script>
 </body>
