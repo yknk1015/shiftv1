@@ -199,10 +199,10 @@ public class DemandController {
         // reuse aggregate computation via internal call
         var resp = aggregate(p, req.date(), req.year(), req.month(), G,
                 filterSkills.isEmpty()? null : filterSkills.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")));
-        if (resp.getStatusCode().isError() || resp.getBody()==null || !Boolean.TRUE.equals(resp.getBody().success)) {
+        if (resp.getStatusCode().isError() || resp.getBody()==null || !Boolean.TRUE.equals(resp.getBody().success())) {
             return ResponseEntity.status(resp.getStatusCode()).body(ApiResponse.failure("集計に失敗しました"));
         }
-        var data = (java.util.Map<String, Object>) resp.getBody().getData();
+        var data = (java.util.Map<String, Object>) resp.getBody().data();
         java.util.List<String> slots = (java.util.List<String>) data.get("slots");
         java.util.List<java.util.Map<String,Object>> skills = (java.util.List<java.util.Map<String,Object>>) data.get("skills");
         java.util.Map<?,?> matrix = (java.util.Map<?,?>) data.get("matrix");
@@ -355,13 +355,15 @@ public class DemandController {
         if (orderedIds == null || orderedIds.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.failure("並び順のIDリストが空です"));
         }
-        int order = 1;
+        int ord = 1;
         for (Long id : orderedIds) {
-            repository.findById(id).ifPresent(d -> {
-                d.setSortOrder(order);
+            Optional<DemandInterval> od = repository.findById(id);
+            if (od.isPresent()) {
+                DemandInterval d = od.get();
+                d.setSortOrder(ord);
                 repository.save(d);
-            });
-            order++;
+                ord++;
+            }
         }
         return ResponseEntity.ok(ApiResponse.success("並び順を更新しました", null));
     }
@@ -393,36 +395,7 @@ public class DemandController {
         return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("需要を複製しました", saved));
     }
 
-    @PostMapping("/bulk/by-weekday")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> bulkByWeekday(@RequestBody BulkWeekdayRequest req) {
-        // validate
-        if (req.skillId() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("スキルは必須です"));
-        if (req.year() == null || req.month() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("年と月は必須です"));
-        if (req.dayOfWeek() == null) return ResponseEntity.badRequest().body(ApiResponse.failure("曜日は必須です"));
-        if (req.startTime() == null || req.endTime() == null || !req.startTime().isBefore(req.endTime())) {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("開始・終了時刻が不正です"));
-        }
-        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
-        java.time.YearMonth ym = java.time.YearMonth.of(req.year(), req.month());
-        int created = 0;
-        Integer maxOrder = repository.findMaxSortOrder();
-        int order = (maxOrder == null ? 0 : maxOrder);
-        for (java.time.LocalDate d = ym.atDay(1); !d.isAfter(ym.atEndOfMonth()); d = d.plusDays(1)) {
-            if (d.getDayOfWeek() != req.dayOfWeek()) continue;
-            DemandInterval di = new DemandInterval();
-            di.setDate(d);
-            di.setDayOfWeek(null);
-            di.setStartTime(req.startTime());
-            di.setEndTime(req.endTime());
-            di.setRequiredSeats(java.util.Optional.ofNullable(req.requiredSeats()).orElse(1));
-            di.setActive(true);
-            di.setSortOrder(++order);
-            di.setSkill(s);
-            repository.save(di);
-            created++;
-        }
-        return ResponseEntity.ok(ApiResponse.success("一括追加が完了しました", java.util.Map.of("created", created)));
-    }
+    // Removed bulk/by-weekday endpoint per request
 
     @PostMapping("/{id}/move")
     public ResponseEntity<ApiResponse<DemandInterval>> move(@PathVariable Long id,
@@ -480,13 +453,28 @@ public class DemandController {
             Boolean active
     ) {}
 
-    public record BulkWeekdayRequest(
-            Integer year,
-            Integer month,
-            DayOfWeek dayOfWeek,
-            java.time.LocalTime startTime,
-            java.time.LocalTime endTime,
-            Integer requiredSeats,
-            Long skillId
-    ) {}
+    // Removed BulkWeekdayRequest per request
+
+    @PostMapping("/sort")
+    public ResponseEntity<ApiResponse<Void>> sortBySundayAndStartTime() {
+        java.util.List<DemandInterval> all = repository.findAll();
+        java.util.Comparator<DemandInterval> cmp = java.util.Comparator
+                .comparingInt((DemandInterval d) -> {
+                    java.time.DayOfWeek dow = d.getDayOfWeek();
+                    if (dow == null && d.getDate() != null) dow = d.getDate().getDayOfWeek();
+                    if (dow == null) return 999; // push unknowns to end
+                    int i = dow.getValue(); // Mon=1..Sun=7
+                    return (i==7)? 0 : i; // Sun=0, Mon=1..Sat=6
+                })
+                .thenComparing(d -> d.getStartTime() == null ? java.time.LocalTime.MIDNIGHT : d.getStartTime())
+                .thenComparing(d -> d.getEndTime() == null ? java.time.LocalTime.MIDNIGHT : d.getEndTime())
+                .thenComparing(d -> d.getId()==null? Long.MAX_VALUE : d.getId());
+        all.sort(cmp);
+        int ord = 1;
+        for (DemandInterval d : all) {
+            d.setSortOrder(ord++);
+            repository.save(d);
+        }
+        return ResponseEntity.ok(ApiResponse.success("整頓しました", null));
+    }
 }

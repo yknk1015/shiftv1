@@ -97,6 +97,9 @@ public class ScheduleService {
             assignmentRepository.deleteByWorkDateBetween(start, end);
         }
 
+        // Enforce a safe lower bound for granularity to keep windowing tractable
+        granularityMinutes = Math.max(60, granularityMinutes);
+
         // preload rules and availability similar to monthly generation
         ruleByEmployee = employeeRuleRepository.findAll().stream()
                 .collect(Collectors.toMap(r -> r.getEmployee().getId(), r -> r));
@@ -130,8 +133,23 @@ public class ScheduleService {
             }
         }
 
+        // Preload demand once for the whole month to avoid per-day DB calls
+        Map<LocalDate, List<DemandInterval>> monthlyDemand = new HashMap<>();
+        for (LocalDate d0 = start; !d0.isAfter(end); d0 = d0.plusDays(1)) {
+            try {
+                monthlyDemand.put(d0, demandRepository.findEffectiveForDate(d0, d0.getDayOfWeek()));
+            } catch (Exception ex) {
+                monthlyDemand.put(d0, List.of());
+            }
+        }
+        // Preload active skill patterns once, group by skill id
+        List<com.example.shiftv1.skill.SkillPattern> activePatterns = com.example.shiftv1.schedule.ScheduleService.this.skillPatternRepository.findByActiveTrue();
+        Map<Long, List<com.example.shiftv1.skill.SkillPattern>> patternsBySkillAll = activePatterns.stream()
+                .filter(p -> p.getSkill() != null && p.getSkill().getId() != null)
+                .collect(Collectors.groupingBy(p -> p.getSkill().getId()));
+
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            List<DemandInterval> intervals = demandRepository.findEffectiveForDate(day, day.getDayOfWeek());
+            List<DemandInterval> intervals = monthlyDemand.getOrDefault(day, List.of());
             // filter active
             intervals = intervals.stream()
                     .filter(di -> di.getActive() == null || di.getActive())
@@ -150,16 +168,29 @@ public class ScheduleService {
                                 com.example.shiftv1.skill.Skill::getId,
                                 java.util.function.Function.identity()
                         ));
-            // Preload skill patterns for skills used in the day (avoid per-window lookups)
+            // Pick patterns for used skills (already preloaded for the month)
             java.util.Map<Long, java.util.List<com.example.shiftv1.skill.SkillPattern>> patternsBySkill;
             if (skillIdsForDay.isEmpty()) {
                 patternsBySkill = java.util.Map.of();
             } else {
-                java.util.List<com.example.shiftv1.skill.SkillPattern> activePats =
-                        com.example.shiftv1.schedule.ScheduleService.this.skillPatternRepository.findByActiveTrue();
-                patternsBySkill = activePats.stream()
-                        .filter(p -> p.getSkill() != null && p.getSkill().getId() != null && skillIdsForDay.contains(p.getSkill().getId()))
-                        .collect(java.util.stream.Collectors.groupingBy(p -> p.getSkill().getId()));
+                patternsBySkill = patternsBySkillAll.entrySet().stream()
+                        .filter(e -> skillIdsForDay.contains(e.getKey()))
+                        .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+            }
+
+            // If blocks-mode, assign as registered intervals without seat-tracking
+            if ("blocks".equalsIgnoreCase(demandMode)) {
+                Map<Long, List<EmployeeConstraint>> consForDay = constraintsByDate.getOrDefault(day, Collections.emptyMap());
+                for (DemandInterval di : intervals) {
+                    if (di.getSkill() == null || di.getRequiredSeats() == null || di.getRequiredSeats() <= 0) continue;
+                    Long sid = di.getSkill().getId();
+                    if (sid == null) continue;
+                    List<Employee> pool = employeesBySkill.getOrDefault(sid, java.util.List.of());
+                    if (pool.isEmpty()) continue;
+                    results.addAll(assignSeatsForSlot(day, di.getStartTime(), di.getEndTime(), di.getSkill(),
+                            di.getRequiredSeats(), pool, monthlyAssignmentCounts, dailyAssigned, consForDay));
+                }
+                continue;
             }
 
             // Pre-aggregate seat requirements per slot to avoid per-slot filtering
@@ -460,6 +491,10 @@ public class ScheduleService {
     @org.springframework.beans.factory.annotation.Value("${shift.window.roundingMinutes:60}")
     private int windowRoundingMinutes;
 
+    // Demand handling: blocks (respect demand intervals) or windows (seat-tracking)
+    @org.springframework.beans.factory.annotation.Value("${shift.demand.mode:blocks}")
+    private String demandMode;
+
     // --- Helpers for short-shift gating and block generation ---
     private boolean isShortCandidate(Employee e, int lengthHours, LocalDate day) {
         if (lengthHours >= 8) return false; // short only matters for < 8h
@@ -757,7 +792,6 @@ public class ScheduleService {
     }
 
     @Transactional(readOnly = true)
-    @Cacheable(value = "monthly-schedules", key = "#year + '-' + #month")
     public List<ShiftAssignment> getMonthlySchedule(int year, int month) {
         YearMonth target = YearMonth.of(year, month);
         LocalDate start = target.atDay(1);
@@ -766,6 +800,7 @@ public class ScheduleService {
     }
 
     @Transactional
+    @CacheEvict(value = "monthly-schedules", allEntries = true)
     public List<ShiftAssignment> generateHourlyForDay(LocalDate day, int startHour, int endHour, Long requiredSkillId) {
         List<Employee> employees = employeeRepository.findAll().stream()
                 .sorted(Comparator.comparing(Employee::getId)).toList();

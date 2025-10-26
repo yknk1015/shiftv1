@@ -34,7 +34,8 @@ public class EmployeeRuleInitializer implements CommandLineRunner {
                 EmployeeRule r = new EmployeeRule();
                 r.setEmployee(e);
                 r.setWeeklyMaxHours(40);
-                r.setDailyMaxHours(8);
+                // 実務の9:00-18:00(9h)ブロックに対応するため既定を9hに
+                r.setDailyMaxHours(9);
                 r.setMaxConsecutiveDays(5);
                 r.setMinRestHours(11);
                 r.setAllowMultipleShiftsPerDay(false);
@@ -42,12 +43,11 @@ public class EmployeeRuleInitializer implements CommandLineRunner {
                 EmployeeRule saved = ruleRepository.save(r);
 
                 // 平日 09:00-21:00 をデフォルト可用に設定
-                for (DayOfWeek dow : EnumSet.of(DayOfWeek.MONDAY, DayOfWeek.TUESDAY, DayOfWeek.WEDNESDAY,
-                        DayOfWeek.THURSDAY, DayOfWeek.FRIDAY)) {
+                for (DayOfWeek dow : java.util.EnumSet.allOf(DayOfWeek.class)) {
                     EmployeeAvailability av = new EmployeeAvailability();
                     av.setEmployee(e);
                     av.setDayOfWeek(dow);
-                    av.setStartTime(LocalTime.of(9, 0));
+                    av.setStartTime(LocalTime.of(8, 0));
                     av.setEndTime(LocalTime.of(21, 0));
                     availabilityRepository.save(av);
                 }
@@ -57,4 +57,3 @@ public class EmployeeRuleInitializer implements CommandLineRunner {
         }
     }
 }
-
