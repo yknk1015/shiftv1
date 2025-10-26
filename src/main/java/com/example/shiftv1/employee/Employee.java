@@ -35,6 +35,27 @@ public class Employee {
             inverseJoinColumns = @JoinColumn(name = "skill_id"))
     private Set<Skill> skills = new HashSet<>();
 
+    // Phase A additions: block eligibility and overtime preferences
+    @Column(name = "eligible_full")
+    private Boolean eligibleFull = true;
+
+    @Column(name = "eligible_short_morning")
+    private Boolean eligibleShortMorning = true;
+
+    @Column(name = "eligible_short_afternoon")
+    private Boolean eligibleShortAfternoon = true;
+
+    @Column(name = "overtime_allowed")
+    private Boolean overtimeAllowed = false;
+
+    // additional overtime allowance per day (hours)
+    @Column(name = "overtime_daily_max_hours")
+    private Integer overtimeDailyMaxHours = 0;
+
+    // additional overtime allowance per week (hours) - reserved for future
+    @Column(name = "overtime_weekly_max_hours")
+    private Integer overtimeWeeklyMaxHours = 0;
+
     protected Employee() {
     }
 
@@ -81,4 +102,17 @@ public class Employee {
 
     public Set<Skill> getSkills() { return skills; }
     public void setSkills(Set<Skill> skills) { this.skills = skills; }
+
+    public Boolean getEligibleFull() { return eligibleFull; }
+    public void setEligibleFull(Boolean eligibleFull) { this.eligibleFull = eligibleFull; }
+    public Boolean getEligibleShortMorning() { return eligibleShortMorning; }
+    public void setEligibleShortMorning(Boolean eligibleShortMorning) { this.eligibleShortMorning = eligibleShortMorning; }
+    public Boolean getEligibleShortAfternoon() { return eligibleShortAfternoon; }
+    public void setEligibleShortAfternoon(Boolean eligibleShortAfternoon) { this.eligibleShortAfternoon = eligibleShortAfternoon; }
+    public Boolean getOvertimeAllowed() { return overtimeAllowed; }
+    public void setOvertimeAllowed(Boolean overtimeAllowed) { this.overtimeAllowed = overtimeAllowed; }
+    public Integer getOvertimeDailyMaxHours() { return overtimeDailyMaxHours; }
+    public void setOvertimeDailyMaxHours(Integer overtimeDailyMaxHours) { this.overtimeDailyMaxHours = overtimeDailyMaxHours; }
+    public Integer getOvertimeWeeklyMaxHours() { return overtimeWeeklyMaxHours; }
+    public void setOvertimeWeeklyMaxHours(Integer overtimeWeeklyMaxHours) { this.overtimeWeeklyMaxHours = overtimeWeeklyMaxHours; }
 }

@@ -58,9 +58,10 @@
         if (select.value) await onEmpChange();
       } catch (e) { setMessage('page-message', e.message || '初期化に失敗しました', 'error'); }
     }
-    async function onEmpChange(){ const id=document.getElementById('emp-select').value; await Promise.all([loadRule(id), loadAvailability(id)]); }
+    async function onEmpChange(){ const id=document.getElementById('emp-select').value; await Promise.all([loadRule(id), loadAvailability(id), loadWorkPrefs(id)]); }
     async function loadRule(id){ try{ const res=await callApi(`/api/employees/${id}/rule`, {}, {expectSuccess:false}); const r=res.data||{}; setNum('weeklyMax', r.weeklyMaxHours??40); setNum('dailyMax', r.dailyMaxHours??8); setNum('maxConsecutive', r.maxConsecutiveDays??5); setNum('minRest', r.minRestHours??11); setChk('allowMulti', !!r.allowMultipleShiftsPerDay); setChk('allowHoliday', r.allowHolidayWork!==false); setMessage('rule-message','', 'info'); }catch(e){ setMessage('rule-message', e.message||'取得に失敗しました','error'); } }
-    async function saveRule(){ const id=document.getElementById('emp-select').value; try{ const payload={ weeklyMaxHours:getNum('weeklyMax'), dailyMaxHours:getNum('dailyMax'), maxConsecutiveDays:getNum('maxConsecutive'), minRestHours:getNum('minRest'), allowMultipleShiftsPerDay:getChk('allowMulti'), allowHolidayWork:getChk('allowHoliday') }; await callApi(`/api/employees/${id}/rule`, {method:'PUT', body:payload}, {expectSuccess:false}); setMessage('rule-message','勤務ルールを更新しました','success'); }catch(e){ setMessage('rule-message', e.message||'更新に失敗しました','error'); } }
+    async function loadWorkPrefs(id){ try{ const res=await callApi(`/api/employees/${id}`, {}, {expectSuccess:false}); const emp=(res.data||res)||{}; setChk('eligibleFull', emp.eligibleFull!==false); setChk('eligibleShortMorning', emp.eligibleShortMorning!==false); setChk('eligibleShortAfternoon', emp.eligibleShortAfternoon!==false); setChk('overtimeAllowed', !!emp.overtimeAllowed); setNum('overtimeDaily', emp.overtimeDailyMaxHours??0); setNum('overtimeWeekly', emp.overtimeWeeklyMaxHours??0); } catch(e){ /* ignore */ } }
+    async function saveRule(){ const id=document.getElementById('emp-select').value; try{ const payload={ weeklyMaxHours:getNum('weeklyMax'), dailyMaxHours:getNum('dailyMax'), maxConsecutiveDays:getNum('maxConsecutive'), minRestHours:getNum('minRest'), allowMultipleShiftsPerDay:getChk('allowMulti'), allowHolidayWork:getChk('allowHoliday') }; await callApi(`/api/employees/${id}/rule`, {method:'PUT', body:payload}, {expectSuccess:false}); const prefs={ eligibleFull:getChk('eligibleFull'), eligibleShortMorning:getChk('eligibleShortMorning'), eligibleShortAfternoon:getChk('eligibleShortAfternoon'), overtimeAllowed:getChk('overtimeAllowed'), overtimeDailyMaxHours:getNum('overtimeDaily'), overtimeWeeklyMaxHours:getNum('overtimeWeekly') }; await callApi(`/api/employees/${id}/work-prefs`, {method:'PUT', body:prefs}, {expectSuccess:false}); setMessage('rule-message','勤務ルールを更新しました','success'); }catch(e){ setMessage('rule-message', e.message||'更新に失敗しました','error'); } }
     async function loadAvailability(id){ try{ const res=await callApi(`/api/employees/${id}/availability`, {}, {expectSuccess:false}); const map={}; (res.data||[]).forEach(a=> map[a.dayOfWeek]=a); ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].forEach(d=>{ setTime(`av-${d}-s`, (map[d]?.startTime||'').slice(0,5)); setTime(`av-${d}-e`, (map[d]?.endTime||'').slice(0,5)); }); setMessage('avail-message','', 'info'); }catch(e){ setMessage('avail-message', e.message||'取得に失敗しました','error'); } }
     async function saveAvailability(){ const id=document.getElementById('emp-select').value; try{ const items=['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY'].map(d=>({dayOfWeek:d, startTime:getTime(`av-${d}-s`), endTime:getTime(`av-${d}-e`)})).filter(it=>it.startTime&&it.endTime); await callApi(`/api/employees/${id}/availability`, {method:'PUT', body:items}, {expectSuccess:false}); setMessage('avail-message','可用時間帯を更新しました','success'); }catch(e){ setMessage('avail-message', e.message||'更新に失敗しました','error'); } }
     function presetWeekdays(s,e){ ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY'].forEach(d=>{ setTime(`av-${d}-s`, s); setTime(`av-${d}-e`, e); }); }
@@ -72,7 +73,7 @@
   <div class="container">
     <div class="header">
       <h1>勤務ルール設定</h1>
-      <a class="link" href="/dashboard">ダッシュボードへ戻る</a>
+      <a class="link" href="/dashboard">ダッシュボードに戻る</a>
     </div>
     <div id="page-message" class="message"></div>
 
@@ -100,6 +101,21 @@
       <div class="button-row"><button id="save-rule" class="button primary">ルールを保存</button></div>
       <div id="rule-message" class="message"></div>
     </div>
+    <!-- Block eligibility & overtime settings -->
+    <div class="card">
+      <h2 style="font-size:16px;margin:0 0 8px;">ブロック適格性・残業</h2>
+      <div class="row">
+        <label class="checkbox"><input type="checkbox" id="eligibleFull">フルブロック割当を許可（09:00-18:00）</label>
+        <label class="checkbox"><input type="checkbox" id="eligibleShortMorning">短時間（AM 09:00-13:00）を許可</label>
+        <label class="checkbox"><input type="checkbox" id="eligibleShortAfternoon">短時間（PM 13:00-18:00）を許可</label>
+      </div>
+      <div class="row">
+        <label class="checkbox"><input type="checkbox" id="overtimeAllowed">残業を許可</label>
+        <label><span>残業（日・追加分h）</span><input id="overtimeDaily" type="number" min="0" step="1"></label>
+        <label><span>残業（週・追加分h）</span><input id="overtimeWeekly" type="number" min="0" step="1"></label>
+      </div>
+      <div class="message info">「勤務ルールを保存」ボタン押下で上記設定も一緒に保存されます。</div>
+    </div>
 
     <div class="card">
       <h2 style="font-size:16px;margin:0 0 8px;">週間可用性</h2>
@@ -123,4 +139,9 @@
   </div>
 </body>
 </html>
+
+
+
+
+
 

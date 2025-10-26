@@ -21,12 +21,14 @@ C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\s
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\schedule\ShiftAssignment.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\admin\AdminController.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\EmployeeRuleController.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\PairingSettingsController.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\holiday\HolidayRepository.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\ApiResponse.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\EmployeeRuleRepository.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\skill\Skill.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\breaks\BreakPeriod.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\demand\DemandController.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\PairingSettings.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\holiday\Holiday.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\Employee.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\schedule\ScheduleStatsController.java
@@ -39,6 +41,7 @@ C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\s
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\ShiftConfigRepository.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\demand\DemandInterval.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\common\HealthController.java
+C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\config\PairingSettingsRepository.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\EmployeeRuleFixer.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\EmployeeDataInitializer.java
 C:\Users\takow\Documents\02_programming\java\shiftv1\src\main\java\com\example\shiftv1\employee\EmployeeAvailability.java

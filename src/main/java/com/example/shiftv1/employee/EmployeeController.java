@@ -86,7 +86,34 @@ public class EmployeeController {
     }
 
     public record EmployeeRequest(String name, String role) {}
-    
+
+    // Phase A: work preferences payload
+    public static class WorkPrefsRequest {
+        public Boolean eligibleFull;
+        public Boolean eligibleShortMorning;
+        public Boolean eligibleShortAfternoon;
+        public Boolean overtimeAllowed;
+        public Integer overtimeDailyMaxHours;
+        public Integer overtimeWeeklyMaxHours;
+    }
+
+    @PutMapping("/{id}/work-prefs")
+    public ResponseEntity<ApiResponse<Employee>> updateWorkPrefs(@PathVariable Long id, @RequestBody WorkPrefsRequest req) {
+        Optional<Employee> opt = employeeRepository.findById(id);
+        if (opt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body(ApiResponse.failure("従業員が見つかりません"));
+        }
+        Employee e = opt.get();
+        if (req.eligibleFull != null) e.setEligibleFull(req.eligibleFull);
+        if (req.eligibleShortMorning != null) e.setEligibleShortMorning(req.eligibleShortMorning);
+        if (req.eligibleShortAfternoon != null) e.setEligibleShortAfternoon(req.eligibleShortAfternoon);
+        if (req.overtimeAllowed != null) e.setOvertimeAllowed(req.overtimeAllowed);
+        if (req.overtimeDailyMaxHours != null) e.setOvertimeDailyMaxHours(req.overtimeDailyMaxHours);
+        if (req.overtimeWeeklyMaxHours != null) e.setOvertimeWeeklyMaxHours(req.overtimeWeeklyMaxHours);
+        return ResponseEntity.ok(ApiResponse.success("勤務適格性・残業設定を更新しました", employeeRepository.save(e)));
+    }
+
     public record EmployeeCountResponse(long count) {}
 
     // ===== Skill management for Employee =====

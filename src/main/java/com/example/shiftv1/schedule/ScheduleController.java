@@ -60,6 +60,33 @@ public class ScheduleController {
         }
     }
 
+    // --- Core-time boost endpoint ---
+    public static class CoreBoostRequest {
+        public String date;      // yyyy-MM-dd
+        public Long skillId;     // optional if skillCode provided
+        public String skillCode; // optional if skillId provided
+        public String startTime; // HH:mm
+        public String endTime;   // HH:mm
+        public Integer seats;    // N
+    }
+
+    @PostMapping("/core-boost")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> coreBoost(@RequestBody CoreBoostRequest req) {
+        try {
+            java.time.LocalDate day = java.time.LocalDate.parse(req.date);
+            java.time.LocalTime s = java.time.LocalTime.parse(req.startTime.length()==5? req.startTime+":00": req.startTime);
+            java.time.LocalTime e = java.time.LocalTime.parse(req.endTime.length()==5? req.endTime+":00": req.endTime);
+            int n = req.seats == null ? 1 : Math.max(0, req.seats);
+            if (!s.isBefore(e) || n <= 0) {
+                return ResponseEntity.badRequest().body(ApiResponse.failure("時間範囲または人数が不正です"));
+            }
+            Map<String,Object> result = scheduleService.addCoreTime(day, req.skillId, req.skillCode, s, e, n);
+            return ResponseEntity.ok(ApiResponse.success("コアタイム追加を実行しました", result));
+        } catch (Exception ex) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("コアタイム追加に失敗しました: " + ex.getMessage()));
+        }
+    }
+
     @PostMapping("/generate-with-report")
     public ResponseEntity<ApiResponse<List<ShiftAssignmentDto>>> generateScheduleWithReport(
             @RequestParam(name = "year", required = false) Integer year,

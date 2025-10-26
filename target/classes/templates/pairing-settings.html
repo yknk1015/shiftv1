@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>Pairing Settings</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 24px; }
+    .row { margin: 8px 0; display: flex; gap: 8px; align-items: center; }
+    label { width: 220px; color: #475569; }
+    input[type="text"], input[type="number"] { padding: 6px 8px; font-size: 14px; }
+    .card { max-width: 680px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; background: #fff; }
+    button { padding: 8px 12px; }
+    .hint { color: #64748b; font-size: 12px; }
+    .ok { color: #14532d; }
+    .err { color: #7f1d1d; }
+  </style>
+  <script>
+    async function loadSettings() {
+      const r = await fetch('/api/config/pairing-settings');
+      const j = await r.json();
+      const s = j && j.id ? j : j; // supports direct entity or wrapped
+      const data = j.id ? j : (j || {});
+      const src = data.data || data; // ApiResponse or raw
+      const v = src.id ? src : src; // handle either
+      const target = src.id ? src : (src); // no wrapper in our controller
+      const ps = src.id ? src : j; // best-effort
+      const obj = j.id ? j : (j || {});
+      const o = obj.id ? obj : (obj.data || {});
+      const x = o.id ? o : obj; // fallback chain
+      const s2 = x.id ? x : (x.data || {});
+      const final = s2.id ? s2 : x; // final candidate
+      const val = final;
+      document.getElementById('enabled').checked = !!val.enabled;
+      document.getElementById('preferShorts').checked = !!val.preferShorts;
+      document.getElementById('pairToleranceMinutes').value = val.pairToleranceMinutes ?? 0;
+      document.getElementById('fullWindow').value = val.fullWindow || '09:00-18:00';
+      document.getElementById('morningWindow').value = val.morningWindow || '09:00-13:00';
+      document.getElementById('afternoonWindow').value = val.afternoonWindow || '13:00-18:00';
+      document.getElementById('standaloneWindows').value = val.standaloneWindows || '17:00-21:00';
+      window._pairingId = val.id;
+    }
+    function parseForm() {
+      return {
+        id: window._pairingId,
+        enabled: document.getElementById('enabled').checked,
+        preferShorts: document.getElementById('preferShorts').checked,
+        pairToleranceMinutes: parseInt(document.getElementById('pairToleranceMinutes').value||'0',10) || 0,
+        fullWindow: document.getElementById('fullWindow').value.trim(),
+        morningWindow: document.getElementById('morningWindow').value.trim(),
+        afternoonWindow: document.getElementById('afternoonWindow').value.trim(),
+        standaloneWindows: document.getElementById('standaloneWindows').value.trim()
+      };
+    }
+    async function saveSettings() {
+      const body = JSON.stringify(parseForm());
+      const r = await fetch('/api/config/pairing-settings', {method:'PUT', headers:{'Content-Type':'application/json'}, body});
+      const msg = document.getElementById('msg');
+      if (r.ok) { msg.textContent = '保存しました'; msg.className='ok'; } else { msg.textContent = '保存に失敗しました'; msg.className='err'; }
+    }
+    window.addEventListener('DOMContentLoaded', loadSettings);
+  </script>
+</head>
+<body>
+  <h2>Pairing Settings（ペア or 単独 設定）</h2>
+  <div class="card">
+    <div class="row"><label>ペアリング有効</label><input id="enabled" type="checkbox" /></div>
+    <div class="row"><label>時短優先</label><input id="preferShorts" type="checkbox" /></div>
+    <div class="row"><label>ペア許容差（分）</label><input id="pairToleranceMinutes" type="number" min="0" step="1" /></div>
+    <div class="row"><label>フル枠</label><input id="fullWindow" type="text" placeholder="09:00-18:00" /></div>
+    <div class="row"><label>AM（時短）</label><input id="morningWindow" type="text" placeholder="09:00-13:00" /></div>
+    <div class="row"><label>PM（時短）</label><input id="afternoonWindow" type="text" placeholder="13:00-18:00" /></div>
+    <div class="row"><label>単独枠（カンマ区切り）</label><input id="standaloneWindows" type="text" placeholder="17:00-21:00,20:00-24:00" /></div>
+    <div class="row"><button onclick="saveSettings()">保存</button><span id="msg" class="hint"></span></div>
+  </div>
+  <p><a href="/dashboard">ダッシュボードに戻る</a></p>
+</body>
+</html>
+

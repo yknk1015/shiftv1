@@ -46,6 +46,11 @@ public class WebController {
         return "admin-actions";
     }
 
+    @GetMapping("/warnings")
+    public String warnings() {
+        return "warnings";
+    }
+
     // Simple mappings to expose existing templates for quick access
     @GetMapping("/calendar")
     public String calendar() { return "calendar"; }
@@ -64,4 +69,7 @@ public class WebController {
 
     @GetMapping("/skill-patterns")
     public String skillPatterns() { return "skill-patterns"; }
+
+    @GetMapping("/pairing-settings")
+    public String pairingSettings() { return "pairing-settings"; }
 }
