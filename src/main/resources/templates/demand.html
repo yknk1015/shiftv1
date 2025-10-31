@@ -58,6 +58,13 @@
       <div class="muted" style="margin-top:8px;">
         ヘルプ: 日付指定は曜日指定を上書き、スキル需要はグローバル需要より優先して割当されます。
       </div>
+      <div class="row" style="margin-top:6px;">
+        <span class="muted">クイック追加（PairingSettingsの時間帯を使用）:</span>
+        <button class="ghost" onclick="quickAdd('am')">AM追加</button>
+        <button class="ghost" onclick="quickAdd('pm')">PM追加</button>
+        <button class="ghost" onclick="quickAdd('full')">フル追加</button>
+        <span id="quick_msg" class="muted"></span>
+      </div>
       <div id="create_msg" class="muted"></div>
     </div>
 
@@ -68,6 +75,7 @@
 
   <script>
     let editingId = null;
+    let pairingSettings = null;
 
     async function fetchWithTimeout(url, ms=15000, options={}){
       const controller = new AbortController();
@@ -98,6 +106,31 @@
         document.getElementById('all').innerHTML = `<div class='muted'>読み込みに失敗しました</div>`;
       }
     
+    }
+
+    async function loadPairingSettings(){
+      try{ const r = await fetch('/api/config/pairing-settings'); pairingSettings = await r.json(); }
+      catch(e){ pairingSettings = null; }
+    }
+
+    function parseWindow(win){ const parts = (win||'').split('-'); return { s: parts[0], e: parts[1] }; }
+
+    async function quickAdd(kind){
+      const skillId = document.getElementById('c_skill_select').value;
+      if(!skillId){ alert('スキルを選択してください'); return; }
+      if(!document.getElementById('c_date').value && !document.getElementById('c_dow').value){
+        alert('日付または曜日を選択してください'); return;
+      }
+      if(!pairingSettings){ await loadPairingSettings(); }
+      if(!pairingSettings){ document.getElementById('quick_msg').textContent = 'ペア設定の取得に失敗しました'; return; }
+      let w = null;
+      if(kind==='am') w = parseWindow(pairingSettings.morningWindow||'09:00-13:00');
+      else if(kind==='pm') w = parseWindow(pairingSettings.afternoonWindow||'13:00-18:00');
+      else w = parseWindow(pairingSettings.fullWindow||'09:00-18:00');
+      if(!w.s || !w.e){ document.getElementById('quick_msg').textContent = '時間帯設定が不正です'; return; }
+      document.getElementById('c_start').value = w.s;
+      document.getElementById('c_end').value = w.e;
+      await createOrUpdate();
     }
 
     async function tidyOrder(){
@@ -226,6 +259,7 @@
       const today = new Date().toISOString().slice(0,10);
       document.getElementById('date').value = today;
       await loadSkills();
+      await loadPairingSettings();
       await loadAll();
     });
   </script>

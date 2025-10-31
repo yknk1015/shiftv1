@@ -75,4 +75,7 @@ public class WebController {
 
     @GetMapping("/admin-debug")
     public String adminDebug() { return "admin-debug"; }
+
+    @GetMapping("/monthly-demand")
+    public String monthlyDemand() { return "monthly-demand"; }
 }
