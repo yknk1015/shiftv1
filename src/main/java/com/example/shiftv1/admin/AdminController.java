@@ -3,6 +3,8 @@ package com.example.shiftv1.admin;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
+import com.example.shiftv1.schedule.ShiftAssignment;
+import com.example.shiftv1.schedule.ShiftAssignmentRepository;
 import com.example.shiftv1.skill.Skill;
 import com.example.shiftv1.skill.SkillRepository;
 import org.slf4j.Logger;
@@ -10,7 +12,9 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.util.*;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -19,139 +23,174 @@ public class AdminController {
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
     private final EmployeeRepository employeeRepository;
     private final SkillRepository skillRepository;
+    private final ShiftAssignmentRepository assignmentRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
 
-    public AdminController(EmployeeRepository employeeRepository, SkillRepository skillRepository,
+    public AdminController(EmployeeRepository employeeRepository,
+                           SkillRepository skillRepository,
+                           ShiftAssignmentRepository assignmentRepository,
                            com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer) {
         this.employeeRepository = employeeRepository;
         this.skillRepository = skillRepository;
+        this.assignmentRepository = assignmentRepository;
         this.errorLogBuffer = errorLogBuffer;
     }
 
     @GetMapping("/status")
     public ResponseEntity<ApiResponse<SystemStatusResponse>> getSystemStatus() {
         try {
-            logger.info("システム状態確認を開始します");
             long employeeCount = employeeRepository.count();
             boolean hasEmployees = employeeCount > 0;
-
-            logger.info("従業員数: {}", employeeCount);
-
-            return ResponseEntity.ok(ApiResponse.success("システム状態を取得しました", new SystemStatusResponse(
+            return ResponseEntity.ok(ApiResponse.success("system status", new SystemStatusResponse(
                     hasEmployees,
                     employeeCount,
-                    hasEmployees ? "システムは正常に動作しています" : "従業員データが不足しています"
+                    hasEmployees ? "employees exist" : "no employees"
             )));
         } catch (Exception e) {
-            logger.error("システム状態確認でエラーが発生しました", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("システム状態の取得に失敗しました"));
+            logger.error("status error", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to get status"));
         }
     }
 
     @GetMapping("/error-logs")
-    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> getErrorLogs() {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getErrorLogs(@RequestParam(name = "limit", required = false) Integer limit) {
         try {
-            java.util.List<com.example.shiftv1.common.error.ErrorLogBuffer.Entry> list = errorLogBuffer.recent();
-            java.util.Map<String, Object> resp = new java.util.HashMap<>();
+            List<com.example.shiftv1.common.error.ErrorLogBuffer.Entry> list = errorLogBuffer.recent();
+            if (limit != null && limit > 0 && list.size() > limit) list = list.subList(0, limit);
+            Map<String, Object> resp = new HashMap<>();
             resp.put("count", list.size());
             resp.put("items", list);
-            return ResponseEntity.ok(ApiResponse.success("エラーログ（最近のもの）を取得しました", resp));
+            return ResponseEntity.ok(ApiResponse.success("recent error logs", resp));
         } catch (Exception e) {
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("エラーログの取得に失敗しました"));
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to get error logs"));
+        }
+    }
+
+    @GetMapping("/snapshot/employees")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> snapshotEmployees() {
+        try {
+            List<Employee> list = employeeRepository.findAll().stream()
+                    .sorted(Comparator.comparing(Employee::getId))
+                    .toList();
+            List<Map<String,Object>> items = new ArrayList<>();
+            for (var e : list) {
+                Map<String,Object> row = new HashMap<>();
+                row.put("id", e.getId());
+                row.put("name", e.getName());
+                row.put("role", e.getRole());
+                List<Map<String,Object>> skills = new ArrayList<>();
+                if (e.getSkills() != null) {
+                    for (var s : e.getSkills()) {
+                        if (s == null) continue;
+                        Map<String,Object> ss = new HashMap<>();
+                        ss.put("id", s.getId()); ss.put("code", s.getCode()); ss.put("name", s.getName());
+                        skills.add(ss);
+                    }
+                }
+                row.put("skills", skills);
+                items.add(row);
+            }
+            Map<String,Object> resp = new HashMap<>();
+            resp.put("count", items.size());
+            resp.put("items", items);
+            return ResponseEntity.ok(ApiResponse.success("Employees snapshot", resp));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("Failed to build employees snapshot"));
+        }
+    }
+
+    @GetMapping("/snapshot/assignments")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> snapshotAssignments(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = (year != null && month != null)
+                    ? YearMonth.of(year, month)
+                    : YearMonth.of(LocalDate.now().getYear(), LocalDate.now().getMonthValue());
+            LocalDate start = target.atDay(1); LocalDate end = target.atEndOfMonth();
+            List<ShiftAssignment> list = assignmentRepository.findByWorkDateBetween(start, end);
+            List<Map<String,Object>> items = new ArrayList<>();
+            for (var a : list) {
+                Map<String,Object> row = new HashMap<>();
+                row.put("id", a.getId()); row.put("date", a.getWorkDate());
+                row.put("shift", a.getShiftName()); row.put("start", a.getStartTime()); row.put("end", a.getEndTime());
+                var emp = a.getEmployee();
+                if (emp != null) { row.put("employeeId", emp.getId()); row.put("employeeName", emp.getName()); }
+                items.add(row);
+            }
+            Map<String,Object> resp = new HashMap<>();
+            resp.put("year", target.getYear()); resp.put("month", target.getMonthValue());
+            resp.put("count", items.size()); resp.put("items", items);
+            return ResponseEntity.ok(ApiResponse.success("Assignments snapshot", resp));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("Failed to build assignments snapshot"));
         }
     }
 
     @PostMapping("/initialize-skills")
-    public ResponseEntity<ApiResponse<java.util.Map<String,Object>>> initializeSkills() {
+    public ResponseEntity<ApiResponse<Map<String,Object>>> initializeSkills() {
         try {
-            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "基本スキルA")));
-            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "基本スキルB")));
-            return ResponseEntity.ok(ApiResponse.success("スキルA/Bを初期化しました", java.util.Map.of("A", a.getId(), "B", b.getId())));
+            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "Skill A")));
+            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "Skill B")));
+            return ResponseEntity.ok(ApiResponse.success("initialized skills A/B", Map.of("A", a.getId(), "B", b.getId())));
         } catch (Exception e) {
-            logger.error("スキル初期化でエラー", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("スキル初期化に失敗しました"));
+            logger.error("init skills error", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to initialize skills"));
         }
     }
 
     @PostMapping("/assign-skills-ab-distribution")
-    public ResponseEntity<ApiResponse<java.util.Map<String,Object>>> assignSkillsABDistribution() {
+    public ResponseEntity<ApiResponse<Map<String,Object>>> assignSkillsABDistribution() {
         try {
-            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "基本スキルA")));
-            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "基本スキルB")));
-            java.util.List<Employee> all = employeeRepository.findAll().stream()
-                    .sorted(java.util.Comparator.comparing(Employee::getId))
+            Skill a = skillRepository.findByCode("A").orElseGet(() -> skillRepository.save(new Skill("A", "Skill A", "Skill A")));
+            Skill b = skillRepository.findByCode("B").orElseGet(() -> skillRepository.save(new Skill("B", "Skill B", "Skill B")));
+            List<Employee> all = employeeRepository.findAll().stream()
+                    .sorted(Comparator.comparing(Employee::getId))
                     .toList();
             if (all.size() < 30) {
-                return ResponseEntity.badRequest().body(ApiResponse.failure("従業員が30名以上必要です"));
+                return ResponseEntity.badRequest().body(ApiResponse.failure("need >= 30 employees"));
             }
             for (int i=0;i<all.size();i++) {
                 Employee e = all.get(i);
-                if (i < 10) {
-                    e.getSkills().add(a);
-                } else if (i < 20) {
-                    e.getSkills().add(b);
-                } else if (i < 30) {
-                    e.getSkills().add(a);
-                    e.getSkills().add(b);
-                }
+                if (i < 10) e.getSkills().add(a);
+                else if (i < 20) e.getSkills().add(b);
+                else if (i < 30) { e.getSkills().add(a); e.getSkills().add(b); }
             }
             employeeRepository.saveAll(all.subList(0, 30));
-            return ResponseEntity.ok(ApiResponse.success("A:10, B:10, A&B:10 を付与しました", java.util.Map.of("updated", 30)));
+            return ResponseEntity.ok(ApiResponse.success("assigned A:10, B:10, A&B:10", Map.of("updated", 30)));
         } catch (Exception e) {
-            logger.error("スキル付与でエラー", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("スキル付与に失敗しました"));
+            logger.error("assign skills error", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to assign skills"));
         }
     }
 
     @PostMapping("/initialize-employees")
     public ResponseEntity<ApiResponse<InitializeResponse>> initializeEmployees() {
         try {
-            logger.info("従業員初期化を開始します");
             long existingCount = employeeRepository.count();
-
             if (existingCount > 0) {
-                logger.info("従業員は既に初期化されています: {}名", existingCount);
-                return ResponseEntity.ok(ApiResponse.success("従業員は既に初期化されています", new InitializeResponse(
-                        false,
-                        existingCount,
-                        "従業員は既に初期化されています"
-                )));
+                return ResponseEntity.ok(ApiResponse.success("already initialized", new InitializeResponse(false, existingCount, "already exists")));
             }
-
-            logger.info("30名の従業員を作成します");
             List<Employee> employees = java.util.stream.IntStream.rangeClosed(1, 30)
-                    .mapToObj(i -> new Employee("従業員%02d".formatted(i), "スタッフ"))
+                    .mapToObj(i -> new Employee("Employee%02d".formatted(i), "Staff"))
                     .toList();
-
             employeeRepository.saveAll(employees);
-            logger.info("従業員初期化が完了しました: {}名", employees.size());
-
-            return ResponseEntity.ok(ApiResponse.success("従業員データを初期化しました", new InitializeResponse(
-                    true,
-                    employees.size(),
-                    "従業員データを初期化しました"
-            )));
+            return ResponseEntity.ok(ApiResponse.success("initialized employees", new InitializeResponse(true, employees.size(), "ok")));
         } catch (Exception e) {
-            logger.error("従業員初期化でエラーが発生しました", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("従業員の初期化に失敗しました"));
+            logger.error("init employees error", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to initialize employees"));
         }
     }
 
     @DeleteMapping("/reset-employees")
     public ResponseEntity<ApiResponse<ResetResponse>> resetEmployees() {
         try {
-            logger.info("従業員リセットを開始します");
             long count = employeeRepository.count();
             employeeRepository.deleteAll();
-            logger.info("従業員リセットが完了しました: {}名を削除", count);
-
-            return ResponseEntity.ok(ApiResponse.success("従業員データをリセットしました", new ResetResponse(
-                    count,
-                    "従業員データをリセットしました"
-            )));
+            return ResponseEntity.ok(ApiResponse.success("employees reset", new ResetResponse(count, "deleted")));
         } catch (Exception e) {
-            logger.error("従業員リセットでエラーが発生しました", e);
-            return ResponseEntity.internalServerError().body(ApiResponse.failure("従業員のリセットに失敗しました"));
+            logger.error("reset employees error", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to reset employees"));
         }
     }
 
@@ -172,3 +211,4 @@ public class AdminController {
             String message
     ) {}
 }
+

@@ -61,7 +61,7 @@
     async function errors(){
       setMsg('logs','取得中...');
       try{
-        const data = await call('/api/admin/error-logs', 'GET', {});
+        const data = await call('/api/admin/error-logs?limit=200', 'GET', {});
         setMsg('logs', JSON.stringify(data, null, 2));
       }catch(e){ setMsg('logs', 'ERROR: '+e.message); }
     }
@@ -82,8 +82,6 @@
         <a href="/calendar">カレンダー</a>
         <a href="/pairing-settings">ペアリング設定</a>
         <a href="/employee-master">従業員マスタ</a>
-        <a href="/skills">スキル一覧</a>
-        <a href="/admin-actions">管理アクション</a>
         <a href="/warnings">警告ビュー</a>
         <a href="/dashboard">ダッシュボード</a>
       </div>
@@ -101,6 +99,7 @@
         <button onclick="genAsync()">月非同期生成 /api/schedule/generate/demand/async</button>
         <button onclick="stats()">月次統計 /api/schedule/stats/monthly</button>
       </div>
+        <button onclick="resetMonth()" style="background:#ef4444">月次リセット /api/schedule/reset</button>
       <pre id="out_sync"></pre>
       <pre id="out_async"></pre>
       <pre id="out_stats"></pre>
@@ -113,12 +112,27 @@
       </div>
       <div class="row">
         <button onclick="genDay()">1日同期生成 /api/schedule/generate/demand/day</button>
-        <button onclick="errors()">エラーログ /api/admin/error-logs</button>
+        <button onclick="errors()">エラーログ /api/admin/error-logs?limit=200</button>
         <a href="/dashboard">ダッシュボード</a>
-      </div>
+      </div>\n      <button onclick="downloadEmployees()">従業員JSON /api/admin/snapshot/employees</button>\n      <button onclick="downloadAssignments()">シフトJSON /api/admin/snapshot/assignments</button>\n      </div>
       <pre id="out_day"></pre>
       <pre id="out_logs"></pre>
     </div>
   </div>
 </body>
 </html>
+
+<script>
+  async function resetMonth(){
+    try{
+      const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+      const url = new URL('/api/schedule/reset', window.location.origin);
+      url.searchParams.set('year', y); url.searchParams.set('month', m);
+      const res = await fetch(url, { method:'DELETE', credentials:'include' });
+      const data = await res.json();
+      if(!res.ok || data?.success===false) throw new Error(data?.message||('HTTP '+res.status));
+      alert('Reset OK');
+    }catch(e){ alert('Reset failed: '+e.message); }
+  }
+</script>
+\n<script>\n  async function downloadEmployees(){\n    try{\n      const res = await fetch('/api/admin/snapshot/employees', { credentials:'include' });\n      const data = await res.json();\n      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });\n      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'employees.json'; a.click();\n    }catch(e){ alert('Failed: '+e.message); }\n  }\n  async function downloadAssignments(){\n    try{\n      const y = document.getElementById('year').value; const m = document.getElementById('month').value;\n      const url = new URL('/api/admin/snapshot/assignments', window.location.origin);\n      url.searchParams.set('year', y); url.searchParams.set('month', m);\n      const res = await fetch(url, { credentials:'include' });\n      const data = await res.json();\n      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });\n      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = ssignments_-.json; a.click();\n    }catch(e){ alert('Failed: '+e.message); }\n  }\n</script>\n

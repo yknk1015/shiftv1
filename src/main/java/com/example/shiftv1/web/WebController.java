@@ -36,10 +36,7 @@ public class WebController {
         return "breaks";
     }
 
-    @GetMapping("/leave")
-    public String leave() {
-        return "leave";
-    }
+    // Removed: leave page (unused)
 
 
     @GetMapping("/warnings")
@@ -51,11 +48,8 @@ public class WebController {
     @GetMapping("/calendar")
     public String calendar() { return "calendar"; }
 
-    @GetMapping("/rules")
-    public String rules() { return "rules"; }
 
-    @GetMapping("/skills")
-    public String skills() { return "skills"; }
+    // Removed: skills page (replaced by skill-management)
 
     @GetMapping("/skill-management")
     public String skillManagement() { return "skill-management"; }
@@ -63,8 +57,7 @@ public class WebController {
     @GetMapping("/employee-master")
     public String employeeMaster() { return "employee-master"; }
 
-    @GetMapping("/skill-patterns")
-    public String skillPatterns() { return "skill-patterns"; }
+    // Removed: skill-patterns page (unused placeholder)
 
     @GetMapping("/pairing-settings")
     public String pairingSettings() { return "pairing-settings"; }
