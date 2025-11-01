@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>セットアップガイド</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:center; flex-wrap:wrap; }
+    .step { display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid #e2e8f0; }
+    .step:last-child { border-bottom:none; }
+    .badge { width:22px; height:22px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-size:12px; background:#e2e8f0; color:#334155; }
+    .badge.ok { background:#22c55e; color:#fff; }
+    .actions a, .actions button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; text-decoration:none; background:#f8fafc; color:#0f172a; }
+  </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 style="margin:0 0 12px;">セットアップガイド</h2>
+      <p class="muted">初回設定の進捗を確認し、次のステップへ移動します。</p>
+      <div class="card" id="status">
+        <div class="step"><span class="badge" id="b-skill">-</span><div>スキルを登録</div><div class="actions"><a href="/skill-management">開く</a></div></div>
+        <div class="step"><span class="badge" id="b-emp">-</span><div>従業員を登録しスキルを設定</div><div class="actions"><a href="/employee-master">開く</a></div></div>
+        <div class="step"><span class="badge" id="b-demand">-</span><div>需要（Demand/月間需要）を設定</div><div class="actions"><a href="/monthly-demand">月間需要</a> <a href="/demand">単日</a></div></div>
+        <div class="step"><span class="badge" id="b-ready">-</span><div>シフト生成</div><div class="actions"><a href="/dashboard">ダッシュボード</a></div></div>
+      </div>
+    </div>
+    <script>
+      async function fetchJson(u){ const r=await fetch(u,{credentials:'include'}); const ct=r.headers.get('content-type')||''; const d=ct.includes('json')? await r.json():null; if(!r.ok) throw new Error(d?.message||('HTTP '+r.status)); return d; }
+      (async ()=>{
+        try{
+          const j = await fetchJson('/api/admin/setup-status');
+          const st = j.data||{};
+          const ok = (id, cond) => { const el=document.getElementById(id); if (!el) return; el.textContent = cond? '✓':'!'; el.className = 'badge' + (cond? ' ok':''); };
+          ok('b-skill', (st.skills||0)>0);
+          ok('b-emp', (st.employees||0)>0);
+          ok('b-demand', (st.demands||0)>0);
+          ok('b-ready', !!st.ready);
+        }catch(e){ console.error(e); }
+      })();
+    </script>
+  </body>
+  </html>
+

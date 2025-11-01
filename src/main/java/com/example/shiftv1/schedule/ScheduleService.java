@@ -98,6 +98,13 @@ public class ScheduleService {
         List<ShiftAssignment> created = new ArrayList<>();
         Map<LocalDate, Set<Long>> assignedByDate = new HashMap<>();
 
+        // Preload rules per employee and week-tracking map
+        Map<Long, com.example.shiftv1.employee.EmployeeRule> ruleMap = new HashMap<>();
+        for (var emp : employees) {
+            try { if (emp.getId()!=null) ruleMap.put(emp.getId(), employeeRuleRepository.findByEmployeeId(emp.getId()).orElse(null)); } catch (Exception ignore) {}
+        }
+        Map<String, java.util.Set<LocalDate>> weekWorkedDays = new HashMap<>();
+
         for (LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
             boolean isHoliday = false;
             try {
@@ -153,6 +160,12 @@ public class ScheduleService {
 
         List<ShiftAssignment> created = new ArrayList<>();
         Map<LocalDate, Map<Long, List<LocalTime[]>>> dayEmpWindows = new HashMap<>();
+        // Preload employee rules and init weekly worked-days map
+        Map<Long, com.example.shiftv1.employee.EmployeeRule> ruleMap = new HashMap<>();
+        for (var emp : employees) {
+            try { if (emp.getId()!=null) ruleMap.put(emp.getId(), employeeRuleRepository.findByEmployeeId(emp.getId()).orElse(null)); } catch (Exception ignore) {}
+        }
+        Map<String, java.util.Set<LocalDate>> weekWorkedDays = new HashMap<>();
 
         PairingSettings pairing = pairingSettingsRepository.findAll().stream().findFirst().orElse(null);
         boolean pairingEnabled = pairing != null && Boolean.TRUE.equals(pairing.getEnabled());
@@ -189,12 +202,58 @@ public class ScheduleService {
             int totalSeats = intervals.stream().mapToInt(di -> di.getRequiredSeats()==null?0:di.getRequiredSeats()).sum();
             logger.debug("Demand-gen day {} intervals={} seatsSum={}", day, intervals.size(), totalSeats);
 
+            // Pre-populate with existing assignments of the day when not resetting (respect manual entries)
             Map<Long, List<LocalTime[]>> empWindows = dayEmpWindows.computeIfAbsent(day, d -> new HashMap<>());
+            List<ShiftAssignment> existingAssignments = List.of();
+            if (!resetMonth) {
+                try {
+                    existingAssignments = assignmentRepository.findByWorkDate(day);
+                    for (var a : existingAssignments) {
+                        if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                        LocalTime s0 = a.getStartTime();
+                        LocalTime e0 = a.getEndTime();
+                        if (s0 == null || e0 == null) continue;
+                        empWindows.computeIfAbsent(a.getEmployee().getId(), x -> new ArrayList<>()).add(new LocalTime[]{s0, e0});
+                    }
+                } catch (Exception ignore) {}
+            }
+            // Seed weekly worked-days set from past days of this week and today's existing when not resetting
+            LocalDate ws = day.minusDays((day.getDayOfWeek().getValue()+6)%7);
+            LocalDate prev = day.minusDays(1);
+            if (!prev.isBefore(ws)) {
+                try {
+                    List<ShiftAssignment> prevWeek = assignmentRepository.findByWorkDateBetween(ws, prev);
+                    for (var a : prevWeek) {
+                        if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                        String key = a.getEmployee().getId() + ":" + ws.toString();
+                        weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(a.getWorkDate());
+                    }
+                } catch (Exception ignore) {}
+            }
+            if (!resetMonth && existingAssignments != null) {
+                for (var a : existingAssignments) {
+                    if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                    String key = a.getEmployee().getId() + ":" + ws.toString();
+                    weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(a.getWorkDate());
+                }
+            }
 
             // If pairing is enabled, first pair and assign full blocks, then assign remaining seats.
             if (pairingEnabled) {
                 class DIWrap { final com.example.shiftv1.demand.DemandInterval d; int seats; DIWrap(com.example.shiftv1.demand.DemandInterval d){ this.d=d; this.seats = d.getRequiredSeats()==null?0:d.getRequiredSeats();} }
                 List<DIWrap> wraps = intervals.stream().map(DIWrap::new).toList();
+                // Reduce seats by already existing exact-match windows (when not resetting)
+                if (!resetMonth && existingAssignments != null && !existingAssignments.isEmpty()) {
+                    for (DIWrap w : wraps) {
+                        LocalTime s = w.d.getStartTime();
+                        LocalTime e = w.d.getEndTime();
+                        int consumed = 0;
+                        for (var a : existingAssignments) {
+                            if (s.equals(a.getStartTime()) && e.equals(a.getEndTime())) consumed++;
+                        }
+                        w.seats = Math.max(0, w.seats - consumed);
+                    }
+                }
                 Map<Long, List<DIWrap>> bySkill = new HashMap<>();
                 for (DIWrap w : wraps) {
                     Long sid = (w.d.getSkill()==null? null : w.d.getSkill().getId());
@@ -214,12 +273,14 @@ public class ScheduleService {
                         for (int p = 0; p < pairs; p++) {
                             com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(
                                     employees, day, mornS, aftE, entry.getKey(),
-                                    BlockType.FULL, dayEmpWindows.computeIfAbsent(day, d -> new HashMap<>()));
+                                    BlockType.FULL, dayEmpWindows.computeIfAbsent(day, d -> new HashMap<>()), ruleMap, weekWorkedDays);
                             if (emp == null) break;
                             String shiftName = buildDemandShiftName(entry.getKey(), mornS, aftE);
                             created.add(new ShiftAssignment(day, shiftName, mornS, aftE, emp));
                             morning.seats -= 1; afternoon.seats -= 1;
                             dayEmpWindows.get(day).computeIfAbsent(emp.getId(), x -> new ArrayList<>()).add(new LocalTime[]{mornS, aftE});
+                            String key = emp.getId() + ":" + ws.toString();
+                            weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(day);
                         }
                     }
                 }
@@ -234,10 +295,12 @@ public class ScheduleService {
                     if (mornS != null && mornE != null && s.equals(mornS) && e.equals(mornE)) bt = BlockType.MORNING;
                     else if (aftS != null && aftE != null && s.equals(aftS) && e.equals(aftE)) bt = BlockType.AFTERNOON;
                     for (int k = 0; k < w.seats; k++) {
-                        com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, day, s, e, skillId, bt, empWindows);
+                        com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, day, s, e, skillId, bt, empWindows, ruleMap, weekWorkedDays);
                         if (emp == null) break;
                         empWindows.computeIfAbsent(emp.getId(), x -> new ArrayList<>()).add(new LocalTime[]{s, e});
                         created.add(new ShiftAssignment(day, shiftName, s, e, emp));
+                        String key = emp.getId() + ":" + ws.toString();
+                        weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(day);
                     }
                 }
                 // done for this day
@@ -258,6 +321,14 @@ public class ScheduleService {
                 LocalTime s = di.getStartTime();
                 LocalTime e = di.getEndTime();
                 int seats = di.getRequiredSeats() == null ? 0 : di.getRequiredSeats();
+                // Reduce seats by already existing exact-match windows (when not resetting)
+                if (!resetMonth && existingAssignments != null && !existingAssignments.isEmpty()) {
+                    int consumed = 0;
+                    for (var a : existingAssignments) {
+                        if (s.equals(a.getStartTime()) && e.equals(a.getEndTime())) consumed++;
+                    }
+                    seats = Math.max(0, seats - consumed);
+                }
                 if (s == null || e == null || !s.isBefore(e) || seats <= 0) continue;
                 Long skillId = (di.getSkill() == null ? null : di.getSkill().getId());
                 final String shiftName = buildDemandShiftName(skillId, s, e);
@@ -268,12 +339,14 @@ public class ScheduleService {
                         if (mornS != null && mornE != null && s.equals(mornS) && e.equals(mornE)) bt = BlockType.MORNING;
                         else if (aftS != null && aftE != null && s.equals(aftS) && e.equals(aftE)) bt = BlockType.AFTERNOON;
                     }
-                    com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, day, s, e, skillId, bt, empWindows);
+                    com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, day, s, e, skillId, bt, empWindows, ruleMap, weekWorkedDays);
                     if (emp == null) {
                         break;
                     }
                     empWindows.computeIfAbsent(emp.getId(), x -> new ArrayList<>()).add(new LocalTime[]{s, e});
                     created.add(new ShiftAssignment(day, shiftName, s, e, emp));
+                    String key = emp.getId() + ":" + ws.toString();
+                    weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(day);
                 }
             }
             int dayAdded = (int) created.stream().filter(a -> a.getWorkDate().equals(d0)).count();
@@ -309,20 +382,71 @@ public class ScheduleService {
                         .thenComparing(d -> d.getId() == null ? 0L : d.getId()))
                 .toList();
         Map<Long, List<LocalTime[]>> empWindows = new HashMap<>();
+        List<ShiftAssignment> existingAssignments = List.of();
+        // Preload rules and week tracking for day-generation
+        Map<Long, com.example.shiftv1.employee.EmployeeRule> ruleMap = new HashMap<>();
+        for (var emp : employees) { try { if (emp.getId()!=null) ruleMap.put(emp.getId(), employeeRuleRepository.findByEmployeeId(emp.getId()).orElse(null)); } catch (Exception ignore) {} }
+        Map<String, java.util.Set<LocalDate>> weekWorkedDays = new HashMap<>();
+        if (!resetDay) {
+            try {
+                existingAssignments = assignmentRepository.findByWorkDate(date);
+            } catch (Exception ignore) {}
+        }
+        // Respect existing manual assignments if not resetting
+        if (!resetDay) {
+            try {
+                for (var a : existingAssignments) {
+                    if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                    LocalTime s0 = a.getStartTime();
+                    LocalTime e0 = a.getEndTime();
+                    if (s0 == null || e0 == null) continue;
+                    empWindows.computeIfAbsent(a.getEmployee().getId(), x -> new ArrayList<>()).add(new LocalTime[]{s0, e0});
+                }
+            } catch (Exception ignore) {}
+        }
         List<ShiftAssignment> created = new ArrayList<>();
+        // Seed weekly worked-days from existing up to previous day and (if not resetting) today
+        LocalDate ws = date.minusDays((date.getDayOfWeek().getValue()+6)%7);
+        LocalDate prev = date.minusDays(1);
+        if (!prev.isBefore(ws)) {
+            try {
+                List<ShiftAssignment> prevWeek = assignmentRepository.findByWorkDateBetween(ws, prev);
+                for (var a : prevWeek) {
+                    if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                    String key = a.getEmployee().getId() + ":" + ws.toString();
+                    weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(a.getWorkDate());
+                }
+            } catch (Exception ignore) {}
+        }
+        if (!resetDay && existingAssignments != null) {
+            for (var a : existingAssignments) {
+                if (a.getEmployee() == null || a.getEmployee().getId() == null) continue;
+                String key = a.getEmployee().getId() + ":" + ws.toString();
+                weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(a.getWorkDate());
+            }
+        }
         for (var di : intervals) {
             LocalTime s = di.getStartTime();
             LocalTime e = di.getEndTime();
             int seats = di.getRequiredSeats() == null ? 0 : di.getRequiredSeats();
+            if (!resetDay && existingAssignments != null && !existingAssignments.isEmpty()) {
+                int consumed = 0;
+                for (var a : existingAssignments) {
+                    if (s.equals(a.getStartTime()) && e.equals(a.getEndTime())) consumed++;
+                }
+                seats = Math.max(0, seats - consumed);
+            }
             if (s == null || e == null || !s.isBefore(e) || seats <= 0) continue;
             Long skillId = (di.getSkill() == null ? null : di.getSkill().getId());
             String skillCode = (di.getSkill() == null ? null : di.getSkill().getCode());
             final String shiftName = (skillCode == null || skillCode.isBlank()) ? "Demand" : ("Demand-" + skillCode);
             for (int k = 0; k < seats; k++) {
-                com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, date, s, e, skillId, BlockType.GENERIC, empWindows);
+                com.example.shiftv1.employee.Employee emp = pickEmployeeForWindow(employees, date, s, e, skillId, BlockType.GENERIC, empWindows, ruleMap, weekWorkedDays);
                 if (emp == null) break;
                 empWindows.computeIfAbsent(emp.getId(), x -> new ArrayList<>()).add(new LocalTime[]{s, e});
                 created.add(new ShiftAssignment(date, shiftName, s, e, emp));
+                String key = emp.getId() + ":" + ws.toString();
+                weekWorkedDays.computeIfAbsent(key, x -> new java.util.HashSet<>()).add(date);
             }
         }
         if (created.isEmpty()) return List.of();
@@ -542,7 +666,9 @@ public class ScheduleService {
             LocalTime end,
             Long requiredSkillId,
             BlockType type,
-            Map<Long, List<LocalTime[]>> empWindows) {
+            Map<Long, List<LocalTime[]>> empWindows,
+            Map<Long, com.example.shiftv1.employee.EmployeeRule> ruleMap,
+            Map<String, java.util.Set<LocalDate>> weekWorkedDays) {
         for (var e : employees) {
             Long id = e.getId();
             if (id == null) continue;
@@ -576,8 +702,25 @@ public class ScheduleService {
                         if (start.isBefore(cs) || end.isAfter(ce)) { blocked = true; break; }
                     }
                 }
+                if (c.getType() == com.example.shiftv1.constraint.EmployeeConstraint.ConstraintType.VACATION
+                        || c.getType() == com.example.shiftv1.constraint.EmployeeConstraint.ConstraintType.SICK_LEAVE
+                        || c.getType() == com.example.shiftv1.constraint.EmployeeConstraint.ConstraintType.PERSONAL) {
+                    blocked = true; break;
+                }
             }
             if (blocked) continue;
+            // Weekly rest-days enforcement
+            com.example.shiftv1.employee.EmployeeRule rule = (ruleMap==null? null : ruleMap.get(id));
+            int restDays = (rule==null || rule.getWeeklyRestDays()==null) ? 2 : Math.max(0, Math.min(7, rule.getWeeklyRestDays()));
+            int maxWorkDays = Math.max(0, 7 - restDays);
+            if (weekWorkedDays != null) {
+                LocalDate ws = day.minusDays((day.getDayOfWeek().getValue()+6)%7); // Monday start
+                String key = id + ":" + ws.toString();
+                java.util.Set<LocalDate> set = weekWorkedDays.get(key);
+                int worked = (set==null?0:set.size());
+                boolean alreadyThisDay = (set!=null && set.contains(day));
+                if (worked >= maxWorkDays && !alreadyThisDay) continue;
+            }
             List<LocalTime[]> windows = empWindows.get(id);
             if (windows != null) {
                 boolean overlap = false;

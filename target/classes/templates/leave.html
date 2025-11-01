@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>有休管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    input, select, button { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>有休の管理</h2>
+    <div class="card">
+      <div class="row">
+        <label>従業員<br><select id="emp"></select></label>
+        <div id="bal" class="muted" style="min-width:240px;">残数: -</div>
+      </div>
+      <div class="row">
+        <label>付与日数<br><input type="number" id="grant" value="1" min="1" style="width:100px;"/></label>
+        <button id="btn-grant">付与</button>
+      </div>
+      <div class="row">
+        <label>休暇日<br><input type="date" id="date"/></label>
+        <button id="btn-request">この日を有休にする</button>
+      </div>
+      <div id="msg" class="muted"></div>
+    </div>
+    <div class="muted"><a href="/dashboard">ダッシュボード</a></div>
+  </div>
+  <script>
+    async function api(path, opt={}){ const res = await fetch(path, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt }); const ct=res.headers.get('content-type')||''; const data=ct.includes('json')? await res.json(): await res.text(); if(!res.ok) throw new Error((data&&data.message)||('HTTP '+res.status)); if(data && data.success===false) throw new Error(data.message||'failed'); return data; }
+    async function loadEmployees(){ const r=await api('/api/employees'); const list=r.data||[]; const sel=document.getElementById('emp'); sel.innerHTML=''; list.forEach(e=> sel.appendChild(new Option(e.name||('Emp#'+e.id), e.id)) ); if(sel.value){ loadBalance(); } }
+    async function loadBalance(){ const id=document.getElementById('emp').value; if(!id) return; try{ const r=await api(`/api/leave/balance/${id}`); const d=r.data||{}; document.getElementById('bal').textContent = `残数: ${d.remaining} (付与=${d.annualGranted||0}, 繰越=${d.carriedOver||0}, 使用=${d.used||0})`; }catch(_){ document.getElementById('bal').textContent='残数: -'; } }
+    async function grant(){ const id=document.getElementById('emp').value; const days=Number(document.getElementById('grant').value||'0'); const msg=document.getElementById('msg'); if(!id||days<=0){ msg.textContent='従業員と日数を入力してください'; return; } try{ const r=await api('/api/leave/balance/grant', { method:'POST', body: JSON.stringify({ employeeId:Number(id), days }) }); msg.textContent=r.message||'付与しました'; await loadBalance(); }catch(err){ msg.textContent=err.message||'付与に失敗しました'; } }
+    async function requestPTO(){ const id=document.getElementById('emp').value; const date=document.getElementById('date').value; const msg=document.getElementById('msg'); if(!id||!date){ msg.textContent='従業員と日付を入力してください'; return; } try{ const r=await api('/api/leave/requests', { method:'POST', body: JSON.stringify({ employeeId:Number(id), date }) }); msg.textContent=r.message||'登録しました'; await loadBalance(); }catch(err){ msg.textContent=err.message||'登録に失敗しました'; } }
+    document.getElementById('emp').addEventListener('change', loadBalance);
+    document.getElementById('btn-grant').addEventListener('click', grant);
+    document.getElementById('btn-request').addEventListener('click', requestPTO);
+    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); });
+  </script>
+</body>
+</html>
+

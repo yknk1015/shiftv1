@@ -7,6 +7,7 @@ import com.example.shiftv1.schedule.ShiftAssignment;
 import com.example.shiftv1.schedule.ShiftAssignmentRepository;
 import com.example.shiftv1.skill.Skill;
 import com.example.shiftv1.skill.SkillRepository;
+import com.example.shiftv1.demand.DemandIntervalRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -25,15 +26,18 @@ public class AdminController {
     private final SkillRepository skillRepository;
     private final ShiftAssignmentRepository assignmentRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
+    private final DemandIntervalRepository demandRepository;
 
     public AdminController(EmployeeRepository employeeRepository,
                            SkillRepository skillRepository,
                            ShiftAssignmentRepository assignmentRepository,
-                           com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer) {
+                           com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer,
+                           DemandIntervalRepository demandRepository) {
         this.employeeRepository = employeeRepository;
         this.skillRepository = skillRepository;
         this.assignmentRepository = assignmentRepository;
         this.errorLogBuffer = errorLogBuffer;
+        this.demandRepository = demandRepository;
     }
 
     @GetMapping("/status")
@@ -49,6 +53,23 @@ public class AdminController {
         } catch (Exception e) {
             logger.error("status error", e);
             return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to get status"));
+        }
+    }
+
+    @GetMapping("/setup-status")
+    public ResponseEntity<ApiResponse<Map<String,Object>>> getSetupStatus() {
+        try {
+            long employees = employeeRepository.count();
+            long skills = skillRepository.count();
+            long demands = demandRepository.count();
+            Map<String,Object> status = new HashMap<>();
+            status.put("employees", employees);
+            status.put("skills", skills);
+            status.put("demands", demands);
+            status.put("ready", employees>0 && skills>0 && demands>0);
+            return ResponseEntity.ok(ApiResponse.success("setup status", status));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("failed to get setup status"));
         }
     }
 
@@ -211,4 +232,3 @@ public class AdminController {
             String message
     ) {}
 }
-

@@ -67,4 +67,10 @@ public class WebController {
 
     @GetMapping("/monthly-demand")
     public String monthlyDemand() { return "monthly-demand"; }
+
+    @GetMapping("/setup")
+    public String setup() { return "setup"; }
+
+    @GetMapping("/leave")
+    public String leave() { return "leave"; }
 }

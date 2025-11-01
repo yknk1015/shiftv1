@@ -97,6 +97,24 @@
       </div>
     </div>
 
+    <!-- 有休（PTO）管理 -->
+    <div class="card">
+      <h3 style="margin:0 0 8px;">有休の管理</h3>
+      <div class="row">
+        <label>従業員<br><select id="lv-emp"></select></label>
+        <div class="muted" id="lv-balance" style="min-width:220px;">残数: -</div>
+      </div>
+      <div class="row">
+        <label>付与日数<br><input type="number" id="lv-grant-days" value="1" min="1" style="width:100px;"/></label>
+        <button id="lv-grant-btn">付与</button>
+      </div>
+      <div class="row">
+        <label>休暇日<br><input type="date" id="lv-date"/></label>
+        <button id="lv-request-btn">この日を有休にする</button>
+      </div>
+      <div class="muted" id="lv-msg" style="margin-top:6px;"></div>
+    </div>
+
     <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/admin-actions">管理メニュー</a></div>
   </div>
   <script>
@@ -128,6 +146,8 @@
         const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; sel.appendChild(o);
       });
       if(sel.value) { await onEmpChange(); }
+      // mirror to lv-emp select
+      const lvSel=document.getElementById('lv-emp'); if(lvSel){ lvSel.innerHTML=''; const def=new Option('(選択)', '', true, true); lvSel.appendChild(def); Array.from(sel.options).forEach(o=>{ if(o.value){ lvSel.appendChild(new Option(o.text, o.value)); } }); }
     }
     async function addEmployee(){
       const name=document.getElementById('emp-name').value.trim(); const role=document.getElementById('emp-role').value.trim();
@@ -155,8 +175,8 @@
     async function saveEmpSkills(){ const id=document.getElementById('emp-select').value; await api(`/api/employees/${id}/skills`, { method:'PUT', body: JSON.stringify(Array.from(empSkillSet))}); setMsg('emp-skill-msg','保存しました'); }
 
     // rules
-    async function loadRule(id){ const r=await api(`/api/employees/${id}/rule`); const d=r.data||{}; document.getElementById('weeklyMax').value=d.weeklyMaxHours??40; document.getElementById('dailyMax').value=d.dailyMaxHours??8; document.getElementById('maxConsecutive').value=d.maxConsecutiveDays??5; document.getElementById('minRest').value=d.minRestHours??11; document.getElementById('allowMulti').checked=!!d.allowMultipleShiftsPerDay; document.getElementById('allowHoliday').checked=(d.allowHolidayWork!==false); }
-    async function saveRule(){ const id=document.getElementById('emp-select').value; const body={ weeklyMaxHours:Number(document.getElementById('weeklyMax').value||'0'), dailyMaxHours:Number(document.getElementById('dailyMax').value||'0'), maxConsecutiveDays:Number(document.getElementById('maxConsecutive').value||'0'), minRestHours:Number(document.getElementById('minRest').value||'0'), allowMultipleShiftsPerDay: document.getElementById('allowMulti').checked, allowHolidayWork: document.getElementById('allowHoliday').checked }; const r=await api(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)}); setMsg('rule-msg', r.message||'保存しました'); }
+    async function loadRule(id){ const r=await api(`/api/employees/${id}/rule`); const d=r.data||{}; document.getElementById('weeklyMax').value=d.weeklyMaxHours??40; document.getElementById('dailyMax').value=d.dailyMaxHours??8; document.getElementById('maxConsecutive').value=d.maxConsecutiveDays??5; document.getElementById('minRest').value=d.minRestHours??11; document.getElementById('allowMulti').checked=!!d.allowMultipleShiftsPerDay; document.getElementById('allowHoliday').checked=(d.allowHolidayWork!==false); document.getElementById('weeklyRestDays').value=d.weeklyRestDays??2; }
+    async function saveRule(){ const id=document.getElementById('emp-select').value; const body={ weeklyMaxHours:Number(document.getElementById('weeklyMax').value||'0'), dailyMaxHours:Number(document.getElementById('dailyMax').value||'0'), maxConsecutiveDays:Number(document.getElementById('maxConsecutive').value||'0'), minRestHours:Number(document.getElementById('minRest').value||'0'), allowMultipleShiftsPerDay: document.getElementById('allowMulti').checked, allowHolidayWork: document.getElementById('allowHoliday').checked, weeklyRestDays: Number(document.getElementById('weeklyRestDays').value||'0') }; const r=await api(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)}); setMsg('rule-msg', r.message||'保存しました'); }
     let avItems=[];
     function renderAv(){ const tb=document.getElementById('av-tbody'); tb.innerHTML=''; avItems.forEach((x,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${x.dayOfWeek}</td><td>${x.startTime}</td><td>${x.endTime}</td><td><button data-i="${idx}">削除</button></td>`; tr.querySelector('button').addEventListener('click',()=>{ avItems.splice(idx,1); renderAv(); }); tb.appendChild(tr); }); }
     async function loadAv(id){ const r=await api(`/api/employees/${id}/availability`); avItems=(r.data||[]).map(a=>({ dayOfWeek:a.dayOfWeek, startTime:(a.startTime||'').substring(0,5), endTime:(a.endTime||'').substring(0,5) })); renderAv(); }
@@ -164,7 +184,16 @@
     function addAv(){ const day=document.getElementById('av-dow').value; const st=document.getElementById('av-start').value; const et=document.getElementById('av-end').value; if(!st||!et){ setMsg('av-msg','開始・終了は必須'); return;} avItems.push({ dayOfWeek:day, startTime:st, endTime:et }); renderAv(); }
     function clearAv(){ avItems=[]; renderAv(); }
 
-    async function onEmpChange(){ const id=document.getElementById('emp-select').value; await Promise.all([loadEmpSkills(), loadRule(id), loadAv(id)]); }
+    // leave (PTO)
+    async function loadLeaveBalance(id){
+      try{ const r=await api(`/api/leave/balance/${id}`); const d=r.data||{}; const el=document.getElementById('lv-balance'); if(el){ el.textContent = `残数: ${d.remaining} (付与=${d.annualGranted||0}, 繰越=${d.carriedOver||0}, 使用=${d.used||0})`; } }
+      catch(_){ const el=document.getElementById('lv-balance'); if(el){ el.textContent='残数: -'; } }
+    }
+    async function grantLeave(){ const id=document.getElementById('lv-emp').value||document.getElementById('emp-select').value; const days=Number(document.getElementById('lv-grant-days').value||'0'); if(!id||days<=0){ document.getElementById('lv-msg').textContent='従業員と日数を入力してください'; return; } try{ const r=await api('/api/leave/balance/grant', { method:'POST', body: JSON.stringify({ employeeId:Number(id), days }) }); document.getElementById('lv-msg').textContent=r.message||'付与しました'; await loadLeaveBalance(id); }catch(err){ document.getElementById('lv-msg').textContent=err.message||'付与に失敗しました'; }
+    }
+    async function requestLeave(){ const id=document.getElementById('lv-emp').value||document.getElementById('emp-select').value; const date=document.getElementById('lv-date').value; if(!id||!date){ document.getElementById('lv-msg').textContent='従業員と日付を入力してください'; return; } try{ const r=await api('/api/leave/requests', { method:'POST', body: JSON.stringify({ employeeId:Number(id), date }) }); document.getElementById('lv-msg').textContent=r.message||'登録しました'; await loadLeaveBalance(id); }catch(err){ document.getElementById('lv-msg').textContent=err.message||'登録に失敗しました'; }
+    }
+    async function onEmpChange(){ const id=document.getElementById('emp-select').value; const lvSel=document.getElementById('lv-emp'); if(lvSel){ lvSel.value=id; } await Promise.all([loadEmpSkills(), loadRule(id), loadAv(id), loadLeaveBalance(id)]); }
 
     document.getElementById('emp-add').addEventListener('click', addEmployee);
     document.getElementById('skill-save').addEventListener('click', saveEmpSkills);
@@ -174,9 +203,13 @@
     document.getElementById('av-clear').addEventListener('click', clearAv);
     document.getElementById('av-save').addEventListener('click', saveAv);
     document.getElementById('emp-select').addEventListener('change', onEmpChange);
+    document.getElementById('lv-grant-btn').addEventListener('click', grantLeave);
+    document.getElementById('lv-request-btn').addEventListener('click', requestLeave);
 
-    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); await loadSkills(); });
+    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); await loadSkills(); const cur=document.getElementById('emp-select').value; if(cur){ await loadLeaveBalance(cur); }});
   </script>
 </body>
 </html>
+
+
 

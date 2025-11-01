@@ -46,6 +46,7 @@ public class EmployeeRuleController {
         public Integer minRestHours;
         public Boolean allowMultipleShiftsPerDay;
         public Boolean allowHolidayWork;
+        public Integer weeklyRestDays;
     }
 
     @PutMapping("/{id}/rule")
@@ -63,6 +64,7 @@ public class EmployeeRuleController {
                     if (req.minRestHours != null) rule.setMinRestHours(req.minRestHours);
                     if (req.allowMultipleShiftsPerDay != null) rule.setAllowMultipleShiftsPerDay(req.allowMultipleShiftsPerDay);
                     if (req.allowHolidayWork != null) rule.setAllowHolidayWork(req.allowHolidayWork);
+                    if (req.weeklyRestDays != null) rule.setWeeklyRestDays(req.weeklyRestDays);
                     EmployeeRule saved = ruleRepository.save(rule);
                     return ResponseEntity.ok(ApiResponse.success("勤務ルールを更新しました", saved));
                 })

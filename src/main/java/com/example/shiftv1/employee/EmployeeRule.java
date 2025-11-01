@@ -18,19 +18,23 @@ public class EmployeeRule {
     private Integer weeklyMaxHours = 40; // 週上限（時間）
 
     @Column(name = "daily_max_hours")
-    private Integer dailyMaxHours = 8; // 日上限（時間）
+    private Integer dailyMaxHours = 8; // 1日上限（時間）
 
     @Column(name = "max_consecutive_days")
-    private Integer maxConsecutiveDays = 5; // 連勤上限（日）
+    private Integer maxConsecutiveDays = 5; // 連続勤務上限（日）
 
     @Column(name = "min_rest_hours")
-    private Integer minRestHours = 11; // 最低休息（時間）
+    private Integer minRestHours = 11; // 勤務間インターバル（時間）
 
     @Column(name = "allow_multiple_shifts_per_day")
-    private Boolean allowMultipleShiftsPerDay = false; // 同日複数シフト許可
+    private Boolean allowMultipleShiftsPerDay = false; // 1日に複数シフト可
 
     @Column(name = "allow_holiday_work")
-    private Boolean allowHolidayWork = true; // 祝日勤務許可
+    private Boolean allowHolidayWork = true; // 祝日勤務可
+
+    // 週の最低休日日数（通常は2日）
+    @Column(name = "weekly_rest_days")
+    private Integer weeklyRestDays = 2;
 
     public Long getId() { return id; }
     public Employee getEmployee() { return employee; }
@@ -47,5 +51,6 @@ public class EmployeeRule {
     public void setAllowMultipleShiftsPerDay(Boolean allowMultipleShiftsPerDay) { this.allowMultipleShiftsPerDay = allowMultipleShiftsPerDay; }
     public Boolean getAllowHolidayWork() { return allowHolidayWork; }
     public void setAllowHolidayWork(Boolean allowHolidayWork) { this.allowHolidayWork = allowHolidayWork; }
+    public Integer getWeeklyRestDays() { return weeklyRestDays; }
+    public void setWeeklyRestDays(Integer weeklyRestDays) { this.weeklyRestDays = weeklyRestDays; }
 }
-

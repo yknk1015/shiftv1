@@ -1,41 +1,69 @@
 # Shift Scheduler Demo
 
-Java 17 / Spring Boot / SQLite を利用したシフト管理デモ。デマンド（需要）ブロックからシフトを自動生成し、制約・スキルを考慮します。
+Java 17 / Spring Boot / SQLite を用いたシフト作成デモです。需要（デマンド）ブロックからシフトを割当し、従業員スキル・制約・ルール（週休など）を考慮します。
 
 ## 概要 / Overview
 
-本アプリは「需要（デマンド）ベース」でブロック単位のシフトを自動生成します。
-
-- 需要（デマンド）は時間帯ブロック（開始/終了/必要席数/スキル）で表現
-- 従業員はスキル・日別の制約（UNAVAILABLE/LIMITED）を持ち、適合する時間帯のみ割当
-- オプションで短時間ペアリング（午前・午後の組合せ→フルブロック）を実施
-- 管理者は同期/非同期の生成APIを利用可能
+- 需要（デマンド）は「開始/終了/必要席数/スキル」で定義
+- 従業員はスキルと制約（UNAVAILABLE/LIMITED/VACATION/SICK/PERSONAL など）を持ちます
+- 任意で「短時間ペアリング（午前/午後→フル）」を有効化可能
+- 管理者は同期生成/非同期生成の両APIを利用できます
 
 ## 生成ポリシー / Generation Policy
 
-- デマンド行ごとに requiredSeats を満たす人数を割当（重複・時間重なりを回避）
-- スキルが指定されているデマンドは、同スキル保有者のみ対象
-- 制約（UNAVAILABLE: 終日不可 / LIMITED: 指定時間内のみ可）を尊重
-- 短時間ペアリングが有効な場合、朝(例:09:00-13:00)と午後(13:00-18:00)を1名に結合してフル(09:00-18:00)として割当を優先
+- 需要 requiredSeats を満たすよう、スキル適合者に割当
+- 制約（UNAVAILABLE/LIMITED/VACATION/SICK/PERSONAL）は割当不可
+- 週休（weeklyRestDays）: 週の勤務可能日数 = 7 - 週休日数（同一日の複数枠は1日として計上）
+- 既存の手動割当は尊重（重複禁止）し、同一時間帯は座席数から差し引き
 
-## 正式API / Stable APIs
+## 生成API / Stable APIs（POST / 要管理者）
 
-管理者権限（ROLE_ADMIN）が必要です。
+以下はすべて管理者（ROLE_ADMIN）かつ POST での呼出が必要です。URL直打ちの GET は 302/405 になります。
 
-- POST `/api/schedule/generate/demand` ・・・ 月単位の同期生成（パラメータ: `year, month, granularity=60, reset=true`）
-- POST `/api/schedule/generate/demand/day` ・・・ 1日の同期生成（`date`, `reset=true`）
-- POST `/api/schedule/generate/demand/async` ・・・ 月単位の非同期生成（`year, month, granularity=60, reset=true`）
+- 同期（月）  
+  `POST /api/schedule/generate/demand?year=YYYY&month=M&granularity=60&reset=true|false`  
+  reset=true: 月の割当をクリアして作り直し／reset=false: 既存を残したまま空きのみ埋める
+- 同期（日）  
+  `POST /api/schedule/generate/demand/day?date=YYYY-MM-DD&reset=true|false`
+- 非同期（月）  
+  `POST /api/schedule/generate/demand/async?year=YYYY&month=M&granularity=60&reset=true|false`
 
-補助API:
+参考API:
 
-- GET `/api/schedule/stats/monthly?year=YYYY&month=M` ・・・ 月次統計
-- GET `/api/admin/error-logs` ・・・ 直近のエラーログ（生成失敗や未割当日の記録）
+- 月次統計: `GET /api/schedule/stats/monthly?year=YYYY&month=M`
+- 直近エラーログ: `GET /api/admin/error-logs?limit=50`
 
-既存の旧パス（`/generate-from-demand*`）は当面の互換のため残していますが、正式APIの利用を推奨します。
+### 認証付きの curl 例（PowerShell）
 
-## 管理画面（デバッグ）
+```
+# 1) ログイン（Cookie保存）
+curl.exe -sS -i -c cookies.txt -H "Content-Type: application/json" -d '{"username":"admin","password":"admin123"}' -X POST http://localhost:8080/api/auth/login
 
-- `/admin-debug` ・・・ 生成APIの実行と結果を画面で確認できます（管理者向け）
+# 2) 月の同期生成（空きのみ埋める）
+curl.exe -sS -i -b cookies.txt -X POST "http://localhost:8080/api/schedule/generate/demand?year=2025&month=11&granularity=60&reset=false"
+
+# 3) 結果確認
+curl.exe -sS -b cookies.txt "http://localhost:8080/api/schedule?year=2025&month=11"
+```
+
+## デバッグ / Debugging
+
+- `/admin-debug` で生成/統計/スナップショット等を実行可能（管理者）
+- 例外は Global エラーハンドラと ErrorLogBuffer に記録。必要に応じて  
+  `logging.level.com.example.shiftv1.schedule=DEBUG` を有効化
+
+## 文字化けの対処 / Encoding
+
+テンプレートや本文に文字化けが残る場合は、UTF‑8へ統一してください。
+
+- 一括変換スクリプト（Shift‑JIS→UTF‑8）: `tools/convert-templates-to-utf8.ps1`
+  - 確認: `pwsh -File tools/convert-templates-to-utf8.ps1 -WhatIf`
+  - 実行: `pwsh -File tools/convert-templates-to-utf8.ps1`
+- 残存検索（「�」を含む行）:  
+  `rg -n "�" src`
+- よく使う日本語メッセージ例:  
+  「スキルは必須です」「日付または曜日のいずれかを指定してください」  
+  「開始時刻と終了時刻の指定が不正です」「スキルが見つかりません」
 
 ## 起動 / Getting Started
 
@@ -43,24 +71,22 @@ Java 17 / Spring Boot / SQLite を利用したシフト管理デモ。デマン�
 mvn spring-boot:run
 ```
 
-既定のユーザー（デモ）:
+初期ユーザー:
 
 - 管理: `admin` / `admin123`
 - 一般: `user` / `user123`
 
-主要画面:
+主なURL:
 
 - Dashboard: http://localhost:8080/dashboard
 - Calendar: http://localhost:8080/calendar
 - Login: http://localhost:8080/login
 
-## 技術スタック
+## スタック / Stack
 
 - Java 17, Spring Boot 3, Spring Security, Spring Data JPA
 - SQLite, Thymeleaf, Maven
 
-## その他
+## 備考
 
-- 月次取得は空結果をキャッシュしません（生成直後の反映を確実にするため）
-- 非同期生成はトランザクション境界を確保（@Transactional）
-- 需要のある日に未割当ならエラーバッファに記録、DEBUGログで日別の席数・生成件数を出力
+- 生成は @Transactional で整合性を確保。問題があれば ErrorLogBuffer / DEBUG ログで診断可能。

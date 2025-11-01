@@ -538,8 +538,48 @@
                 <div class="user-buttons">
                     <button class="button ghost" id="open-calendar">カレンダー</button>
                     <button class="button danger" onclick="logout()">ログアウト</button>
-                </div>
+    </div>
+    
+    <!-- Manual schedule editor (independent from other UI) -->
+    <div class="grid">
+        <section class="card" id="manual-edit-card">
+            <div class="section-header compact">
+                <h2>シフトの手動編集</h2>
             </div>
+            <div class="section-subtitle">手動で1件ずつシフトを追加・編集できます。未割当の枠は自動で埋められます。</div>
+            <div class="row" style="gap:10px; align-items:flex-end;"><input type="hidden" id="man-id" />
+                <label> 日付
+                    <input type="date" id="man-date" />
+                </label>
+                <label> 担当者
+                    <select id="man-employee" style="min-width:180px;"></select>
+                </label>
+                <label> 開始
+                    <input type="time" id="man-start" value="09:00" />
+                </label>
+                <label> 終了
+                    <input type="time" id="man-end" value="18:00" />
+                </label>
+                <label> シフト名 
+                    <input type="text" id="man-name" placeholder="Manual" style="width:140px;" />
+                </label>
+                <button class="button primary" id="man-create">作成</button> <button class="button" id="man-update">更新</button>
+                <button class="button" id="day-fill-gaps">当日の不足を埋める</button>
+                <button class="button" id="month-fill-gaps">当月の不足を埋める（自動）</button>
+                <button class="button ghost" id="man-refresh">一覧を更新</button>
+            </div>
+            <div id="man-msg" class="message"></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr><th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>担当者</th><th>シフト名</th><th></th></tr>
+                    </thead>
+                    <tbody id="man-list"></tbody>
+                </table>
+            </div>
+        </section>
+    </div>
+</div>
         </header>
         <!-- Quick links: warnings and pairing settings -->
         <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin: 8px 0 12px;">
@@ -548,6 +588,7 @@
             <button class="button" onclick="location.href='/monthly-demand'">Monthly Demand</button>
             <button class="button" onclick="location.href='/demand'">Demand</button>
             <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
+            <button class="button" onclick="location.href='/leave'">Leave</button>
             <button class="button" onclick="location.href='/timeline'">Timeline</button>
             <button class="button" onclick="location.href='/calendar'">Calendar</button>
             <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
@@ -1739,9 +1780,84 @@
         renderCompact();
       }
     }
-    </script>
+</script>
+<script>
+// Manual editor logic (independent of main script)
+async function callApi2(url, options = {}, expectSuccess = true){
+  const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...options });
+  const ct = res.headers.get('content-type')||''; let data=null; if(ct.includes('json')){ try{ data=await res.json(); }catch(_){} }
+  if(!res.ok) throw new Error((data&&data.message)||('HTTP '+res.status));
+  if(expectSuccess && data && data.success===false) throw new Error(data.message||'failed');
+  return data;
+}
+async function loadEmployeesForManual(){
+  try{ const j=await callApi2('/api/employees'); const list=j.data||[]; const sel=document.getElementById('man-employee'); if(!sel) return; sel.innerHTML='<option value="">選択</option>'+list.map(e=>`<option value="${e.id}">${e.name||( 'Emp#'+e.id )}</option>`).join(''); }catch(_){ }
+}
+async function refreshManualList(){
+  const date=document.getElementById('man-date')?.value; const tbody=document.getElementById('man-list'); const msg=document.getElementById('man-msg'); if(!tbody) return; tbody.innerHTML=''; if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message info'; } return; }
+  try{ const y=Number(date.slice(0,4)); const m=Number(date.slice(5,7)); const res=await callApi2(`/api/schedule?year=${y}&month=${m}`); const rows=(res.data||[]).filter(a=>a.workDate===date);
+    if(!rows.length){ tbody.innerHTML='<tr><td colspan="7">データなし</td></tr>'; return; }
+    tbody.innerHTML = rows.map(r=>`<tr data-id="${r.id}"><td>${r.id}</td><td>${r.workDate}</td><td>${(r.startTime||'').slice(0,5)}</td><td>${(r.endTime||'').slice(0,5)}</td><td>${r.employeeName||''}</td><td>${r.shiftName||''}</td><td><button class="button" data-act="del" data-id="${r.id}">削除</button></td></tr>`).join('');
+    tbody.querySelectorAll('button[data-act="del"]').forEach(btn=>{ btn.addEventListener('click', async (e)=>{ const id=e.currentTarget.getAttribute('data-id'); if(!confirm(`ID=${id} を削除しますか?`)) return; try{ await callApi2(`/api/schedule/assignments/${id}`, { method:'DELETE' }); if(msg){ msg.textContent='削除しました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'削除に失敗しました'; msg.className='message error'; } } }); });
+  }catch(err){ if(msg){ msg.textContent=err.message||'取得に失敗しました'; msg.className='message error'; } }
+}
+async function createManual(){
+  const date=document.getElementById('man-date')?.value; const emp=document.getElementById('man-employee')?.value; const s=document.getElementById('man-start')?.value; const e=document.getElementById('man-end')?.value; const name=document.getElementById('man-name')?.value||'Manual'; const msg=document.getElementById('man-msg');
+  if(!date||!emp||!s||!e){ if(msg){ msg.textContent='必須項目を入力してください'; msg.className='message error'; } return; }
+  try{ await callApi2('/api/schedule/assignments', { method:'POST', body: JSON.stringify({ date, employeeId:Number(emp), startTime:s, endTime:e, shiftName:name }) }); if(msg){ msg.textContent='作成しました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'作成に失敗しました'; msg.className='message error'; } }
+}
+async function fillGapsForDay(){ const date=document.getElementById('man-date')?.value; const msg=document.getElementById('man-msg'); if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message error'; } return; } try{ await callApi2(`/api/schedule/generate/demand/day?date=${date}&reset=false`, { method:'POST' }); if(msg){ msg.textContent='空きのみ埋めました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
+async function fillGapsForMonth(){ const granSel=document.getElementById('granularity-select'); const gran = granSel?Number(granSel.value):60; const y=Number(document.getElementById('year-input')?.value)||new Date().getFullYear(); const m=Number(document.getElementById('month-input')?.value)|| (new Date().getMonth()+1); const msg=document.getElementById('man-msg'); try{ await callApi2(`/api/schedule/generate/demand/async?year=${y}&month=${m}&granularity=${gran}&reset=false`, { method:'POST' }); if(msg){ msg.textContent='月全体の空きのみ埋めを開始しました'; msg.className='message success'; } }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
+document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
+document.getElementById('man-create')?.addEventListener('click', createManual);
+document.getElementById('day-fill-gaps')?.addEventListener('click', fillGapsForDay);
+document.getElementById('month-fill-gaps')?.addEventListener('click', fillGapsForMonth);
+document.getElementById('man-date')?.addEventListener('change', refreshManualList);
+loadEmployeesForManual();
+</script>
+<script>
+// Enhance manual list with edit + update handler without touching original renderer
+function ensureManualEnhancer(){
+  const host = document.getElementById('man-list'); if(!host || host._enhanced) return; host._enhanced = true;
+  const mo = new MutationObserver(() => {
+    host.querySelectorAll('tr').forEach(tr => {
+      let last = tr.querySelector('td:last-child'); if(!last) return;
+      if (!last.querySelector('.btn-edit')) {
+        const id = tr.getAttribute('data-id'); if(!id) return;
+        const btn = document.createElement('button'); btn.className='button btn-edit'; btn.textContent='編集'; btn.addEventListener('click', ()=>{
+          const cells = tr.querySelectorAll('td');
+          const r = { id: id, workDate: cells[1]?.textContent?.trim(), startTime: cells[2]?.textContent?.trim()+':00', endTime: cells[3]?.textContent?.trim()+':00', employeeName: cells[4]?.textContent?.trim(), shiftName: cells[5]?.textContent?.trim() };
+          const idEl=document.getElementById('man-id'); if(idEl) idEl.value=r.id;
+          const d=document.getElementById('man-date'); if(d && r.workDate) d.value=r.workDate;
+          const s=document.getElementById('man-start'); if(s && r.startTime) s.value=r.startTime.slice(0,5);
+          const e=document.getElementById('man-end'); if(e && r.endTime) e.value=r.endTime.slice(0,5);
+          const n=document.getElementById('man-name'); if(n) n.value=r.shiftName||'';
+          const msg=document.getElementById('man-msg'); if(msg){ msg.textContent=`ID=${r.id} を編集中`; msg.className='message info'; }
+        });
+        last.prepend(btn);
+      }
+    });
+  });
+  mo.observe(host, { childList:true, subtree:false });
+}
+
+async function updateManual(){
+  const id=document.getElementById('man-id')?.value; const emp=document.getElementById('man-employee')?.value; const s=document.getElementById('man-start')?.value; const e=document.getElementById('man-end')?.value; const name=document.getElementById('man-name')?.value; const msg=document.getElementById('man-msg');
+  if(!id){ if(msg){ msg.textContent='編集対象を選択してください'; msg.className='message error'; } return; }
+  try { const body={}; if(emp) body.employeeId=Number(emp); if(s) body.startTime=s; if(e) body.endTime=e; if(name) body.shiftName=name; const res = await callApi2(`/api/schedule/assignments/${id}`, { method:'PUT', body: JSON.stringify(body) }); if(msg){ msg.textContent=res.message||'更新しました'; msg.className='message success'; } await refreshManualList(); }
+  catch(err){ if(msg){ msg.textContent=err.message||'更新に失敗しました'; msg.className='message error'; } }
+}
+
+ensureManualEnhancer();
+document.getElementById('man-update')?.addEventListener('click', updateManual);
+</script>
 </body>
 </html>
+
+
+
+
+
 
 
 
