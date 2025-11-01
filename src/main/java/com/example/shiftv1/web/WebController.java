@@ -41,10 +41,6 @@ public class WebController {
         return "leave";
     }
 
-    @GetMapping("/admin-actions")
-    public String adminActions() {
-        return "admin-actions";
-    }
 
     @GetMapping("/warnings")
     public String warnings() {

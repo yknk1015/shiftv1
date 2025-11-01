@@ -13,8 +13,7 @@ import com.example.shiftv1.skill.SkillRepository;
 import com.example.shiftv1.breaks.BreakPeriodRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.cache.annotation.CacheEvict;
-import org.springframework.cache.annotation.Cacheable;
+// Legacy caching annotations removed as part of simplification
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -75,7 +74,6 @@ public class ScheduleService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"monthly-schedules","stats-monthly","stats-workload","stats-days","stats-dist"}, key = "#year + '-' + #month")
     public List<ShiftAssignment> generateMonthlySchedule(int year, int month) {
         YearMonth ym = YearMonth.of(year, month);
         LocalDate start = ym.atDay(1);
@@ -132,14 +130,12 @@ public class ScheduleService {
         return assignmentRepository.saveAll(created);
     }
 
-    @Cacheable(value = "monthly-schedules", key = "#year + '-' + #month", unless = "#result == null || #result.isEmpty()")
     public List<ShiftAssignment> getMonthlySchedule(int year, int month) {
         var ym = YearMonth.of(year, month);
         return assignmentRepository.findByWorkDateBetween(ym.atDay(1), ym.atEndOfMonth());
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"monthly-schedules","stats-monthly","stats-workload","stats-days","stats-dist"}, key = "#year + '-' + #month")
     public List<ShiftAssignment> generateMonthlyFromDemand(int year, int month, int granularityMinutes, boolean resetMonth) {
         YearMonth ym = YearMonth.of(year, month);
         LocalDate start = ym.atDay(1);
@@ -297,7 +293,6 @@ public class ScheduleService {
     }
 
     @Transactional
-    @CacheEvict(value = "monthly-schedules", key = "#date.getYear() + '-' + #date.getMonthValue()")
     public List<ShiftAssignment> generateForDateFromDemand(LocalDate date, boolean resetDay) {
         if (resetDay) {
             try { breakRepository.deleteByAssignment_WorkDateBetween(date, date); } catch (Exception ignored) {}
@@ -336,7 +331,6 @@ public class ScheduleService {
 
     @Async("scheduleExecutor")
     @Transactional
-    @CacheEvict(cacheNames = {"monthly-schedules","stats-monthly","stats-workload","stats-days","stats-dist"}, key = "#year + '-' + #month")
     public void generateMonthlyFromDemandAsync(int year, int month, int granularityMinutes, boolean resetMonth) {
         try {
             List<ShiftAssignment> res = generateMonthlyFromDemand(year, month, granularityMinutes, resetMonth);
@@ -355,7 +349,6 @@ public class ScheduleService {
     }
 
     @Transactional
-    @CacheEvict(cacheNames = {"monthly-schedules","stats-monthly","stats-workload","stats-days","stats-dist"}, key = "#year + '-' + #month")
     public void resetMonthlySchedule(int year, int month) {
         var ym = YearMonth.of(year, month);
         LocalDate s = ym.atDay(1);
@@ -370,7 +363,6 @@ public class ScheduleService {
 
     // report/diagnostics removed
 
-    @CacheEvict(cacheNames = {"monthly-schedules","stats-monthly","stats-workload","stats-days","stats-dist"}, key = "#day.getYear() + '-' + #day.getMonthValue()")
     public Map<String, Object> addCoreTime(LocalDate day, Long skillId, String skillCode, java.time.LocalTime windowStart, java.time.LocalTime windowEnd, int seats) {
         Map<String, Object> result = new HashMap<>();
         int updated = 0;
@@ -600,4 +592,3 @@ public class ScheduleService {
         return null;
     }
 }
-

@@ -1,0 +1,1200 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフト管理ダッシュボード</title>
+    <style>
+        :root {
+            color-scheme: light;
+            --bg: #f1f5f9;
+            --card-bg: #ffffff;
+            --border: #e2e8f0;
+            --text-primary: #0f172a;
+            --text-secondary: #475569;
+            --text-muted: #64748b;
+            --accent: #2563eb;
+            --accent-dark: #1d4ed8;
+            --success-bg: #dcfce7;
+            --success-text: #14532d;
+            --error-bg: #fee2e2;
+            --error-text: #7f1d1d;
+            --info-bg: #e0f2fe;
+            --info-text: #0c4a6e;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: var(--text-primary);
+            font-family: 'Segoe UI', 'Hiragino Sans', 'ヒラギノ角ゴシック', 'Yu Gothic', sans-serif;
+        }
+
+        .page-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 32px 24px 48px;
+        }
+        /* Hide deprecated Shift Config card */
+        #shift-config-card { display: none; }
+
+        .page-header {
+            display: flex;
+            justify-content: space-between;
+            gap: 24px;
+            align-items: flex-start;
+            margin-bottom: 24px;
+        }
+
+        .page-header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .subtitle {
+            margin: 8px 0 0;
+            color: var(--text-secondary);
+            font-size: 15px;
+        }
+
+        .user-actions {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+        }
+
+        .user-info {
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .user-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .period-toolbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 24px;
+            padding: 16px 20px;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            border: 1px solid var(--border);
+        }
+
+        .period-picker {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .period-inputs {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .period-inputs label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+
+        .period-inputs input,
+        .period-inputs select {
+            font-size: 16px;
+            padding: 6px 10px;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text-primary);
+            min-width: 90px;
+        }
+
+        .period-label {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .period-label strong {
+            font-size: 18px;
+            color: var(--text-primary);
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+            gap: 24px;
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 16px;
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .card.span-2 {
+            grid-column: span 2;
+        }
+
+        /* Make shift-config card full width on wide screens */
+        @media (min-width: 1000px) {
+            #shift-config-card {
+                grid-column: 1 / -1;
+            }
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 16px;
+        }
+
+        .section-header h2 {
+            margin: 0;
+            font-size: 22px;
+        }
+
+        .section-header.compact h2 {
+            font-size: 20px;
+        }
+
+        .section-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .section-subtitle {
+            margin: 0;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .button {
+            border: none;
+            border-radius: 999px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+        }
+
+        .button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.12);
+        }
+
+        .button:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .button.primary {
+            background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+            color: #fff;
+        }
+
+        .button.secondary {
+            background: #e2e8f0;
+            color: var(--text-primary);
+        }
+
+        .button.ghost {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid var(--border);
+        }
+
+        .button.danger {
+            background: #ef4444;
+            color: #fff;
+        }
+
+        .button.subtle {
+            padding: 6px 12px;
+            font-size: 13px;
+        }
+
+        .info-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .info-card {
+            padding: 16px 18px;
+            border-radius: 14px;
+            background: linear-gradient(145deg, #f8fafc, #ffffff);
+            border: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .info-label {
+            font-size: 13px;
+            color: var(--text-muted);
+            margin-bottom: 6px;
+        }
+
+        .info-value {
+            font-size: 26px;
+            font-weight: 700;
+        }
+
+        .message {
+            display: none;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .message.info {
+            display: block;
+            background: var(--info-bg);
+            color: var(--info-text);
+        }
+
+        .message.success {
+            display: block;
+            background: var(--success-bg);
+            color: var(--success-text);
+        }
+
+        .message.error {
+            display: block;
+            background: var(--error-bg);
+            color: var(--error-text);
+        }
+
+        .loading {
+            padding: 16px;
+            text-align: center;
+            color: var(--text-muted);
+            font-size: 14px;
+        }
+
+        .empty-state {
+            padding: 18px;
+            text-align: center;
+            color: var(--text-muted);
+            background: #f8fafc;
+            border-radius: 12px;
+            border: 1px dashed var(--border);
+        }
+
+        .table-container {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            overflow: hidden;
+            background: #fff;
+        }
+
+        .table-container.small {
+            max-height: 280px;
+            overflow-y: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+
+        thead th {
+            background: #f1f5f9;
+            color: var(--text-secondary);
+            font-weight: 600;
+            text-align: left;
+            padding: 12px 14px;
+            border-bottom: 1px solid var(--border);
+            text-transform: uppercase;
+            font-size: 12px;
+            letter-spacing: 0.05em;
+        }
+
+        tbody td {
+            padding: 12px 14px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+
+        tbody tr:last-child td {
+            border-bottom: none;
+        }
+
+        tbody tr:hover {
+            background: #f8fafc;
+        }
+
+        
+
+        .stat-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .stat-grid.small {
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+        }
+
+        .stat-value {
+            font-size: 22px;
+            font-weight: 700;
+            margin-top: 4px;
+        }
+
+        .stat-subsection h3 {
+            margin: 8px 0;
+            font-size: 15px;
+            color: var(--text-secondary);
+        }
+
+        .pill-list {
+            margin: 0;
+            padding: 0;
+            list-style: none;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .pill-list li {
+            padding: 6px 12px;
+            border-radius: 999px;
+            background: #eef2ff;
+            color: #312e81;
+            font-size: 13px;
+        }
+
+        .ranking-list {
+            margin: 0;
+            padding-left: 20px;
+            color: var(--text-primary);
+        }
+
+        .ranking-list li {
+            margin-bottom: 6px;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+        }
+
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            align-items: end;
+        }
+
+        .form-grid label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+
+        input[type="text"],
+        input[type="number"],
+        input[type="time"],
+        input[type="date"],
+        select {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            padding: 10px 12px;
+            font-size: 14px;
+            transition: border-color 0.15s ease, box-shadow 0.15s ease;
+        }
+
+        input:focus,
+        select:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.15);
+        }
+
+        .checkbox {
+            flex-direction: row !important;
+            align-items: center;
+            gap: 8px !important;
+            font-weight: 600;
+        }
+
+        .checkbox input {
+            width: 18px;
+            height: 18px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .muted {
+            color: var(--text-muted);
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 8px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 600;
+            background: #e2e8f0;
+            color: var(--text-secondary);
+        }
+
+        .badge.active {
+            background: #dcfce7;
+            color: var(--success-text);
+        }
+
+        .badge.inactive {
+            background: #fee2e2;
+            color: var(--error-text);
+        }
+
+        @media (max-width: 900px) {
+            .page-header {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .user-actions {
+                align-items: flex-start;
+            }
+
+            .period-toolbar {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 16px;
+            }
+
+            .period-picker {
+                justify-content: space-between;
+            }
+
+            .card.span-2 {
+                grid-column: span 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="page-container">
+        <header class="page-header">
+            <div>
+                <h1>シフト管理ダッシュボード</h1>
+                <p class="subtitle">従業員管理から自動シフト生成まで、この画面で完結します。</p>
+            </div>
+            <div class="user-actions">
+                <span id="user-info" class="user-info">ログイン情報を取得しています...</span>
+                <div class="user-buttons">
+                    <button class="button ghost" id="open-calendar">カレンダー</button>
+                    <button class="button danger" onclick="logout()">ログアウト</button>
+                </div>
+            </div>
+        </header>
+        <!-- Quick links: warnings and pairing settings -->
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin: 8px 0 12px;">
+            <button class="button" onclick="location.href='/warnings'">Warnings</button>
+            <button class="button" onclick="location.href='/pairing-settings'">Pairing</button>
+            <button class="button" onclick="location.href='/monthly-demand'">Monthly Demand</button>
+            <button class="button" onclick="location.href='/demand'">Demand</button>
+            <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
+            <button class="button" onclick="location.href='/timeline'">Timeline</button>
+            <button class="button" onclick="location.href='/calendar'">Calendar</button>
+            <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
+        </div>
+
+        <section class="period-toolbar">
+            <div class="period-picker">
+                <button class="button ghost" id="prev-month">前月</button>
+                <div class="period-inputs">
+                    <label>
+                        <span>年</span>
+                        <input type="number" id="year-input" min="2000" max="2100">
+                    </label>
+                    <label>
+                        <span>月</span>
+                        <select id="month-input"></select>
+                    </label>
+                    <label>
+                        <span>粒度</span>
+                        <select id="granularity-select">
+                            <option value="60" selected>60分</option>
+                            <option value="30">30分</option>
+                            <option value="15">15分</option>
+                        </select>
+                    </label>
+                </div>
+                <button class="button ghost" id="next-month">次月</button>
+            </div>
+            <div class="period-label">
+                <span>対象:</span>
+                <strong id="schedule-period"></strong>
+            </div>
+        </section>
+
+        <div class="grid">
+            <section class="card span-2" id="schedule-card">
+                <div class="section-header">
+                    <div>
+                        <h2>シフト生成</h2>
+                        <p class="section-subtitle">対象月のシフトを自動生成し、担当者を一覧で確認できます。</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="button secondary" id="refresh-schedule">最新シフト取得</button>
+                        <button class="button" id="reset-schedule">シフト初期化</button>
+                        <button class="button primary" id="generate-schedule">シフトを生成</button>
+                    </div>
+                </div>
+
+                <div id="schedule-message" class="message"></div>
+                <div id="shortage-details" class="message" style="display:none;"></div>
+
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-label">シフト件数</div>
+                        <div class="info-value" id="assignment-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">従業員数</div>
+                        <div class="info-value" id="employee-count">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">稼働日数</div>
+                        <div class="info-value" id="working-day-count">0</div>
+                    </div>
+                </div>
+
+                <div id="schedule-loading" class="loading" style="display: none;">シフトを読み込み中です...</div>
+                <div id="schedule-empty" class="empty-state" style="display: none;">まだシフトが登録されていません。まずは「シフトを生成」を押してください。</div>
+
+                <div class="table-container">
+                    <table id="schedule-table">
+                        <thead>
+                            <tr>
+                                <th>日付</th>
+                                <th>曜日</th>
+                                <th>シフト</th>
+                                <th>時間</th>
+                                <th>担当者</th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card" id="stats-card">
+                <div class="section-header compact">
+                    <h2>月次サマリー</h2>
+                    <button class="button ghost" id="refresh-stats">更新</button>
+                </div>
+                <div id="stats-message" class="message"></div>
+                <div class="stat-grid">
+                    <div>
+                        <div class="stat-label">総シフト数</div>
+                        <div class="stat-value" id="stat-total-shifts">0</div>
+                    </div>
+                    <div>
+                        <div class="stat-label">稼働従業員</div>
+                        <div class="stat-value" id="stat-unique-employees">0</div>
+                    </div>
+                </div>
+                
+                <!-- Shift type breakdown (restored to prevent JS null errors) -->
+                <div class="stat-subsection">
+                    <h3>シフト種別内訳</h3>
+                    <ul id="shift-type-list"></ul>
+                </div>
+
+                <div class="stat-subsection">
+                    <h3>勤務数トップ</h3>
+                    <ol id="workload-list" class="ranking-list"></ol>
+                </div>
+            </section>
+
+            <!-- Data stats card (restored) -->
+            <section class="card" id="data-card">
+                <div class="section-header compact">
+                    <h2>データ統計</h2>
+                    <button class="button ghost" id="refresh-data-stats">更新</button>
+                </div>
+                <div id="data-message" class="message"></div>
+                <div class="info-grid">
+                    <div class="info-card">
+                        <div class="info-label">従業員数</div>
+                        <div class="info-value" id="data-total-employees">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">割当総数</div>
+                        <div class="info-value" id="data-total-assignments">0</div>
+                    </div>
+                    <div class="info-card">
+                        <div class="info-label">最終更新</div>
+                        <div class="info-value" id="data-last-updated">-</div>
+                    </div>
+                </div>
+                <div class="stat-subsection">
+                    <h3>最近6か月の割当件数</h3>
+                    <ul id="data-monthly-stats"></ul>
+                </div>
+            </section>
+
+            <section class="card" id="employee-card" style="display:none;">
+                <div class="section-header compact">
+                    <h2>従業員管理</h2>
+                    <button class="button ghost" id="reload-employees">再読み込み</button>
+                </div>
+                <p class="section-subtitle">シフト対象の従業員を登録・削除できます。</p>
+                <form id="employee-form" class="form-grid">
+                    <label>
+                        <span>氏名</span>
+                        <input type="text" id="employee-name" required placeholder="例: 佐藤 花子">
+                    </label>
+                    <label>
+                        <span>役職</span>
+                        <input type="text" id="employee-role" placeholder="例: スタッフ">
+                    </label>
+                    <button type="submit" class="button primary">従業員を追加</button>
+                </form>
+                <div id="employee-message" class="message"></div>
+                <div class="table-container small">
+                    <table id="employee-table">
+                        <thead>
+                            <tr>
+                                <th>氏名</th>
+                                <th>役職</th>
+                                <th>登録日</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card span-2" id="shift-config-card">
+                <div class="section-header compact">
+                    <h2>シフト設定</h2>
+                    <button class="button ghost" id="reload-shift-configs">再読み込み</button>
+                </div>
+                <p class="section-subtitle">稼働時間帯と必要人数を設定します。アクティブな設定のみが自動生成で使用されます。</p>
+                <form id="shift-config-form" class="form-grid">
+                    <label>
+                        <span>名称</span>
+                        <input type="text" id="config-name" required placeholder="例: 朝シフト">
+                    </label>
+                    <label>
+                        <span>開始時間</span>
+                        <input type="time" id="config-start" required>
+                    </label>
+                    <label>
+                        <span>終了時間</span>
+                        <input type="time" id="config-end" required>
+                    </label>
+                    <label>
+                        <span>必要人数</span>
+                        <input type="number" id="config-required" min="1" value="4" required>
+                    </label>
+                      <!-- removed: <label class="checkbox"> -->
+                          <!-- removed: <input type="checkbox" id="config-weekend"> -->
+                          <span>曜日の指定</span>
+                      <!-- removed: </label> -->
+                      <div>
+                          <span>曜日（複数選択可・未選択は全日）</span>
+                          <div class="checkbox-row" id="config-days">
+                              <label class="checkbox"><input type="checkbox" value="MONDAY">月</label>
+                              <label class="checkbox"><input type="checkbox" value="TUESDAY">火</label>
+                              <label class="checkbox"><input type="checkbox" value="WEDNESDAY">水</label>
+                              <label class="checkbox"><input type="checkbox" value="THURSDAY">木</label>
+                              <label class="checkbox"><input type="checkbox" value="FRIDAY">金</label>
+                              <label class="checkbox"><input type="checkbox" value="SATURDAY">土</label>
+                              <label class="checkbox"><input type="checkbox" value="SUNDAY">日</label>
+                          </div>
+                          <div class="button-row">
+                              <button type="button" class="button secondary subtle" id="preset-all-days">全日</button>
+                              <button type="button" class="button secondary subtle" id="preset-weekdays">月〜金</button>
+                              <button type="button" class="button secondary subtle" id="preset-sat">土</button>
+                              <button type="button" class="button secondary subtle" id="preset-weekend">土・日</button>
+                              <button type="button" class="button subtle" id="preset-clear">クリア</button>
+                          </div>
+                      </div>
+                      <label class="checkbox">
+                          <input type="checkbox" id="config-holiday">
+                          <span>祝日シフト</span>
+                      </label>
+                      <div class="button-row">
+                          <button type="submit" class="button primary" id="config-submit">設定を追加</button>
+                          <button type="button" class="button" id="config-cancel" style="display:none;">編集をキャンセル</button>
+                      </div>
+                  </form>
+                <div id="shift-config-message" class="message"></div>
+                <div class="table-container small">
+                    <table id="shift-config-table">
+                          <thead>
+                              <tr>
+                                  <th>名称</th>
+                                  <th>時間帯</th>
+                                  <th>人数</th>
+                                  
+                                  <th>曜日</th>
+                                  
+                                  <th>状態</th>
+                                  <th></th>
+                              </tr>
+                          </thead>
+                          <tbody></tbody>
+                      </table>
+                  </div>
+            </section>
+
+            
+        </div>
+    </div>
+    <script>
+        const monthInput = document.getElementById('month-input');
+        const yearInput = document.getElementById('year-input');
+        const schedulePeriodLabel = document.getElementById('schedule-period');
+        const scheduleTableBody = document.querySelector('#schedule-table tbody');
+        const scheduleEmpty = document.getElementById('schedule-empty');
+        const scheduleLoading = document.getElementById('schedule-loading');
+
+        document.addEventListener('DOMContentLoaded', () => {
+            setupMonthOptions();
+            initializePeriod();
+            bindEventListeners();
+            loadUserInfo();
+            loadSchedule();
+            loadStatistics();
+            loadEmployees();
+            loadShiftConfigs();
+            loadDataStats();
+        });
+
+        function setupMonthOptions() {
+            for (let month = 1; month <= 12; month++) {
+                const option = document.createElement('option');
+                option.value = month;
+                option.textContent = `${month}月`;
+                monthInput.appendChild(option);
+            }
+        }
+
+        function initializePeriod() {
+            const today = new Date();
+            setPeriod(today.getFullYear(), today.getMonth() + 1);
+            yearInput.addEventListener('change', handlePeriodChange);
+            monthInput.addEventListener('change', handlePeriodChange);
+        }
+
+        function bindEventListeners() {
+            document.getElementById('prev-month')?.addEventListener('click', () => changeMonth(-1));
+            document.getElementById('next-month')?.addEventListener('click', () => changeMonth(1));
+            document.getElementById('open-calendar')?.addEventListener('click', () => window.location.href = '/calendar');
+            document.getElementById('generate-schedule')?.addEventListener('click', handleGenerateSchedule);
+            document.getElementById('reset-schedule')?.addEventListener('click', handleResetSchedule);
+            document.getElementById('refresh-schedule')?.addEventListener('click', () => loadSchedule(true));
+            document.getElementById('refresh-stats')?.addEventListener('click', loadStatistics);
+            if (document.getElementById('employee-form')) {
+              document.getElementById('employee-form').addEventListener('submit', handleCreateEmployee);
+            }
+            if (document.getElementById('reload-employees')) {
+              document.getElementById('reload-employees').addEventListener('click', loadEmployees);
+            }
+            document.getElementById('shift-config-form')?.addEventListener('submit', handleCreateShiftConfig);
+            document.getElementById('reload-shift-configs')?.addEventListener('click', loadShiftConfigs);
+            document.getElementById('refresh-data-stats')?.addEventListener('click', loadDataStats);
+            const exportEmployeesBtn = document.getElementById('export-employees');
+            if (exportEmployeesBtn) {
+                exportEmployeesBtn.addEventListener('click', () => downloadFile('/api/data/export/employees/csv', 'employees.csv'));
+            }
+            const exportScheduleBtn = document.getElementById('export-schedule');
+            if (exportScheduleBtn) {
+                exportScheduleBtn.addEventListener('click', () => {
+                    const { year, month } = getPeriod();
+                    const url = `/api/data/export/schedule/csv?year=${year}&month=${month}`;
+                    const filename = `schedule_${year}-${String(month).padStart(2, '0')}.csv`;
+                    downloadFile(url, filename);
+                });
+            }
+            const backupBtn = document.getElementById('create-backup');
+            if (backupBtn) {
+                backupBtn.addEventListener('click', () => {
+                    const filename = `shift_backup_${new Date().toISOString().replace(/[:.]/g, '-')}.txt`;
+                    downloadFile('/api/data/backup/export', filename);
+                });
+            }
+        }
+
+        function handlePeriodChange() {
+            const { year, month } = getPeriod();
+            setPeriod(year, month);
+            loadSchedule();
+            loadStatistics();
+        }
+
+        function changeMonth(offset) {
+            const { year, month } = getPeriod();
+            const date = new Date(year, month - 1 + offset, 1);
+            setPeriod(date.getFullYear(), date.getMonth() + 1);
+            loadSchedule();
+            loadStatistics();
+        }
+
+        function setPeriod(year, month) {
+            yearInput.value = year;
+            monthInput.value = month;
+            schedulePeriodLabel.textContent = `${year}年${month}月`;
+        }
+
+        function getPeriod() {
+            return {
+                year: parseInt(yearInput.value, 10) || new Date().getFullYear(),
+                month: parseInt(monthInput.value, 10) || (new Date().getMonth() + 1)
+            };
+        }
+
+        async function handleGenerateSchedule() {
+            const { year, month } = getPeriod();
+            setMessage('schedule-message', '', 'info');
+            const shortageBox = document.getElementById('shortage-details');
+            shortageBox.style.display = 'none';
+            shortageBox.textContent = '';
+            setScheduleLoading(true);
+            try {
+                const granSel = document.getElementById('granularity-select');
+                const gran = granSel ? Number(granSel.value) : 60;
+                const response = await callApi(`/api/schedule/generate/demand/async?year=${year}&month=${month}&granularity=${gran}`, { method: 'POST' });
+                setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
+                const shortages = (response.meta && response.meta.shortages) || [];
+                if (shortages.length > 0) {
+                    const lines = shortages.map(s => `${s.workDate} ${s.shiftName}: ${s.assigned}/${s.required}`);
+                    shortageBox.textContent = `割当不足の詳細: ${lines.join(' / ')}`;
+                    shortageBox.style.display = 'block';
+                }
+                // Poll a few times because generation runs asynchronously
+                let attempts = 0; let updated = false;
+                while (attempts < 6) {
+                    attempts++;
+                    try {
+                        const res = await callApi(`/api/schedule?year=${year}&month=${month}`);
+                        const assignments = res.data || [];
+                        const has = renderSchedule(assignments);
+                        updateScheduleSummary(res.meta || {}, assignments);
+                        scheduleEmpty.style.display = has ? 'none' : 'block';
+                        if (has) { updated = true; break; }
+                    } catch (_) { }
+                    await new Promise(r => setTimeout(r, 1500));
+                }
+                if (!updated) {
+                    await loadSchedule();
+                }
+                await loadStatistics();
+                await loadDataStats();
+            } catch (error) {
+                setMessage('schedule-message', error.message || 'シフト生成に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
+            }
+        }
+
+        async function handleResetSchedule() {
+            const { year, month } = getPeriod();
+            if (!confirm(`${year}年${month}月のシフトを初期化します。よろしいですか？`)) {
+                return;
+            }
+            setMessage('schedule-message', '', 'info');
+            setScheduleLoading(true);
+            try {
+                await callApi(`/api/schedule/reset?year=${year}&month=${month}`, { method: 'DELETE' });
+                setMessage('schedule-message', 'シフトを初期化しました。', 'success');
+                await loadSchedule();
+                await loadStatistics();
+                await loadDataStats();
+            } catch (error) {
+                setMessage('schedule-message', error.message || 'シフト初期化に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
+            }
+        }
+
+        async function loadSchedule(showMessageOnSuccess = false) {
+            const { year, month } = getPeriod();
+            setScheduleLoading(true);
+            try {
+                const response = await callApi(`/api/schedule?year=${year}&month=${month}`);
+                const assignments = response.data || [];
+                const hasAssignments = renderSchedule(assignments);
+                updateScheduleSummary(response.meta || {}, assignments);
+                scheduleEmpty.style.display = hasAssignments ? 'none' : 'block';
+                if (showMessageOnSuccess) {
+                    setMessage('schedule-message', response.message || 'シフトを取得しました。', 'info');
+                } else {
+                    setMessage('schedule-message', '', 'info');
+                }
+            } catch (error) {
+                renderSchedule([]);
+                updateScheduleSummary({}, []);
+                scheduleEmpty.style.display = 'block';
+                setMessage('schedule-message', error.message || 'シフトの取得に失敗しました。', 'error');
+            } finally {
+                setScheduleLoading(false);
+            }
+        }
+
+        async function loadStatistics() {
+            const { year, month } = getPeriod();
+            setMessage('stats-message', '', 'info');
+            try {
+                const monthly = await callApi(`/api/schedule/stats/monthly?year=${year}&month=${month}`);
+                updateMonthlyStats(monthly.data);
+                const workload = await callApi(`/api/schedule/stats/employee-workload?year=${year}&month=${month}`);
+                updateWorkload(workload.data || []);
+                const days = await callApi(`/api/schedule/stats/employee-days?year=${year}&month=${month}`);
+                renderEmployeeDays(days.data || []);
+            } catch (error) {
+                updateMonthlyStats(null);
+                updateWorkload([]);
+                renderEmployeeDays([]);
+                setMessage('stats-message', error.message || '統計の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadEmployees() {
+            try {
+                const response = await callApi('/api/employees');
+                renderEmployeeTable(response.data || []);
+                setMessage('employee-message', '', 'info');
+            } catch (error) {
+                renderEmployeeTable([]);
+                setMessage('employee-message', error.message || '従業員の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadShiftConfigs() {
+            try {
+                const configs = await callApi('/api/config/shift', {}, { expectSuccess: false });
+                renderShiftConfigTable(configs || []);
+                setMessage('shift-config-message', '', 'info');
+            } catch (error) {
+                renderShiftConfigTable([]);
+                setMessage('shift-config-message', error.message || 'シフト設定の取得に失敗しました。', 'error');
+            }
+        }
+
+        async function loadDataStats() {
+            try {
+                const response = await callApi('/api/data/stats');
+                updateDataStats(response.data || {});
+                setMessage('data-message', '', 'info');
+            } catch (error) {
+                updateDataStats({});
+                setMessage('data-message', error.message || 'データ統計の取得に失敗しました。', 'error');
+            }
+        }
+
+        function setScheduleLoading(isLoading) {
+            scheduleLoading.style.display = isLoading ? 'block' : 'none';
+        }
+
+        function renderSchedule(assignments) {
+            scheduleTableBody.innerHTML = '';
+            if (!assignments || assignments.length === 0) {
+                return false;
+            }
+            const grouped = assignments.reduce((map, item) => {
+                if (!map[item.workDate]) {
+                    map[item.workDate] = [];
+                }
+                map[item.workDate].push(item);
+                return map;
+            }, {});
+            const dates = Object.keys(grouped).sort();
+            dates.forEach(date => {
+                const items = grouped[date].sort((a, b) => {
+                    const time = (a.startTime || '').localeCompare(b.startTime || '');
+                    if (time !== 0) return time;
+                    const shift = (a.shiftName || '').localeCompare(b.shiftName || '', 'ja');
+                    if (shift !== 0) return shift;
+                    return (a.employeeName || '').localeCompare(b.employeeName || '', 'ja');
+                });
+                items.forEach((assignment, index) => {
+                    const row = document.createElement('tr');
+                    if (index === 0) {
+                        const dateCell = document.createElement('td');
+                        dateCell.rowSpan = items.length;
+                        dateCell.textContent = formatDateLabel(date);
+                        row.appendChild(dateCell);
+                        const dayCell = document.createElement('td');
+                        dayCell.rowSpan = items.length;
+                        dayCell.textContent = getDayLabel(date);
+                        row.appendChild(dayCell);
+                    }
+                    const shiftCell = document.createElement('td');
+                    shiftCell.textContent = assignment.shiftName;
+                    row.appendChild(shiftCell);
+                    const timeCell = document.createElement('td');
+                    timeCell.textContent = formatTimeRange(assignment.startTime, assignment.endTime);
+                    row.appendChild(timeCell);
+                    const employeeCell = document.createElement('td');
+                    employeeCell.textContent = assignment.employeeName;
+                    row.appendChild(employeeCell);
+                    scheduleTableBody.appendChild(row);
+                });
+            });
+            return true;
+        }
+
+        function updateScheduleSummary(meta, assignments) {
+            const { year, month } = getPeriod();
+            schedulePeriodLabel.textContent = `${meta.year ?? year}年${meta.month ?? month}月`;
+            const count = meta.count ?? assignments.length;
+            document.getElementById('assignment-count').textContent = count;
+            const unique = meta.uniqueEmployees ?? new Set(assignments.map(item => item.employeeName)).size;
+            document.getElementById('employee-count').textContent = unique;
+            const days = meta.workingDays ?? new Set(assignments.map(item => item.workDate)).size;
+            document.getElementById('working-day-count').textContent = days;
+        }
+
+        function updateMonthlyStats(data) {
+            document.getElementById('stat-total-shifts').textContent = data?.totalShifts ?? 0;
+            document.getElementById('stat-unique-employees').textContent = data?.uniqueEmployees ?? 0;
+            const list = document.getElementById('shift-type-list');
+            if (!list) { return; }
+            list.innerHTML = '';
+            if (data?.shiftsByType && Object.keys(data.shiftsByType).length > 0) {
+                Object.entries(data.shiftsByType)
+                    .sort((a, b) => b[1] - a[1])
+                    .forEach(([name, count]) => {
+                        const li = document.createElement('li');
+                        li.textContent = `${name}: ${count}`;
+                        list.appendChild(li);
+                    });
+            } else {
+                const li = document.createElement('li');
+                li.className = 'muted';
+                li.textContent = 'データがありません';
+                list.appendChild(li);
+            }
+        }
+
+        function renderEmployeeDays(rows) {
+            const host = document.getElementById('employee-days');
+            host.innerHTML = '';
+            const table = document.createElement('table');
+            table.className = 'data-table';
+            const thead = document.createElement('thead');
+            thead.innerHTML = '<tr><th>従業員</th><th>勤務日数</th><th>休日日数</th><th>月日数</th></tr>';
+            table.appendChild(thead);
+            const tbody = document.createElement('tbody');
+            if (!rows || rows.length === 0) {
+                const tr = document.createElement('tr');
+                const td = document.createElement('td');
+                td.colSpan = 4;
+                td.className = 'muted';
+                td.textContent = 'データがありません';
+                tr.appendChild(td);
+                tbody.appendChild(tr);
+            } else {
+                rows.forEach(r => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${r.employeeName}</td><td>${r.workDays}</td><td>${r.restDays}</td><td>${r.totalDays}</td>`;
+                    tbody.appendChild(tr);
+                });
+            }
+            table.appendChild(tbody);
+            host.appendChild(table);
+        }
+
+        function updateWorkload(data) {
+            const list = document.getElementById('workload-list');
+            list.innerHTML = '';
+            if (!data || data.length === 0) {
+                const li = document.createElement('li');
+                li.className = 'muted';
+                li.textContent = 'データがありません';
+                list.appendChild(li);
+                return;
+            }
+            data.slice(0, 5).forEach(item => {
+                const li = document.createElement('li');
+                const name = document.createElement('span');
+                name.textContent = item.employeeName;
+                const count = document.createElement('span');
+                count.textContent = `${item.shiftCount}件`;
+                li.appendChild(name);
+                li.appendChild(count);
+                list.appendChild(li);
+            });
+        }
+
+        function renderEmployeeTable(employees) {
+            const tbody = document.querySelector('#employee-table tbody');
+            tbody.innerHTML = '';
+            if (!employees || employees.length === 0) {
+                const row = document.createElement('tr');
+                const cell = document.createElement('td');
+                cell.colSpan = 4;
+                cell.className = 'muted';
+                cell.textContent = '登録されている従業員はいません';
+                row.appendChild(cell);
+                tbody.appendChild(row);
+                return;
+            }
+            employees
+                .slice()
+                .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'ja'))
+                .forEach(employee => {
+                    const row = document.createElement('tr');
+                    const nameCell = document.createElement('td');
+                    nameCell.textContent = employee.name;
+                    row.appendChild(nameCell);
+                    const roleCell = document.createElement('td');
+                    roleCell.textContent = employee.role || '-';
+                    row.appendChild(roleCell);
+                    const createdCell = document.createElement('td');
+                    createdCell.textContent = formatDateTime(employee.createdAt);
+                    row.appendChild(createdCell);
+                    const actionCell = document.createElement('td');
+                    const deleteButton = document.createElement('button');
+                    deleteButton.className = 'button danger subtle';
+                    deleteButton.type = 'button';
+                    deleteButton.textContent = '削除';
+                    deleteButton.addEventListener('click', () => deleteEmployee(employee));

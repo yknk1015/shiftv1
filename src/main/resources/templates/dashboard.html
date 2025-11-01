@@ -380,6 +380,18 @@
             color: var(--text-secondary);
         }
 
+        /* Compact employee-days meters */
+        .meter-list { display: flex; flex-direction: column; gap: 8px; }
+        .meter-row { display: grid; grid-template-columns: 160px 1fr 64px; gap: 12px; align-items: center; }
+        .meter-row .name { font-weight: 600; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .meter-row .bar { height: 10px; background: #e5e7eb; border-radius: 999px; position: relative; overflow: hidden; }
+        .meter-row .bar > span { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); border-radius: 999px; }
+        .meter-row .value { text-align: right; font-variant-numeric: tabular-nums; color: var(--text-secondary); }
+        .meter-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
+        .meter-controls .btn { border: 1px solid var(--border); background: #fff; color: var(--text-primary); padding: 4px 8px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+        .meter-controls .btn.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .meter-note { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
         .pill-list {
             margin: 0;
             padding: 0;
@@ -538,6 +550,7 @@
             <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
             <button class="button" onclick="location.href='/timeline'">Timeline</button>
             <button class="button" onclick="location.href='/calendar'">Calendar</button>
+            <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
             <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
         </div>
 
@@ -623,7 +636,7 @@
 
             <section class="card" id="stats-card">
                 <div class="section-header compact">
-                    <h2>月次サマリー</h2>
+                    <h2>統計サマリー</h2>
                     <button class="button ghost" id="refresh-stats">更新</button>
                 </div>
                 <div id="stats-message" class="message"></div>
@@ -638,7 +651,6 @@
                     </div>
                 </div>
                 
-                <!-- Shift type breakdown (restored to prevent JS null errors) -->
                 <div class="stat-subsection">
                     <h3>シフト種別内訳</h3>
                     <ul id="shift-type-list"></ul>
@@ -650,7 +662,6 @@
                 </div>
             </section>
 
-            <!-- Data stats card (restored) -->
             <section class="card" id="data-card">
                 <div class="section-header compact">
                     <h2>データ統計</h2>
@@ -733,10 +744,7 @@
                         <span>必要人数</span>
                         <input type="number" id="config-required" min="1" value="4" required>
                     </label>
-                      <!-- removed: <label class="checkbox"> -->
-                          <!-- removed: <input type="checkbox" id="config-weekend"> -->
                           <span>曜日の指定</span>
-                      <!-- removed: </label> -->
                       <div>
                           <span>曜日（複数選択可・未選択は全日）</span>
                           <div class="checkbox-row" id="config-days">
@@ -1626,44 +1634,114 @@
             return simpleMatch ? simpleMatch[1] : null;
         }
     </script>
-    
     </div>
-      <span style="display:inline-block; background:#2563eb; color:#fff; padding:12px 16px; border-radius:999px; box-shadow:0 8px 16px rgba(0,0,0,0.15); font-weight:600;">管理アクション</span>
-    </a>
-    <!-- Quick link: Management Actions (fallback) -->
-    <a href="/admin-actions" style="position:fixed; right:16px; top:16px; z-index:9999; text-decoration:none;">
-      <span style="display:inline-block; background:#2563eb; color:#fff; padding:8px 12px; border-radius:999px; box-shadow:0 6px 12px rgba(0,0,0,0.12); font-weight:600;">管理アクション</span>
-    </a>
+    <script>
+    // Override: friendlier employee-days rendering for general users
+    if (typeof renderEmployeeDays === 'function') {
+      renderEmployeeDays = function(rows) {
+        // Dedup any stray duplicate sections (keep only within #stats-card)
+        try {
+          const all = Array.from(document.querySelectorAll('#employee-days'));
+          const statsCard = document.getElementById('stats-card');
+          all.forEach((el, idx) => {
+            if (!statsCard || !statsCard.contains(el) || idx > 0) {
+              el.remove();
+            }
+          });
+        } catch (_) {}
+
+        let host = document.getElementById('employee-days');
+        if (!host) {
+          const statsCard = document.getElementById('stats-card');
+          if (statsCard) {
+            const sec = document.createElement('div'); sec.className = 'stat-subsection';
+            const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; header.style.gap='12px';
+                        const controls = document.createElement('div'); controls.className = 'meter-controls';
+            const b1 = document.createElement('button'); b1.type='button'; b1.id='days-view-compact'; b1.className='btn active'; b1.textContent='シンプル表示';
+            const b2 = document.createElement('button'); b2.type='button'; b2.id='days-view-table'; b2.className='btn'; b2.textContent='表形式';
+            controls.appendChild(b1); controls.appendChild(b2); header.appendChild(controls);
+            sec.appendChild(header);
+            host = document.createElement('div'); host.id='employee-days'; host.className='table-wrapper'; sec.appendChild(host);
+            const note = document.createElement('div'); note.className='meter-note'; note.textContent='勤務日数の比率をバーで表示します。表形式に切り替え可能です。'; sec.appendChild(note);
+            statsCard.appendChild(sec);
+          } else {
+            return;
+          }
+        }
+        // Ensure toggle header exists when host is present
+        try {
+          const sec = host.closest('.stat-subsection') || host.parentElement;
+          if (sec && !document.getElementById('days-view-compact')) {
+            const header = document.createElement('div'); header.style.display='flex'; header.style.justifyContent='space-between'; header.style.alignItems='center'; header.style.gap='12px';
+                        const controls = document.createElement('div'); controls.className = 'meter-controls';
+            const b1 = document.createElement('button'); b1.type='button'; b1.id='days-view-compact'; b1.className='btn active'; b1.textContent='シンプル表示';
+            const b2 = document.createElement('button'); b2.type='button'; b2.id='days-view-table'; b2.className='btn'; b2.textContent='表形式';
+            controls.appendChild(b1); controls.appendChild(b2); header.appendChild(controls);
+            sec.insertBefore(header, host);
+            const note = document.createElement('div'); note.className='meter-note'; note.textContent='勤務日数の比率をバーで表示します。表形式に切り替え可能です。';
+            sec.appendChild(note);
+          }
+        } catch (_) {}
+        host.innerHTML = '';
+        function renderCompact() {
+          host.innerHTML = '';
+          const list = document.createElement('div');
+          list.className = 'meter-list';
+          const sorted = (rows || []).slice().sort((a,b) => b.workDays - a.workDays);
+          const max = sorted.length > 10 ? 10 : sorted.length;
+          for (let i = 0; i < sorted.length; i++) {
+            const r = sorted[i];
+            const row = document.createElement('div'); row.className = 'meter-row';
+            const name = document.createElement('div'); name.className = 'name'; name.textContent = r.employeeName;
+            const bar = document.createElement('div'); bar.className = 'bar';
+            const span = document.createElement('span');
+            const ratio = r.totalDays > 0 ? Math.max(0, Math.min(100, Math.round((r.workDays / r.totalDays) * 100))) : 0;
+            span.style.width = ratio + '%';
+            bar.appendChild(span);
+            const value = document.createElement('div'); value.className = 'value'; value.textContent = `${r.workDays}/${r.restDays}日`;
+            row.appendChild(name); row.appendChild(bar); row.appendChild(value);
+            list.appendChild(row);
+            if (i === max - 1 && sorted.length > max) {
+              const more = document.createElement('div'); more.className = 'meter-note'; more.textContent = `ほか ${sorted.length - max} 名`;
+              list.appendChild(more);
+              break;
+            }
+          }
+          host.appendChild(list);
+        }
+        function renderTable() {
+          host.innerHTML = '';
+          const table = document.createElement('table'); table.className = 'data-table';
+          const thead = document.createElement('thead');
+          thead.innerHTML = '<tr><th>従業員</th><th>勤務日数</th><th>休日日数</th><th>月日数</th></tr>';
+          table.appendChild(thead);
+          const tbody = document.createElement('tbody');
+          if (!rows || rows.length === 0) {
+            const tr = document.createElement('tr'); const td = document.createElement('td'); td.colSpan = 4; td.className = 'muted'; td.textContent = 'データはありません'; tr.appendChild(td); tbody.appendChild(tr);
+          } else {
+            rows.forEach(r => { const tr = document.createElement('tr'); tr.innerHTML = `<td>${r.employeeName}</td><td>${r.workDays}</td><td>${r.restDays}</td><td>${r.totalDays}</td>`; tbody.appendChild(tr); });
+          }
+          table.appendChild(tbody);
+          host.appendChild(table);
+        }
+        // Hook toggle buttons if present
+        const btnCompact = document.getElementById('days-view-compact');
+        const btnTable = document.getElementById('days-view-table');
+        if (btnCompact && btnTable && !btnCompact._wired) {
+          btnCompact._wired = true;
+          const setActive = (compact) => {
+            if (compact) { btnCompact.classList.add('active'); btnTable.classList.remove('active'); renderCompact(); }
+            else { btnTable.classList.add('active'); btnCompact.classList.remove('active'); renderTable(); }
+          };
+          btnCompact.onclick = () => setActive(true);
+          btnTable.onclick = () => setActive(false);
+        }
+        renderCompact();
+      }
+    }
+    </script>
 </body>
 </html>
-<script>
-// Override: make delete flow resilient (avoid reporting failure when refresh fails)
-if (typeof deleteShiftConfig === 'function') {
-  const __orig_deleteShiftConfig = deleteShiftConfig;
-}
-function deleteShiftConfig(config) {
-  if (!confirm(`「${config.name}」を削除しますか？`)) {
-    return;
-  }
-  (async () => {
-    try {
-      await callApi(`/api/config/shift/${config.id}`, { method: 'DELETE' }, { expectSuccess: false });
-      setMessage('shift-config-message', 'シフト設定を削除しました', 'success');
-    } catch (error) {
-      setMessage('shift-config-message', error.message || 'シフト設定の削除に失敗しました', 'error');
-      return;
-    }
-    try { await loadShiftConfigs(); } catch (e) {}
-    try { await loadSchedule(); } catch (e) {}
-    try { await loadStatistics(); } catch (e) {}
-  })();
-}
-</script>
-                <div class="stat-subsection">
-                    <h3>従業員の勤務/休日日数</h3>
-                    <div id="employee-days" class="table-wrapper"></div>
-                </div>
-
 
 
 
