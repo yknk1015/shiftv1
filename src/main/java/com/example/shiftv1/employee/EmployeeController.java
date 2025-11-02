@@ -46,6 +46,9 @@ public class EmployeeController {
     public ResponseEntity<ApiResponse<Employee>> createEmployee(@Valid @RequestBody EmployeeRequest request) {
         try {
             Employee employee = new Employee(request.name(), request.role());
+            if (request.assignPriority() != null) {
+                employee.setAssignPriority(clampPriority(request.assignPriority()));
+            }
             Employee savedEmployee = employeeRepository.save(employee);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("従業員を作成しました", savedEmployee));
@@ -65,6 +68,9 @@ public class EmployeeController {
         Employee employee = existingEmployee.get();
         employee.setName(request.name());
         employee.setRole(request.role());
+        if (request.assignPriority() != null) {
+            employee.setAssignPriority(clampPriority(request.assignPriority()));
+        }
         Employee updatedEmployee = employeeRepository.save(employee);
         return ResponseEntity.ok(ApiResponse.success("従業員を更新しました", updatedEmployee));
     }
@@ -85,7 +91,7 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.success("従業員数を取得しました", new EmployeeCountResponse(count)));
     }
 
-    public record EmployeeRequest(String name, String role) {}
+    public record EmployeeRequest(String name, String role, Integer assignPriority) {}
 
     // Phase A: work preferences payload
     public static class WorkPrefsRequest {
@@ -95,6 +101,27 @@ public class EmployeeController {
         public Boolean overtimeAllowed;
         public Integer overtimeDailyMaxHours;
         public Integer overtimeWeeklyMaxHours;
+    }
+
+    public static class PriorityRequest { public Integer assignPriority; }
+
+    @PutMapping("/{id}/priority")
+    public ResponseEntity<ApiResponse<Employee>> updatePriority(@PathVariable Long id, @RequestBody PriorityRequest req) {
+        if (req == null || req.assignPriority == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("優先度が指定されていません"));
+        }
+        Optional<Employee> existingEmployee = employeeRepository.findById(id);
+        if (existingEmployee.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("従業員が見つかりません"));
+        }
+        Employee e = existingEmployee.get();
+        e.setAssignPriority(clampPriority(req.assignPriority));
+        return ResponseEntity.ok(ApiResponse.success("優先度を更新しました", employeeRepository.save(e)));
+    }
+
+    private int clampPriority(Integer p) {
+        if (p == null) return 3; // default mid for 1-5
+        return Math.max(1, Math.min(5, p));
     }
 
     @PutMapping("/{id}/work-prefs")

@@ -134,6 +134,16 @@
         .shift-item.other {
             background-color: #dc3545;
         }
+        /* Special styles for placeholders */
+        .shift-item.free {
+            background-color: #0ea5e9; /* cyan */
+            color: #083344;
+        }
+        .shift-item.off {
+            background-color: #e2e8f0; /* gray */
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
         .legend {
             display: flex;
             gap: 20px;
@@ -199,21 +209,6 @@
             <div class="calendar-header">木</div>
             <div class="calendar-header">金</div>
             <div class="calendar-header">土</div>
-        </div>
-
-        <div class="legend">
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #28a745;"></div>
-                <span>朝シフト (9:00-15:00)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #ffc107;"></div>
-                <span>夜シフト (15:00-21:00)</span>
-            </div>
-            <div class="legend-item">
-                <div class="legend-color" style="background-color: #dc3545;"></div>
-                <span>土日シフト (9:00-18:00)</span>
-            </div>
         </div>
     </div>
 
@@ -283,29 +278,28 @@
                 dayCell.classList.add('other-month');
             }
 
-            // シフトデータがあれば表示
+            // シフトデータがあれば表示（現行ロジック：色は一色、FREE/休日のみ特別色）
             const dateKey = formatDate(date);
             if (scheduleData[dateKey]) {
                 scheduleData[dateKey].forEach(shift => {
                     const shiftItem = document.createElement('div');
                     shiftItem.className = 'shift-item';
-                    shiftItem.textContent = shift.employeeName;
-                    
-                    // シフト種別は開始時刻で分類（需要ベースの名称に依存しない）
-                    const st = (shift.startTime || '').toString();
-                    let hour = null;
-                    if (st && st.length >= 2) {
-                        const hh = parseInt(st.slice(0,2), 10);
-                        if (!Number.isNaN(hh)) hour = hh;
-                    }
-                    if (hour !== null) {
-                        if (hour < 12) shiftItem.classList.add('morning');
-                        else if (hour < 18) shiftItem.classList.add('evening');
-                        else shiftItem.classList.add('other');
+                    const startTime = shift.startTime ? String(shift.startTime).slice(0,5) : '';
+                    const endTime = shift.endTime ? String(shift.endTime).slice(0,5) : '';
+                    const timeText = (startTime && endTime) ? `${startTime}-${endTime}` : '';
+
+                    if (shift.shiftName === 'FREE') {
+                        shiftItem.classList.add('free');
+                        shiftItem.textContent = `${shift.employeeName} FREE`;
+                    } else if (shift.shiftName === '休日') {
+                        shiftItem.classList.add('off');
+                        shiftItem.textContent = `${shift.employeeName} 休日`;
                     } else {
-                        shiftItem.classList.add('other');
+                        // 需要由来の名称（例: Demand-<CODE>）や現行スキル名をそのまま表示
+                        const label = (shift.shiftName || '').toString();
+                        shiftItem.textContent = `${shift.employeeName} ${label} ${timeText}`.trim();
                     }
-                    
+
                     dayCell.appendChild(shiftItem);
                 });
             }

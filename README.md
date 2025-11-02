@@ -1,6 +1,7 @@
 # Shift Scheduler Demo
 
 Java 17 / Spring Boot / SQLite を用いたシフト作成デモです。需要（デマンド）ブロックからシフトを割当し、従業員スキル・制約・ルール（週休など）を考慮します。
+文字コードはUTF-8です。
 
 ## 概要 / Overview
 
@@ -54,7 +55,7 @@ curl.exe -sS -b cookies.txt "http://localhost:8080/api/schedule?year=2025&month=
 
 ## 文字化けの対処 / Encoding
 
-テンプレートや本文に文字化けが残る場合は、UTF‑8へ統一してください。
+テンプレートや本文に文字化けが残る場合は、以前の文字コードが残っている可能性があります。スクリプトを利用してUTF‑8へ統一してください。
 
 - 一括変換スクリプト（Shift‑JIS→UTF‑8）: `tools/convert-templates-to-utf8.ps1`
   - 確認: `pwsh -File tools/convert-templates-to-utf8.ps1 -WhatIf`

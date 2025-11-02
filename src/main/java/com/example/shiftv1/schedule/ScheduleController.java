@@ -44,6 +44,12 @@ public class ScheduleController {
         try {
             YearMonth target = resolveYearMonth(year, month);
             List<ShiftAssignment> assignments = scheduleService.generateMonthlySchedule(target.getYear(), target.getMonthValue());
+            // Ensure weekly rest-days as explicit 休日 placeholders first
+            scheduleService.ensureWeeklyHolidays(target.getYear(), target.getMonthValue());
+            // Then fill remaining with FREE placeholders (00:00-00:05) for unassigned employees per day
+            scheduleService.ensureFreePlaceholders(target.getYear(), target.getMonthValue());
+            // Reload assignments to include FREE in response/meta
+            assignments = assignmentRepository.findByWorkDateBetween(target.atDay(1), target.atEndOfMonth());
             Map<String, Object> meta = buildScheduleMeta(assignments, target);
             meta.put("generatedCount", assignments.size());
             List<ShiftAssignmentDto> data = assignments.stream().map(ShiftAssignmentDto::from).collect(Collectors.toList());

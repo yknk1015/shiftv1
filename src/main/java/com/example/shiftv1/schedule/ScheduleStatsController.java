@@ -86,6 +86,7 @@ public class ScheduleStatsController {
             List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
 
             Map<Long, Long> workDaysByEmployeeId = assignments.stream()
+                    .filter(a -> a.getShiftName() != null && !"FREE".equalsIgnoreCase(a.getShiftName()))
                     .collect(Collectors.groupingBy(
                             a -> a.getEmployee().getId(),
                             Collectors.mapping(ShiftAssignment::getWorkDate, Collectors.collectingAndThen(Collectors.toSet(), set -> (long) set.size()))
@@ -173,4 +174,58 @@ public class ScheduleStatsController {
     public record EmployeeDaysResponse(String employeeName, long workDays, long restDays, int totalDays) {}
 
     public record ShiftDistributionResponse(Map<String, Long> distribution) {}
+
+    @GetMapping("/free-daily")
+    public ResponseEntity<ApiResponse<java.util.List<FreeDailyResponse>>> getFreeDaily(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+            Map<LocalDate, Long> cnt = assignments.stream()
+                    .filter(a -> a.getShiftName() != null && "FREE".equalsIgnoreCase(a.getShiftName()))
+                    .collect(Collectors.groupingBy(ShiftAssignment::getWorkDate, Collectors.counting()));
+
+            java.util.List<FreeDailyResponse> list = java.util.stream.IntStream.rangeClosed(1, target.lengthOfMonth())
+                    .mapToObj(d -> target.atDay(d))
+                    .map(day -> new FreeDailyResponse(day, cnt.getOrDefault(day, 0L)))
+                    .toList();
+
+            return ResponseEntity.ok(ApiResponse.success("フリー勤務数（日別）を取得しました", list));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("フリー勤務数の取得に失敗しました"));
+        }
+    }
+
+    public record FreeDailyResponse(LocalDate date, long freeCount) {}
+
+    @GetMapping("/off-daily")
+    public ResponseEntity<ApiResponse<java.util.List<OffDailyResponse>>> getOffDaily(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
+            Map<LocalDate, Long> cnt = assignments.stream()
+                    .filter(a -> a.getShiftName() != null && ("休日".equals(a.getShiftName()) || "OFF".equalsIgnoreCase(a.getShiftName())))
+                    .collect(Collectors.groupingBy(ShiftAssignment::getWorkDate, Collectors.counting()));
+
+            java.util.List<OffDailyResponse> list = java.util.stream.IntStream.rangeClosed(1, target.lengthOfMonth())
+                    .mapToObj(d -> target.atDay(d))
+                    .map(day -> new OffDailyResponse(day, cnt.getOrDefault(day, 0L)))
+                    .toList();
+
+            return ResponseEntity.ok(ApiResponse.success("休日人数（日別）を取得しました", list));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("休日人数の取得に失敗しました"));
+        }
+    }
+
+    public record OffDailyResponse(LocalDate date, long offCount) {}
 }

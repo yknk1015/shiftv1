@@ -35,6 +35,10 @@ public class Employee {
             inverseJoinColumns = @JoinColumn(name = "skill_id"))
     private Set<Skill> skills = new HashSet<>();
 
+    // Shift assignment priority (higher = more preferred). Default equal for all during testing
+    @Column(name = "assign_priority")
+    private Integer assignPriority = 100;
+
     // Phase A additions: block eligibility and overtime preferences
     @Column(name = "eligible_full")
     private Boolean eligibleFull = true;
@@ -115,4 +119,7 @@ public class Employee {
     public void setOvertimeDailyMaxHours(Integer overtimeDailyMaxHours) { this.overtimeDailyMaxHours = overtimeDailyMaxHours; }
     public Integer getOvertimeWeeklyMaxHours() { return overtimeWeeklyMaxHours; }
     public void setOvertimeWeeklyMaxHours(Integer overtimeWeeklyMaxHours) { this.overtimeWeeklyMaxHours = overtimeWeeklyMaxHours; }
+
+    public Integer getAssignPriority() { return assignPriority; }
+    public void setAssignPriority(Integer assignPriority) { this.assignPriority = assignPriority; }
 }

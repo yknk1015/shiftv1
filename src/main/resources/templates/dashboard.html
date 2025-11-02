@@ -680,6 +680,29 @@
                 <div class="section-header compact">
                     <h2>統計サマリー</h2>
                     <button class="button ghost" id="refresh-stats">更新</button>
+                    <div style="margin-top:8px">
+                      <div class="table-wrapper" id="free-daily-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                          <h3 style="margin:0; font-size:16px;">日別FREE人数</h3>
+                          <button class="button ghost" id="refresh-free">更新</button>
+                        </div>
+                        <table style="margin-top:6px;">
+                          <thead><tr><th>日付</th><th>FREE人数</th></tr></thead>
+                          <tbody id="free-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
+                        </table>
+                      </div>
+                      <div class="table-wrapper" id="off-daily-card" style="margin-top:8px;">
+                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
+                          <h3 style="margin:0; font-size:16px;">日別休日人数</h3>
+                          <button class="button ghost" id="refresh-off">更新</button>
+                        </div>
+                        <table style="margin-top:6px;">
+                          <thead><tr><th>日付</th><th>休日人数</th></tr></thead>
+                          <tbody id="off-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
+                        </table>
+                      </div>
+                      <div class="table-wrapper" id="monthly-stats2" style="margin-top:12px;"></div>
+                    </div>
                 </div>
                 <div id="stats-message" class="message"></div>
                 <div class="stat-grid">
@@ -1851,6 +1874,64 @@ async function updateManual(){
 ensureManualEnhancer();
 document.getElementById('man-update')?.addEventListener('click', updateManual);
 </script>
+  <script>
+    // Override monthly stats render to a stable container
+    function updateMonthlyStats(data){
+      const host = document.getElementById('monthly-stats2') || document.getElementById('monthly-stats');
+      if (!host) return;
+      if (!data){ host.innerHTML = '<div class="muted">データなし</div>'; return; }
+      const byType = data.shiftsByType || {};
+      const rows = Object.entries(byType).map(([k,v])=>`<tr><td>${k||'-'}</td><td>${v}</td></tr>`).join('');
+      host.innerHTML = `
+        <table>
+          <thead><tr><th>項目</th><th>値</th></tr></thead>
+          <tbody>
+            <tr><td>月</td><td>${data.month||'-'}</td></tr>
+            <tr><td>総シフト数</td><td>${data.totalShifts??0}</td></tr>
+            <tr><td>従業員数</td><td>${data.uniqueEmployees??0}</td></tr>
+            <tr><td colspan="2"><strong>シフトタイプ別内訳</strong></td></tr>
+            ${rows || '<tr><td colspan="2" class="muted">-</td></tr>'}
+          </tbody>
+        </table>`;
+    }
+    async function loadFreeDaily(){
+      const host = document.getElementById('free-daily-body');
+      if (!host) return;
+      host.innerHTML = '<tr><td colspan="2" class="muted">読み込み中...</td></tr>';
+      const ySel = document.getElementById('year');
+      const mSel = document.getElementById('month');
+      const year = ySel ? parseInt(ySel.value,10) : new Date().getFullYear();
+      const month = mSel ? parseInt(mSel.value,10) : (new Date().getMonth()+1);
+      try{
+        const res = await callApi(`/api/schedule/stats/free-daily?year=${year}&month=${month}`);
+        const list = (res && res.data) ? res.data : [];
+        if (!list.length){ host.innerHTML = '<tr><td colspan="2" class="muted">データなし</td></tr>'; return; }
+        host.innerHTML = list.map(r => `<tr><td>${r.date}</td><td>${r.freeCount}</td></tr>`).join('');
+      }catch(e){ host.innerHTML = '<tr><td colspan="2" class="muted">取得に失敗しました</td></tr>'; }
+    }
+    document.getElementById('refresh-free')?.addEventListener('click', loadFreeDaily);
+    // Hook stats refresh to also refresh FREE widget
+    document.getElementById('refresh-stats')?.addEventListener('click', ()=>{ loadFreeDaily(); loadOffDaily(); });
+    // Initial load after DOM ready (defer assumed)
+    try { loadFreeDaily(); loadOffDaily(); } catch {}
+
+    async function loadOffDaily(){
+      const host = document.getElementById('off-daily-body');
+      if (!host) return;
+      host.innerHTML = '<tr><td colspan="2" class="muted">読み込み中...</td></tr>';
+      const ySel = document.getElementById('year');
+      const mSel = document.getElementById('month');
+      const year = ySel ? parseInt(ySel.value,10) : new Date().getFullYear();
+      const month = mSel ? parseInt(mSel.value,10) : (new Date().getMonth()+1);
+      try{
+        const res = await callApi(`/api/schedule/stats/off-daily?year=${year}&month=${month}`);
+        const list = (res && res.data) ? res.data : [];
+        if (!list.length){ host.innerHTML = '<tr><td colspan="2" class="muted">データなし</td></tr>'; return; }
+        host.innerHTML = list.map(r => `<tr><td>${r.date}</td><td>${r.offCount}</td></tr>`).join('');
+      }catch(e){ host.innerHTML = '<tr><td colspan="2" class="muted">取得に失敗しました</td></tr>'; }
+    }
+    document.getElementById('refresh-off')?.addEventListener('click', loadOffDaily);
+  </script>
 </body>
 </html>
 

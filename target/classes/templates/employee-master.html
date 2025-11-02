@@ -95,10 +95,10 @@
         </table>
         <div class="muted" id="av-msg" style="margin-top:6px;"></div>
       </div>
-    </div>
+  </div>
 
-    <!-- 有休（PTO）管理 -->
-    <div class="card">
+  <!-- 有休（PTO）管理 -->
+  <div class="card">
       <h3 style="margin:0 0 8px;">有休の管理</h3>
       <div class="row">
         <label>従業員<br><select id="lv-emp"></select></label>
@@ -117,6 +117,59 @@
 
     <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/admin-actions">管理メニュー</a></div>
   </div>
+
+  <!-- シフトアサイン優先度設定 -->
+  <div class="card">
+    <h3 style="margin:0 0 8px;">シフトアサイン優先度</h3>
+    <div class="muted" style="margin-bottom:8px;">範囲は1〜5（5が高優先）。現在はテスト中のため初期値は全員同一です。</div>
+    <table>
+      <thead>
+        <tr><th style="width:60px;">ID</th><th>氏名</th><th>役割</th><th style="width:140px;">優先度</th><th style="width:120px;">操作</th></tr>
+      </thead>
+      <tbody id="prio-tbody"></tbody>
+    </table>
+    <div id="prio-msg" class="muted" style="margin-top:6px;"></div>
+  </div>
+
+  <script>
+    async function fetchEmployeesForPriority() {
+      const res = await fetch('/api/employees');
+      const json = await res.json();
+      if (!json || !json.success) { document.getElementById('prio-msg').textContent = '従業員取得に失敗しました'; return; }
+      const list = json.data || [];
+      const tbody = document.getElementById('prio-tbody');
+      tbody.innerHTML = '';
+      for (const e of list) {
+        const tr = document.createElement('tr');
+        const ap = (e.assignPriority ?? 3);
+        const shown = Math.max(1, Math.min(5, parseInt(ap,10)||3));
+        tr.innerHTML = `
+          <td>${e.id}</td>
+          <td>${e.name || ''}</td>
+          <td>${e.role || ''}</td>
+          <td><input type="number" min="1" max="5" step="1" value="${shown}" data-eid="${e.id}" style="width:100%;"></td>
+          <td><button data-save="${e.id}">保存</button></td>
+        `;
+        tbody.appendChild(tr);
+      }
+      tbody.querySelectorAll('button[data-save]').forEach(btn => {
+        btn.addEventListener('click', async () => {
+          const id = btn.getAttribute('data-save');
+          const input = tbody.querySelector(`input[data-eid="${id}"]`);
+          let val = parseInt(input.value, 10);
+          if (isNaN(val)) val = 3; if (val < 1) val = 1; if (val > 5) val = 5;
+          const resp = await fetch(`/api/employees/${id}/priority`, {
+            method: 'PUT', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ assignPriority: val })
+          });
+          const js = await resp.json();
+          document.getElementById('prio-msg').textContent = js && js.success ? '優先度を更新しました' : '更新に失敗しました';
+        });
+      });
+    }
+    // kick load for priority section
+    fetchEmployeesForPriority().catch(()=>{});
+  </script>
   <script>
     // utils
     async function api(url, opt={}){
