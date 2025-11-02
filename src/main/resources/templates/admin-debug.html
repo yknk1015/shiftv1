@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>管理者デバッグ</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
+    input, button, select { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    pre { background:#0b1020; color:#e5e7eb; padding:12px; border-radius:8px; overflow:auto; max-height:300px; }
+    a { color:#2563eb; text-decoration:none; }
+  </style>
+  <script>
+    async function call(path, method='GET', params={}){
+      const url = new URL(path, window.location.origin);
+      Object.entries(params).forEach(([k,v]) => { if(v!==undefined && v!==null && v!=='') url.searchParams.set(k, v); });
+      const res = await fetch(url, { method, credentials:'include' });
+      const ct = res.headers.get('content-type')||''; const data = ct.includes('json')? await res.json(): await res.text();
+      if(!res.ok || (data && data.success===false)) throw new Error((data && data.message) || ('HTTP '+res.status));
+      return data;
+    }
+    async function genSync(){
+      setMsg('sync','実行中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const g = document.getElementById('gran').value; const r = document.getElementById('reset').checked;
+        const data = await call('/api/schedule/generate/demand', 'POST', { year:y, month:m, granularity:g, reset:r });
+        setMsg('sync', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('sync', 'ERROR: '+e.message); }
+    }
+    async function genDay(){
+      setMsg('day','実行中...');
+      try{
+        const d = document.getElementById('date').value; const r = document.getElementById('resetDay').checked;
+        const data = await call('/api/schedule/generate/demand/day', 'POST', { date:d, reset:r });
+        setMsg('day', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('day', 'ERROR: '+e.message); }
+    }
+    async function genAsync(){
+      setMsg('async','実行中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const g = document.getElementById('gran').value; const r = document.getElementById('reset').checked;
+        const data = await call('/api/schedule/generate/demand/async', 'POST', { year:y, month:m, granularity:g, reset:r });
+        setMsg('async', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('async', 'ERROR: '+e.message); }
+    }
+    async function stats(){
+      setMsg('stats','取得中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const data = await call('/api/schedule/stats/monthly', 'GET', { year:y, month:m });
+        setMsg('stats', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('stats', 'ERROR: '+e.message); }
+    }
+    async function errors(){
+      setMsg('logs','取得中...');
+      try{
+        const data = await call('/api/admin/error-logs?limit=200', 'GET', {});
+        setMsg('logs', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('logs', 'ERROR: '+e.message); }
+    }
+    function setMsg(id, text){ document.getElementById('out_'+id).textContent=text; }
+  </script>
+</head>
+<body>
+  <div class="container">
+    <h2>管理者デバッグ</h2>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">検証用クイックリンク</h3>
+      <div class="row" style="flex-wrap:wrap; gap:8px;">
+        <a href="/monthly-demand">月間需要エディタ</a>
+        <a href="/demand">需要登録</a>
+        <a href="/demand-analytics">需要アナリティクス</a>
+        <!-- timeline 統合済みのためリンク非表示 -->
+        <a href="/calendar">カレンダー</a>
+        <a href="/pairing-settings">ペアリング設定</a>
+        <a href="/employee-master">従業員マスタ</a>
+        <a href="/warnings">警告ビュー</a>
+        <a href="/dashboard">ダッシュボード</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label>年 <input type="number" id="year" min="2020" max="2100" value="2025" /></label>
+        <label>月 <input type="number" id="month" min="1" max="12" value="10" /></label>
+        <label>粒度(min) <input type="number" id="gran" min="5" max="240" value="60" /></label>
+        <label><input type="checkbox" id="reset" checked /> リセットして生成</label>
+      </div>
+      <div class="row">
+        <button onclick="genSync()">月同期生成 /api/schedule/generate/demand</button>
+        <button onclick="genAsync()">月非同期生成 /api/schedule/generate/demand/async</button>
+        <button onclick="stats()">月次統計 /api/schedule/stats/monthly</button>
+      </div>
+        <button onclick="resetMonth()" style="background:#ef4444">月次リセット /api/schedule/reset</button>
+      <pre id="out_sync"></pre>
+      <pre id="out_async"></pre>
+      <pre id="out_stats"></pre>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">延長ユーティリティ（管理者向け・既存割当の当日延長）</h3>
+      <div class="row" style="flex-wrap:wrap; gap:10px;">
+        <label>日付 <input type="date" id="ext_date" /></label>
+        <label>開始 <input type="time" id="ext_start" value="12:00" /></label>
+        <label>終了 <input type="time" id="ext_end" value="13:00" /></label>
+        <label>座席 <input type="number" id="ext_seats" value="1" min="1" style="width:80px;"/></label>
+        <label>スキル <select id="ext_skill"><option value="">選択</option></select></label>
+        <button onclick="adminBoost()">適用</button>
+      </div>
+      <div class="muted" style="margin-top:6px;">注意: これは既に配置済みの担当者のシフト終端を延長して当日需要を増強します。生成前の需要追加は「需要登録」画面で行ってください。</div>
+      <pre id="out_boost"></pre>
+    </div>
+
+    <div class="card">
+      <div class="row">
+        <label>日付 <input type="date" id="date" value="2025-10-01" /></label>
+        <label><input type="checkbox" id="resetDay" checked /> 当日をリセット</label>
+      </div>
+      <div class="row">
+        <button onclick="genDay()">1日同期生成 /api/schedule/generate/demand/day</button>
+        <button onclick="errors()">エラーログ /api/admin/error-logs?limit=200</button>
+        </div>
+	<button onclick="downloadEmployees()">従業員JSON /api/admin/snapshot/employees</button>
+	<button onclick="downloadAssignments()">シフトJSON /api/admin/snapshot/assignments</button>
+	</div>
+      <pre id="out_day"></pre>
+      <pre id="out_logs"></pre>
+    </div>
+  </div>
+</body>
+</html>
+
+<script>
+  async function resetMonth(){
+    try{
+      const y = document.getElementById('year').value;
+      const m = document.getElementById('month').value;
+      const url = new URL('/api/schedule/reset', window.location.origin);
+      url.searchParams.set('year', y);
+      url.searchParams.set('month', m);
+      const res = await fetch(url, { method:'DELETE', credentials:'include' });
+      const data = await res.json();
+      if(!res.ok || data?.success === false) throw new Error(data?.message || ('HTTP ' + res.status));
+      alert('Reset OK');
+    }catch(e){
+      alert('Reset failed: ' + e.message);
+    }
+  }
+
+  async function downloadEmployees(){
+    try{
+      const res = await fetch('/api/admin/snapshot/employees', { credentials:'include' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'employees.json';
+      a.click();
+    }catch(e){
+      alert('Failed: ' + e.message);
+    }
+  }
+
+  async function downloadAssignments(){
+    try{
+      const y = document.getElementById('year').value;
+      const m = document.getElementById('month').value;
+      const url = new URL('/api/admin/snapshot/assignments', window.location.origin);
+      url.searchParams.set('year', y);
+      url.searchParams.set('month', m);
+      const res = await fetch(url, { credentials:'include' });
+      if(!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type:'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `assignments_${y}-${String(m).padStart(2,'0')}.json`;
+      a.click();
+    }catch(e){
+      alert('Failed: ' + e.message);
+    }
+  }
+
+  // 延長ユーティリティ
+  async function adminBoost(){
+    const out = document.getElementById('out_boost');
+    out.textContent = '実行中...';
+    try{
+      const date = document.getElementById('ext_date').value;
+      const s = document.getElementById('ext_start').value;
+      const e = document.getElementById('ext_end').value;
+      const seats = parseInt(document.getElementById('ext_seats').value||'1',10)||1;
+      const skillId = document.getElementById('ext_skill').value;
+      if (!date || !s || !e || s>=e || !skillId){ out.textContent='入力値を確認してください'; return; }
+      const body = { date, skillId: Number(skillId), skillCode: null, windowStart: s, windowEnd: e, startTime: s, endTime: e, seats };
+      const res = await fetch('/api/schedule/core-boost', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
+      const j = await res.json();
+      if (!res.ok || (j && j.success===false)) throw new Error(j?.message || ('HTTP '+res.status));
+      out.textContent = JSON.stringify(j, null, 2);
+    }catch(e){ out.textContent = 'ERROR: '+e.message; }
+  }
+
+  // スキル一覧で延長ユーティリティの選択肢を初期化
+  (async function initExtSkill(){
+    try{
+      const res = await fetch('/api/skills', { credentials:'include' });
+      const j = await res.json();
+      const sel = document.getElementById('ext_skill');
+      if (sel && j && j.data){ sel.innerHTML = '<option value="">選択</option>' + j.data.map(s=>`<option value="${s.id}">${s.name||s.code||('#'+s.id)}</option>`).join(''); }
+    }catch(_){ }
+  })();
+</script>

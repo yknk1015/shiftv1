@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>休憩の管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 900px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    input, select, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e2e8f0; text-align:left; padding:8px; font-size:14px; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>休憩の管理</h2>
+
+    <div class="card">
+      <div class="row">
+        <label>日付 <input type="date" id="date" /></label>
+        <button onclick="loadBreaks()">休憩読込</button>
+      </div>
+      <div id="list"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">休憩の追加</h3>
+      <div class="row">
+        <label>Assignment ID <input type="number" id="a_id" /></label>
+        <label>種別
+          <select id="b_type"><option>LUNCH</option><option>SHORT</option></select>
+        </label>
+        <label>開始 <input type="time" id="b_start" value="12:00" /></label>
+        <label>終了 <input type="time" id="b_end" value="13:00" /></label>
+        <button onclick="createBreak()">追加</button>
+      </div>
+      <div class="muted">Assignment ID は当日のシフト一覧APIやDBから確認してください。</div>
+      <div id="msg" class="muted"></div>
+    </div>
+
+    <div class="muted"><a href="/timeline">タイムライン</a> / <a href="/dashboard">ダッシュボード</a></div>
+  </div>
+
+  <script>
+    async function loadBreaks(){
+      const date = document.getElementById('date').value;
+      if(!date){ alert('日付を選択してください'); return; }
+      const res = await fetch(`/api/breaks?date=${date}`);
+      const j = await res.json();
+      const rows = j.data||[];
+      if(!rows.length){ document.getElementById('list').innerHTML = '<div class="muted">データなし</div>'; return; }
+      let html = '<table><thead><tr><th>ID</th><th>Assignment</th><th>Type</th><th>Time</th><th></th></tr></thead><tbody>';
+      for(const r of rows){
+        html += `<tr><td>${r.id}</td><td>${r.assignment?.id||''}</td><td>${r.type}</td><td>${r.startTime} - ${r.endTime}</td>`+
+                `<td><button onclick="del(${r.id})">削除</button></td></tr>`
+      }
+      html += '</tbody></table>';
+      document.getElementById('list').innerHTML = html;
+    }
+    async function createBreak(){
+      const body = { assignmentId: Number(document.getElementById('a_id').value), type: document.getElementById('b_type').value, startTime: document.getElementById('b_start').value, endTime: document.getElementById('b_end').value };
+      const res = await fetch('/api/breaks', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const j = await res.json();
+      document.getElementById('msg').textContent = j.message || (j.success? '作成しました':'失敗しました');
+      if(j.success){ loadBreaks(); }
+    }
+    async function del(id){
+      if(!confirm('削除しますか？')) return;
+      const res = await fetch(`/api/breaks/${id}`, { method:'DELETE' });
+      await res.json();
+      loadBreaks();
+    }
+    window.addEventListener('DOMContentLoaded', ()=>{ const today = new Date().toISOString().slice(0,10); document.getElementById('date').value = today; });
+  </script>
+</body>
+</html>
+

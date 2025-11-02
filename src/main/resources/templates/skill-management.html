@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>スキル管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
+    input, select, button { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse:collapse; }
+    th, td { padding:8px; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .muted { color:#64748b; font-size:12px; }
+    .link { color:#2563eb; text-decoration:none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>スキル管理</h2>
+
+    <div class="card">
+      <div class="row">
+        <label>コード<br><input type="text" id="code" placeholder="例: ENG" /></label>
+        <label>名称<br><input type="text" id="name" placeholder="例: 英語対応" /></label>
+        <label>説明<br><input type="text" id="desc" placeholder="任意" style="min-width:240px;" /></label>
+        <label>優先度(1-10)<br><input type="number" id="prio" min="1" max="10" value="5" /></label>
+        <button id="create">登録</button>
+        <label style="margin-left:auto;">検索<br><input type="text" id="q" placeholder="code/name 部分一致" /></label>
+        <button id="search">検索</button>
+      </div>
+      <div id="msg" class="muted" style="margin-top:6px;"></div>
+    </div>
+
+    <div class="card">
+      <table>
+        <thead>
+          <tr><th>ID</th><th>コード</th><th>名称</th><th>説明</th><th>優先度</th><th>操作</th></tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+    </div>
+
+  <div class="muted"><a class="link" href="/dashboard">ダッシュボード</a></div>
+  </div>
+  <script>
+    function msg(t){ const el=document.getElementById('msg'); if(!el) return; el.textContent=t||''; }
+    async function api(url, opt={}){
+      const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });
+      const ct = res.headers.get('content-type')||''; const data = ct.includes('json') ? await res.json() : await res.text();
+      if(!res.ok) throw new Error((data&&data.message) || ('HTTP '+res.status));
+      if(data && data.success===false) throw new Error(data.message||'処理に失敗しました');
+      return data;
+    }
+    function row(s){
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${s.id}</td>
+        <td><input value="${s.code||''}" data-k="code" style="width:100px"/></td>
+        <td><input value="${s.name||''}" data-k="name" style="width:160px"/></td>
+        <td><input value="${s.description||''}" data-k="description" style="width:260px"/></td>
+        <td><input type="number" min="1" max="10" value="${s.priority??5}" data-k="priority" style="width:70px"/></td>
+        <td>
+          <button data-act="save">保存</button>
+          <button data-act="del" class="danger" style="background:#ef4444;">削除</button>
+        </td>`;
+      tr.querySelector('[data-act="save"]').addEventListener('click', async ()=>{
+        try{
+          const body = {}; tr.querySelectorAll('input[data-k]').forEach(i=>body[i.dataset.k]= i.type==='number'? Number(i.value||'0') : i.value.trim());
+          const j = await api(`/api/skills/${s.id}`, { method:'PUT', body: JSON.stringify(body)});
+          msg(j.message||'更新しました');
+          await load();
+        }catch(e){ msg(e.message||'更新に失敗しました'); }
+      });
+      tr.querySelector('[data-act="del"]').addEventListener('click', async ()=>{
+        if(!confirm('削除しますか？')) return;
+        try{ const j = await api(`/api/skills/${s.id}`, { method:'DELETE'}); msg(j.message||'削除しました'); await load(); }catch(e){ msg(e.message||'削除に失敗しました'); }
+      });
+      return tr;
+    }
+    async function load(){
+      try{
+        const q = document.getElementById('q').value.trim();
+        const j = await api('/api/skills'+(q?`?query=${encodeURIComponent(q)}`:''));
+        const list = (j.data||[]).sort((a,b)=> (a.priority??5) - (b.priority??5)); // 1が先
+        const tbody = document.getElementById('tbody'); tbody.innerHTML='';
+        list.forEach(s=> tbody.appendChild(row(s)));
+        msg(`件数: ${list.length}`);
+      }catch(e){ msg(e.message||'取得に失敗しました'); }
+    }
+    async function create(){
+      const code = document.getElementById('code').value.trim();
+      const name = document.getElementById('name').value.trim();
+      const description = document.getElementById('desc').value.trim();
+      const priority = Number(document.getElementById('prio').value||'5');
+      if(!code || !name){ msg('コード・名称は必須です'); return; }
+      try{ const j = await api('/api/skills', { method:'POST', body: JSON.stringify({ code, name, description, priority })}); msg(j.message||'登録しました'); document.getElementById('code').value=''; document.getElementById('name').value=''; document.getElementById('desc').value=''; document.getElementById('prio').value='5'; await load(); }catch(e){ msg(e.message||'登録に失敗しました'); }
+    }
+    document.getElementById('create').addEventListener('click', create);
+    document.getElementById('search').addEventListener('click', load);
+    window.addEventListener('DOMContentLoaded', load);
+  </script>
+</body>
+</html>

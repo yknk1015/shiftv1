@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>需要集計（当月・時間帯別）</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1200px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    h2 { margin: 0 0 12px; }
+    label { display:inline-flex; gap:8px; align-items:center; margin-right:12px; color:#475569; }
+    input, select, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e2e8f0; text-align:right; padding:6px; font-size:13px; }
+    th.sticky { position:sticky; left:0; background:#f8fafc; text-align:left; z-index:1; }
+    td.sticky { position:sticky; left:0; background:#fff; text-align:left; }
+    thead th { position:sticky; top:0; background:#f8fafc; z-index:2; }
+    .grid-wrap { overflow:auto; max-height: 70vh; border:1px solid #e2e8f0; border-radius:12px; }
+    .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+    .muted { color:#64748b; font-size:12px; }
+    .legend { display:flex; gap:8px; align-items:center; }
+    .swatch { width:14px; height:14px; border-radius:3px; border:1px solid #cbd5e1; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>需要集計（当月・時間帯別）</h2>
+    <div class="card">
+      <div class="row">
+        <label>集計範囲
+          <select id="period">
+            <option value="month">月</option>
+            <option value="week">週</option>
+            <option value="day">日</option>
+          </select>
+        </label>
+        <label id="lblMonth">年月
+          <input type="month" id="ym" />
+        </label>
+        <label id="lblDate" style="display:none;">日付
+          <input type="date" id="date" />
+        </label>
+        <label>スキル
+          <select id="skillFilter" multiple size="4" style="min-width:200px;"></select>
+        </label>
+        <label>粒度
+          <select id="gran">
+            <option value="60">60分</option>
+            <option value="30">30分</option>
+            <option value="15">15分</option>
+          </select>
+        </label>
+        <button id="btnLoad">集計</button>
+        <span id="meta" class="muted"></span>
+      </div>
+      <div class="row" style="margin-top:8px;">
+        <div class="legend">
+          <span class="muted">ヒートレベル:</span>
+          <div class="swatch" style="background:#eef2ff"></div>
+          <div class="swatch" style="background:#c7d2fe"></div>
+          <div class="swatch" style="background:#93c5fd"></div>
+          <div class="swatch" style="background:#60a5fa"></div>
+          <div class="swatch" style="background:#3b82f6"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="grid-wrap">
+        <table id="tbl">
+          <thead id="thead"></thead>
+          <tbody id="tbody"></tbody>
+          <tfoot id="tfoot"></tfoot>
+        </table>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">CSVエクスポート</h3>
+      <div class="row">
+        <label>出力先フォルダ <input type="text" id="csvDir" placeholder="C:\\temp" style="min-width:260px;" /></label>
+        <label>ファイル名 <input type="text" id="csvName" value="demand-aggregate.csv" style="min-width:200px;" /></label>
+        <button id="btnExport">エクスポート</button>
+        <span id="csvMsg" class="muted"></span>
+      </div>
+    </div>
+
+    <div class="muted"><a href="/demand">デマンド管理</a> / <a href="/dashboard">ダッシュボード</a></div>
+  </div>
+
+  <script>
+    function fmt(n){ return (n==null?'-': String(n)); }
+    function heatColor(v, max){
+      if(max<=0 || v<=0) return '#ffffff';
+      const t = Math.min(1, v/max);
+      if (t < 0.2) return '#eef2ff';
+      if (t < 0.4) return '#c7d2fe';
+      if (t < 0.6) return '#93c5fd';
+      if (t < 0.8) return '#60a5fa';
+      return '#3b82f6';
+    }
+    async function fetchAgg(period, ymStr, dateStr, gran, skillIds){
+      let url = `/api/demand/aggregate?period=${period}&granularity=${gran}`;
+      if (period === 'month'){
+        const y = Number(ymStr.slice(0,4));
+        const m = Number(ymStr.slice(5));
+        url += `&year=${y}&month=${m}`;
+      } else {
+        const d = dateStr || new Date().toISOString().slice(0,10);
+        url += `&date=${d}`;
+      }
+      if (skillIds && skillIds.length){ url += `&skillIds=${skillIds.join(',')}`; }
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('fetch failed');
+      return res.json();
+    }
+    function renderTable(payload){
+      const slots = payload.data.slots || [];
+      const skills = payload.data.skills || [];
+      const matrix = payload.data.matrix || {};
+      const totalsPerSlot = payload.data.totalsPerSlot || [];
+      const totalsPerSkill = payload.data.totalsPerSkill || {};
+      // max for heat scale
+      let maxCell = 0; Object.values(matrix).forEach(arr => arr.forEach(v => { if(v>maxCell) maxCell=v; }));
+      const thead = document.getElementById('thead');
+      const tbody = document.getElementById('tbody');
+      const tfoot = document.getElementById('tfoot');
+      thead.innerHTML = '';
+      tbody.innerHTML = '';
+      tfoot.innerHTML = '';
+      // header
+      let th = '<tr><th class="sticky">スキル/時間帯</th>' + slots.map(s=>`<th>${s}</th>`).join('') + '<th>合計</th></tr>';
+      thead.innerHTML = th;
+      // body rows
+      for(const s of skills){
+        const id = s.id; const name = s.name || s.code || ('#'+id);
+        const arr = matrix[id] || Array(slots.length).fill(0);
+        const cells = arr.map(v=>`<td style="background:${heatColor(v,maxCell)}">${fmt(v)}</td>`).join('');
+        const sum = totalsPerSkill[id] || arr.reduce((a,b)=>a+b,0);
+        tbody.insertAdjacentHTML('beforeend', `<tr><td class="sticky">${name}</td>${cells}<td>${fmt(sum)}</td></tr>`);
+      }
+      // footer totals per slot
+      const totalCells = totalsPerSlot.map(v=>`<td>${fmt(v)}</td>`).join('');
+      tfoot.innerHTML = `<tr><th class="sticky">合計(全スキル)</th>${totalCells}<th>${totalsPerSlot.reduce((a,b)=>a+b,0)}</th></tr>`;
+    }
+    function setMeta(payload){
+      const p = payload.data.period;
+      const y = payload.data.year, m = payload.data.month, g = payload.data.granularity;
+      const sd = payload.data.startDate, ed = payload.data.endDate;
+      const countSkills = (payload.data.skills||[]).length;
+      const meta = document.getElementById('meta');
+      if (p==='day') meta.textContent = `${sd} / 粒度:${g}分 / スキル:${countSkills}件`;
+      else if (p==='week') meta.textContent = `${sd} 〜 ${ed} / 粒度:${g}分 / スキル:${countSkills}件`;
+      else meta.textContent = `${y}年${m}月 / 粒度:${g}分 / スキル:${countSkills}件`;
+    }
+    window.addEventListener('DOMContentLoaded', async ()=>{
+      const today = new Date();
+      const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
+      document.getElementById('ym').value = ym;
+      document.getElementById('date').value = new Date().toISOString().slice(0,10);
+      const periodSel = document.getElementById('period');
+      periodSel.addEventListener('change', ()=>{
+        const p = periodSel.value;
+        document.getElementById('lblMonth').style.display = (p==='month')? '' : 'none';
+        document.getElementById('lblDate').style.display = (p==='month')? 'none' : '';
+      });
+      async function loadSkills(){
+        try{
+          const res = await fetch('/api/skills');
+          const j = await res.json();
+          const sel = document.getElementById('skillFilter');
+          sel.innerHTML = '';
+          (j.data||[]).forEach(s=>{
+            const opt = document.createElement('option');
+            opt.value = s.id; opt.textContent = s.name||s.code||(`#${s.id}`);
+            sel.appendChild(opt);
+          });
+        }catch(e){}
+      }
+      await loadSkills();
+      document.getElementById('btnLoad').addEventListener('click', async ()=>{
+        const p = periodSel.value;
+        const ymStr = document.getElementById('ym').value;
+        const dateStr = document.getElementById('date').value;
+        const gran = Number(document.getElementById('gran').value);
+        const skills = Array.from(document.getElementById('skillFilter').selectedOptions).map(o=>Number(o.value));
+        try{
+          const payload = await fetchAgg(p, ymStr, dateStr, gran, skills);
+          renderTable(payload);
+          setMeta(payload);
+        }catch(e){ alert('集計の取得に失敗しました'); }
+      });
+      document.getElementById('btnExport').addEventListener('click', async ()=>{
+        const p = periodSel.value;
+        const ymStr = document.getElementById('ym').value;
+        const dateStr = document.getElementById('date').value;
+        const gran = Number(document.getElementById('gran').value);
+        const skills = Array.from(document.getElementById('skillFilter').selectedOptions).map(o=>Number(o.value));
+        const dir = document.getElementById('csvDir').value.trim();
+        const filename = document.getElementById('csvName').value.trim() || 'demand-aggregate.csv';
+        const payload = { period: p, date: (p==='month'? null : (dateStr||null)), year: (p==='month'? Number(ymStr.slice(0,4)) : null), month: (p==='month'? Number(ymStr.slice(5)) : null), granularity: gran, skillIds: skills, dir, filename };
+        try{
+          const res = await fetch('/api/demand/aggregate/export', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
+          const j = await res.json();
+          document.getElementById('csvMsg').textContent = j.success ? `出力しました: ${j.meta?.path||''}` : (j.message||'失敗しました');
+        }catch(e){ document.getElementById('csvMsg').textContent = 'エクスポートに失敗しました'; }
+      });
+      // initial load
+      document.getElementById('btnLoad').click();
+    });
+  </script>
+</body>
+</html>

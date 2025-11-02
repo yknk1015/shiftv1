@@ -1,0 +1,223 @@
+package com.example.shiftv1.config;
+
+import com.example.shiftv1.skill.Skill;
+import jakarta.persistence.*;
+import java.time.DayOfWeek;
+import java.util.Set;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+
+import java.time.LocalTime;
+import java.util.Objects;
+
+@Entity
+@Table(name = "shift_config")
+public class ShiftConfig {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    @NotBlank(message = "シフト名は必須です")
+    @Column(unique = true, nullable = false)
+    private String name;
+
+    @NotNull(message = "開始時間は必須です")
+    @Column(name = "start_time", nullable = false)
+    private LocalTime startTime;
+
+    @NotNull(message = "終了時間は必須です")
+    @Column(name = "end_time", nullable = false)
+    private LocalTime endTime;
+
+    @Min(value = 1, message = "従業員数は1人以上である必要があります")
+    @Max(value = 20, message = "従業員数は20人以下である必要があります")
+    @Column(name = "required_employees", nullable = false)
+    private Integer requiredEmployees = 4;
+
+    @Column(name = "is_active")
+    private Boolean active = true;
+
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_of_week")
+    private DayOfWeek dayOfWeek; // 特定曜日に限定する場合（nullなら曜日制約なし）
+
+    @Column(name = "is_holiday")
+    private Boolean holiday = false; // 祝日専用シフトかどうか
+
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "required_skill_id")
+    private Skill requiredSkill;
+
+    @ElementCollection(fetch = FetchType.EAGER)
+    @CollectionTable(name = "shift_config_days", joinColumns = @JoinColumn(name = "shift_config_id"))
+    @Enumerated(EnumType.STRING)
+    @Column(name = "day_of_week")
+    private Set<DayOfWeek> days; // 複数曜日に対応（null/emptyで未指定）
+
+    @Column(name = "created_at")
+    private java.time.LocalDateTime createdAt;
+
+    @Column(name = "updated_at")
+    private java.time.LocalDateTime updatedAt;
+
+    // デフォルトコンストラクタ
+    public ShiftConfig() {
+    }
+
+    public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees) {
+        this.name = name;
+        this.startTime = startTime;
+        this.endTime = endTime;
+        this.requiredEmployees = requiredEmployees;
+        this.createdAt = java.time.LocalDateTime.now();
+        this.updatedAt = java.time.LocalDateTime.now();
+    }
+
+    public ShiftConfig(String name, LocalTime startTime, LocalTime endTime, Integer requiredEmployees,
+                       DayOfWeek dayOfWeek, Boolean holiday) {
+        this(name, startTime, endTime, requiredEmployees);
+        this.dayOfWeek = dayOfWeek;
+        this.holiday = holiday != null ? holiday : false;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        createdAt = java.time.LocalDateTime.now();
+        updatedAt = java.time.LocalDateTime.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = java.time.LocalDateTime.now();
+    }
+
+    // Getters and Setters
+    public Long getId() {
+        return id;
+    }
+
+    public void setId(Long id) {
+        this.id = id;
+    }
+
+    public String getName() {
+        return name;
+    }
+
+    public void setName(String name) {
+        this.name = name;
+    }
+
+    public LocalTime getStartTime() {
+        return startTime;
+    }
+
+    public void setStartTime(LocalTime startTime) {
+        this.startTime = startTime;
+    }
+
+    public LocalTime getEndTime() {
+        return endTime;
+    }
+
+    public void setEndTime(LocalTime endTime) {
+        this.endTime = endTime;
+    }
+
+    public Integer getRequiredEmployees() {
+        return requiredEmployees;
+    }
+
+    public void setRequiredEmployees(Integer requiredEmployees) {
+        this.requiredEmployees = requiredEmployees;
+    }
+
+    public Boolean getActive() {
+        return active;
+    }
+
+    public void setActive(Boolean active) {
+        this.active = active;
+    }
+
+
+    public DayOfWeek getDayOfWeek() {
+        return dayOfWeek;
+    }
+
+    public void setDayOfWeek(DayOfWeek dayOfWeek) {
+        this.dayOfWeek = dayOfWeek;
+    }
+
+    public Boolean getHoliday() {
+        return holiday;
+    }
+
+    public void setHoliday(Boolean holiday) {
+        this.holiday = holiday;
+    }
+
+    public Skill getRequiredSkill() { return requiredSkill; }
+    public void setRequiredSkill(Skill requiredSkill) { this.requiredSkill = requiredSkill; }
+
+    public Set<DayOfWeek> getDays() {
+        return days;
+    }
+
+    public void setDays(Set<DayOfWeek> days) {
+        this.days = days;
+    }
+
+    public java.time.LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(java.time.LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public java.time.LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(java.time.LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ShiftConfig that = (ShiftConfig) o;
+        return Objects.equals(id, that.id) && Objects.equals(name, that.name);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(id, name);
+    }
+
+    @Override
+    public String toString() {
+        return "ShiftConfig{" +
+                "id=" + id +
+                ", name='" + name + '\'' +
+                ", startTime=" + startTime +
+                ", endTime=" + endTime +
+                ", requiredEmployees=" + requiredEmployees +
+                ", active=" + active +
+                ", dayOfWeek=" + dayOfWeek +
+                ", holiday=" + holiday +
+                ", days=" + days +
+                '}';
+    }
+}
+
+
+
+
+

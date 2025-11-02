@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフトカレンダー - シフト管理システム</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+        .header h1 {
+            color: #333;
+            margin: 0;
+        }
+        .navigation {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        .nav-btn {
+            padding: 8px 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: white;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .nav-btn:hover {
+            background-color: #f8f9fa;
+        }
+        .month-year {
+            font-size: 18px;
+            font-weight: 600;
+            color: #333;
+            min-width: 150px;
+            text-align: center;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: background-color 0.3s;
+        }
+        .btn-primary {
+            background-color: #007bff;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .btn-secondary {
+            background-color: #6c757d;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #545b62;
+        }
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 1px;
+            background-color: #ddd;
+            border: 1px solid #ddd;
+        }
+        .calendar-header {
+            background-color: #f8f9fa;
+            padding: 15px 10px;
+            text-align: center;
+            font-weight: 600;
+            color: #495057;
+        }
+        .calendar-day {
+            background-color: white;
+            min-height: 120px;
+            padding: 10px;
+            border: none;
+            position: relative;
+        }
+        .calendar-day.today {
+            background-color: #e3f2fd;
+        }
+        .calendar-day.other-month {
+            background-color: #f8f9fa;
+            color: #6c757d;
+        }
+        .day-number {
+            font-weight: 600;
+            margin-bottom: 5px;
+            color: #333;
+        }
+        .shift-item {
+            background-color: #007bff;
+            color: white;
+            padding: 2px 6px;
+            margin: 1px 0;
+            border-radius: 3px;
+            font-size: 11px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .shift-item.morning {
+            background-color: #28a745;
+        }
+        .shift-item.evening {
+            background-color: #ffc107;
+            color: #212529;
+        }
+        .shift-item.other {
+            background-color: #dc3545;
+        }
+        /* Special styles for placeholders */
+        .shift-item.free {
+            background-color: #0ea5e9; /* cyan */
+            color: #083344;
+        }
+        .shift-item.off {
+            background-color: #e2e8f0; /* gray */
+            color: #334155;
+            border: 1px solid #cbd5e1;
+        }
+        .legend {
+            display: flex;
+            gap: 20px;
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 20px;
+            height: 15px;
+            border-radius: 3px;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        .error {
+            background-color: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>シフトカレンダー</h1>
+            <div class="navigation">
+                <button class="nav-btn" onclick="goToPreviousMonth()">← 前月</button>
+                <div class="month-year" id="monthYear"></div>
+                <button class="nav-btn" onclick="goToNextMonth()">次月 →</button>
+                <button class="nav-btn" onclick="goToToday()">今月</button>
+                <button class="btn btn-secondary" onclick="window.location.href='/dashboard'">ダッシュボードに戻る</button>
+            </div>
+        </div>
+
+        <div class="controls">
+            <button class="btn btn-primary" onclick="generateCurrentMonthSchedule()">今月のシフト生成</button>
+            <button class="btn btn-secondary" onclick="loadSchedule()">シフト読み込み</button>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">
+            シフトデータを読み込み中...
+        </div>
+
+        <div id="error" class="error" style="display: none;"></div>
+
+        <div class="calendar-grid" id="calendarGrid">
+            <!-- カレンダーヘッダー -->
+            <div class="calendar-header">日</div>
+            <div class="calendar-header">月</div>
+            <div class="calendar-header">火</div>
+            <div class="calendar-header">水</div>
+            <div class="calendar-header">木</div>
+            <div class="calendar-header">金</div>
+            <div class="calendar-header">土</div>
+        </div>
+    </div>
+
+    <script>
+        let currentDate = new Date();
+        let scheduleData = {};
+
+        // 月の表示を更新
+        function updateMonthDisplay() {
+            const monthYear = document.getElementById('monthYear');
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth() + 1;
+            monthYear.textContent = `${year}年${month}月`;
+        }
+
+        // カレンダーを生成
+        function generateCalendar() {
+            const calendarGrid = document.getElementById('calendarGrid');
+            
+            // ヘッダーを除いて既存の日付セルをクリア
+            while (calendarGrid.children.length > 7) {
+                calendarGrid.removeChild(calendarGrid.lastChild);
+            }
+
+            const year = currentDate.getFullYear();
+            const month = currentDate.getMonth();
+            
+            // 月の最初の日
+            const firstDay = new Date(year, month, 1);
+            // 月の最後の日
+            const lastDay = new Date(year, month + 1, 0);
+            
+            // 最初の週の開始日を計算（日曜日から始まる）
+            const startDate = new Date(firstDay);
+            startDate.setDate(startDate.getDate() - firstDay.getDay());
+
+            // 6週間分のカレンダーを生成
+            for (let week = 0; week < 6; week++) {
+                for (let day = 0; day < 7; day++) {
+                    const cellDate = new Date(startDate);
+                    cellDate.setDate(startDate.getDate() + (week * 7) + day);
+                    
+                    const dayCell = createDayCell(cellDate, month);
+                    calendarGrid.appendChild(dayCell);
+                }
+            }
+        }
+
+        // 日付セルを作成
+        function createDayCell(date, currentMonth) {
+            const dayCell = document.createElement('div');
+            dayCell.className = 'calendar-day';
+            
+            const dayNumber = document.createElement('div');
+            dayNumber.className = 'day-number';
+            dayNumber.textContent = date.getDate();
+            dayCell.appendChild(dayNumber);
+
+            // 今日の日付をハイライト
+            const today = new Date();
+            if (date.toDateString() === today.toDateString()) {
+                dayCell.classList.add('today');
+            }
+
+            // 他の月の日付はグレーアウト
+            if (date.getMonth() !== currentMonth) {
+                dayCell.classList.add('other-month');
+            }
+
+            // シフトデータがあれば表示（現行ロジック：色は一色、FREE/休日のみ特別色）
+            const dateKey = formatDate(date);
+            if (scheduleData[dateKey]) {
+                scheduleData[dateKey].forEach(shift => {
+                    const shiftItem = document.createElement('div');
+                    shiftItem.className = 'shift-item';
+                    const startTime = shift.startTime ? String(shift.startTime).slice(0,5) : '';
+                    const endTime = shift.endTime ? String(shift.endTime).slice(0,5) : '';
+                    const timeText = (startTime && endTime) ? `${startTime}-${endTime}` : '';
+
+                    const isFree = (shift.isFree === true) || (String(shift.shiftName).toUpperCase() === 'FREE');
+                    const isOff = (shift.isOff === true) || (shift.shiftName === '休日' || String(shift.shiftName).toUpperCase() === 'OFF');
+                    if (isFree) {
+                        shiftItem.classList.add('free');
+                        shiftItem.textContent = `${shift.employeeName} FREE`;
+                    } else if (isOff) {
+                        shiftItem.classList.add('off');
+                        shiftItem.textContent = `${shift.employeeName} 休日`;
+                    } else {
+                        // 需要由来の名称（例: Demand-<CODE>）や現行スキル名をそのまま表示
+                        const label = (shift.shiftName || '').toString();
+                        shiftItem.textContent = `${shift.employeeName} ${label} ${timeText}`.trim();
+                    }
+
+                    dayCell.appendChild(shiftItem);
+                });
+            }
+
+            return dayCell;
+        }
+
+        // 日付をフォーマット
+        function formatDate(date) {
+            return date.getFullYear() + '-' + 
+                   String(date.getMonth() + 1).padStart(2, '0') + '-' + 
+                   String(date.getDate()).padStart(2, '0');
+        }
+
+        // 前月に移動
+        function goToPreviousMonth() {
+            currentDate.setMonth(currentDate.getMonth() - 1);
+            updateMonthDisplay();
+            generateCalendar();
+            loadSchedule();
+        }
+
+        // 次月に移動
+        function goToNextMonth() {
+            currentDate.setMonth(currentDate.getMonth() + 1);
+            updateMonthDisplay();
+            generateCalendar();
+            loadSchedule();
+        }
+
+        // 今月に移動
+        function goToToday() {
+            currentDate = new Date();
+            updateMonthDisplay();
+            generateCalendar();
+            loadSchedule();
+        }
+
+        // シフトデータを読み込み
+        async function loadSchedule() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+
+            try {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+                
+                const response = await fetch(`/api/schedule?year=${year}&month=${month}`);
+                const result = await response.json();
+                
+                if (result.success) {
+                    scheduleData = {};
+                    
+                    // シフトデータを日付ごとにグループ化
+                    result.data.forEach(shift => {
+                        const date = shift.workDate;
+                        if (!scheduleData[date]) {
+                            scheduleData[date] = [];
+                        }
+                        scheduleData[date].push(shift);
+                    });
+                    
+                    // カレンダーを再生成
+                    generateCalendar();
+                } else {
+                    throw new Error(result.message || 'シフトデータの読み込みに失敗しました');
+                }
+            } catch (err) {
+                error.style.display = 'block';
+                error.textContent = 'エラー: ' + err.message;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // 今月のシフトを生成
+        async function generateCurrentMonthSchedule() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            
+            loading.style.display = 'block';
+            error.style.display = 'none';
+
+            try {
+                const year = currentDate.getFullYear();
+                const month = currentDate.getMonth() + 1;
+                
+                const response = await fetch(`/api/schedule/generate/demand/async?year=${year}&month=${month}&granularity=60&reset=true`, {
+                    method: 'POST'
+                });
+                const result = await response.json();
+                
+                if (result.success) {
+                    await loadSchedule();
+                } else {
+                    throw new Error(result.message || 'シフト生成に失敗しました');
+                }
+            } catch (err) {
+                error.style.display = 'block';
+                error.textContent = 'エラー: ' + err.message;
+            } finally {
+                loading.style.display = 'none';
+            }
+        }
+
+        // ページ読み込み時の初期化
+        window.onload = function() {
+            updateMonthDisplay();
+            generateCalendar();
+            loadSchedule();
+        };
+    </script>
+</body>
+</html>
+
+
+
+
+

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>需要（必要座席）管理</title>
+  <style>
+    body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
+    .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
+    h2 { margin: 0 0 12px; }
+    label { display:block; margin:6px 0; font-size:14px; color:#475569; }
+    input, select, button { padding:6px 10px; border-radius:8px; border:1px solid #cbd5e1; }
+    button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
+    table { width:100%; border-collapse: collapse; }
+    th, td { border-bottom:1px solid #e2e8f0; text-align:left; padding:8px; font-size:14px; }
+    .row { display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+    .muted { color:#64748b; font-size:12px; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h2>需要（必要座席）管理</h2>
+
+    <div class="card">
+      <div class="row">
+        <label>日付 <input type="date" id="date" /></label>
+        <button onclick="loadEffective()">当日需要の読込</button>
+        <button onclick="loadAll()">全件読込</button>
+      </div>
+      <div id="effective" style="margin-top:12px"></div>
+      <div id="all" style="margin-top:12px"></div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">需要の追加</h3>
+      <div class="row">
+        <label>日付(任意) <input type="date" id="c_date" /></label>
+        <label>曜日(任意)
+          <select id="c_dow">
+            <option value="">未指定</option>
+            <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
+            <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
+          </select>
+        </label>
+        <label>開始 <input type="time" id="c_start" value="09:00" /></label>
+        <label>終了 <input type="time" id="c_end" value="18:00" /></label>
+        <label>必要座席 <input type="number" id="c_req" value="5" min="0" /></label>
+        <label>スキルID(任意) <input type="number" id="c_skill" min="1" /></label>
+        <button onclick="create()">追加</button>
+      </div>
+      <div class="muted">日付か曜日のどちらかを設定。スキルID未指定は全体需要。</div>
+      <div id="create_msg" class="muted"></div>
+    </div>
+
+    <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/timeline">タイムライン</a></div>
+  </div>
+
+  <script>
+    async function loadEffective(){
+      const date = document.getElementById('date').value;
+      if(!date){ alert('日付を選択してください'); return; }
+      const res = await fetch(`/api/demand/effective?date=${date}`);
+      const j = await res.json();
+      renderTable('effective', '当日適用', j.data||[]);
+    }
+    async function loadAll(){
+      const res = await fetch(`/api/demand`);
+      const j = await res.json();
+      renderTable('all', '全件', j.data||[]);
+    }
+    function renderTable(id, title, rows){
+      const el = document.getElementById(id);
+      if(!rows.length){ el.innerHTML = `<h4>${title}</h4><div class='muted'>データなし</div>`; return; }
+      let html = `<h4>${title}</h4><table><thead><tr><th>ID</th><th>日付</th><th>曜日</th><th>時間</th><th>必要</th><th>skillId</th><th>操作</th></tr></thead><tbody>`;
+      for(const r of rows){
+        const id = r.id;
+        const del = `<button data-id="${id}" class="btn-del" style="background:#ef4444;color:#fff;border:none;border-radius:6px;padding:4px 8px;">削除</button>`;
+        const up = `<button data-id="${id}" data-dir="up" class="btn-move" style="margin-left:6px;">↑</button>`;
+        const down = `<button data-id="${id}" data-dir="down" class="btn-move" style="margin-left:4px;">↓</button>`;
+        html += `<tr><td>${id||''}</td><td>${r.date||''}</td><td>${r.dayOfWeek||''}</td>`+
+                `<td>${r.startTime} - ${r.endTime}</td><td>${r.requiredSeats}</td><td>${r.skill? r.skill.id:''}</td>`+
+                `<td>${del}${up}${down}</td></tr>`;
+      }
+      html += `</tbody></table>`;
+      el.innerHTML = html;
+      // wire events
+      el.querySelectorAll('.btn-del').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          if(!confirm(`ID=${id} を削除しますか？`)) return;
+          const res = await fetch(`/api/demand/${id}`, { method:'DELETE' });
+          if(!res.ok){ alert('削除に失敗しました'); return; }
+          // refresh both sections
+          if(document.getElementById('date').value){ await loadEffective(); }
+          await loadAll();
+        });
+      });
+      el.querySelectorAll('.btn-move').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+          const id = e.currentTarget.getAttribute('data-id');
+          const dir = e.currentTarget.getAttribute('data-dir');
+          const res = await fetch(`/api/demand/${id}/move?direction=${dir}`, { method:'POST' });
+          if(!res.ok){ alert('並び替えに失敗しました'); return; }
+          if(document.getElementById('date').value){ await loadEffective(); }
+          await loadAll();
+        });
+      });
+    }
+    async function create(){
+      const body = {
+        date: document.getElementById('c_date').value || null,
+        dayOfWeek: (document.getElementById('c_dow').value || null),
+        startTime: document.getElementById('c_start').value,
+        endTime: document.getElementById('c_end').value,
+        requiredSeats: Number(document.getElementById('c_req').value),
+        skillId: (document.getElementById('c_skill').value||'')? Number(document.getElementById('c_skill').value): null,
+        active: true
+      };
+      const res = await fetch('/api/demand', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
+      const j = await res.json();
+      document.getElementById('create_msg').textContent = j.message || (j.success? '作成しました':'失敗しました');
+      if(j.success){ loadAll(); }
+    }
+    window.addEventListener('DOMContentLoaded', ()=>{ const today = new Date().toISOString().slice(0,10); document.getElementById('date').value = today; loadAll(); });
+  </script>
+</body>
+</html>

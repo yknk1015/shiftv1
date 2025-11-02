@@ -1,0 +1,29 @@
+# Build artifacts
+target/
+
+# IDE/project settings
+.idea/
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs and temp
+*.log
+*.tmp
+*.bak
+tmp*/
+cookies.txt
+
+# Local DB (ignore by default; remove if you want to commit it)
+shift-demo.db
+
+# Misc
+lines
+s
+run.log
+server.log
+tmp*.txt
+
