@@ -78,7 +78,7 @@
         <a href="/monthly-demand">月間需要エディタ</a>
         <a href="/demand">需要登録</a>
         <a href="/demand-analytics">需要アナリティクス</a>
-        <a href="/timeline">タイムライン</a>
+        <!-- timeline 統合済みのためリンク非表示 -->
         <a href="/calendar">カレンダー</a>
         <a href="/pairing-settings">ペアリング設定</a>
         <a href="/employee-master">従業員マスタ</a>
@@ -103,6 +103,20 @@
       <pre id="out_sync"></pre>
       <pre id="out_async"></pre>
       <pre id="out_stats"></pre>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">延長ユーティリティ（管理者向け・既存割当の当日延長）</h3>
+      <div class="row" style="flex-wrap:wrap; gap:10px;">
+        <label>日付 <input type="date" id="ext_date" /></label>
+        <label>開始 <input type="time" id="ext_start" value="12:00" /></label>
+        <label>終了 <input type="time" id="ext_end" value="13:00" /></label>
+        <label>座席 <input type="number" id="ext_seats" value="1" min="1" style="width:80px;"/></label>
+        <label>スキル <select id="ext_skill"><option value="">選択</option></select></label>
+        <button onclick="adminBoost()">適用</button>
+      </div>
+      <div class="muted" style="margin-top:6px;">注意: これは既に配置済みの担当者のシフト終端を延長して当日需要を増強します。生成前の需要追加は「需要登録」画面で行ってください。</div>
+      <pre id="out_boost"></pre>
     </div>
 
     <div class="card">
@@ -175,4 +189,33 @@
       alert('Failed: ' + e.message);
     }
   }
+
+  // 延長ユーティリティ
+  async function adminBoost(){
+    const out = document.getElementById('out_boost');
+    out.textContent = '実行中...';
+    try{
+      const date = document.getElementById('ext_date').value;
+      const s = document.getElementById('ext_start').value;
+      const e = document.getElementById('ext_end').value;
+      const seats = parseInt(document.getElementById('ext_seats').value||'1',10)||1;
+      const skillId = document.getElementById('ext_skill').value;
+      if (!date || !s || !e || s>=e || !skillId){ out.textContent='入力値を確認してください'; return; }
+      const body = { date, skillId: Number(skillId), skillCode: null, windowStart: s, windowEnd: e, startTime: s, endTime: e, seats };
+      const res = await fetch('/api/schedule/core-boost', { method:'POST', headers:{'Content-Type':'application/json'}, credentials:'include', body: JSON.stringify(body) });
+      const j = await res.json();
+      if (!res.ok || (j && j.success===false)) throw new Error(j?.message || ('HTTP '+res.status));
+      out.textContent = JSON.stringify(j, null, 2);
+    }catch(e){ out.textContent = 'ERROR: '+e.message; }
+  }
+
+  // スキル一覧で延長ユーティリティの選択肢を初期化
+  (async function initExtSkill(){
+    try{
+      const res = await fetch('/api/skills', { credentials:'include' });
+      const j = await res.json();
+      const sel = document.getElementById('ext_skill');
+      if (sel && j && j.data){ sel.innerHTML = '<option value="">選択</option>' + j.data.map(s=>`<option value="${s.id}">${s.name||s.code||('#'+s.id)}</option>`).join(''); }
+    }catch(_){ }
+  })();
 </script>

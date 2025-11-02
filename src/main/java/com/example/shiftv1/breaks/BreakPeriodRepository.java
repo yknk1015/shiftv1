@@ -11,7 +11,7 @@ import java.util.List;
 
 public interface BreakPeriodRepository extends JpaRepository<BreakPeriod, Long> {
 
-    @Query("SELECT b FROM BreakPeriod b WHERE b.assignment.workDate = :date")
+    @Query("SELECT b FROM BreakPeriod b JOIN FETCH b.assignment WHERE b.assignment.workDate = :date")
     List<BreakPeriod> findByWorkDate(@Param("date") LocalDate date);
 
     @Modifying

@@ -589,7 +589,6 @@
             <button class="button" onclick="location.href='/demand'">Demand</button>
             <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
             <button class="button" onclick="location.href='/leave'">Leave</button>
-            <button class="button" onclick="location.href='/timeline'">Timeline</button>
             <button class="button" onclick="location.href='/calendar'">Calendar</button>
             <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
             <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
@@ -974,7 +973,7 @@
             try {
                 const granSel = document.getElementById('granularity-select');
                 const gran = granSel ? Number(granSel.value) : 60;
-                const response = await callApi(`/api/schedule/generate/demand/async?year=${year}&month=${month}&granularity=${gran}`, { method: 'POST' });
+                const response = await callApi(`/api/schedule/generate/demand/async?year=${year}&month=${month}&granularity=${gran}&mode=simple`, { method: 'POST' });
                 setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
                 const shortages = (response.meta && response.meta.shortages) || [];
                 if (shortages.length > 0) {
@@ -1062,6 +1061,9 @@
                 updateWorkload(workload.data || []);
                 const days = await callApi(`/api/schedule/stats/employee-days?year=${year}&month=${month}`);
                 renderEmployeeDays(days.data || []);
+                // Refresh daily FREE/OFF summaries
+                try { await loadFreeDaily(); } catch (_) {}
+                try { await loadOffDaily(); } catch (_) {}
             } catch (error) {
                 updateMonthlyStats(null);
                 updateWorkload([]);
@@ -1830,7 +1832,7 @@ async function createManual(){
   try{ await callApi2('/api/schedule/assignments', { method:'POST', body: JSON.stringify({ date, employeeId:Number(emp), startTime:s, endTime:e, shiftName:name }) }); if(msg){ msg.textContent='作成しました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'作成に失敗しました'; msg.className='message error'; } }
 }
 async function fillGapsForDay(){ const date=document.getElementById('man-date')?.value; const msg=document.getElementById('man-msg'); if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message error'; } return; } try{ await callApi2(`/api/schedule/generate/demand/day?date=${date}&reset=false`, { method:'POST' }); if(msg){ msg.textContent='空きのみ埋めました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
-async function fillGapsForMonth(){ const granSel=document.getElementById('granularity-select'); const gran = granSel?Number(granSel.value):60; const y=Number(document.getElementById('year-input')?.value)||new Date().getFullYear(); const m=Number(document.getElementById('month-input')?.value)|| (new Date().getMonth()+1); const msg=document.getElementById('man-msg'); try{ await callApi2(`/api/schedule/generate/demand/async?year=${y}&month=${m}&granularity=${gran}&reset=false`, { method:'POST' }); if(msg){ msg.textContent='月全体の空きのみ埋めを開始しました'; msg.className='message success'; } }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
+async function fillGapsForMonth(){ const granSel=document.getElementById('granularity-select'); const gran = granSel?Number(granSel.value):60; const y=Number(document.getElementById('year-input')?.value)||new Date().getFullYear(); const m=Number(document.getElementById('month-input')?.value)|| (new Date().getMonth()+1); const msg=document.getElementById('man-msg'); try{ await callApi2(`/api/schedule/generate/demand/async?year=${y}&month=${m}&granularity=${gran}&reset=false&mode=simple`, { method:'POST' }); if(msg){ msg.textContent='月全体の空きのみ埋めを開始しました'; msg.className='message success'; } }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
 document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
 document.getElementById('man-create')?.addEventListener('click', createManual);
 document.getElementById('day-fill-gaps')?.addEventListener('click', fillGapsForDay);
@@ -1888,11 +1890,21 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
           <tbody>
             <tr><td>月</td><td>${data.month||'-'}</td></tr>
             <tr><td>総シフト数</td><td>${data.totalShifts??0}</td></tr>
-            <tr><td>従業員数</td><td>${data.uniqueEmployees??0}</td></tr>
-            <tr><td colspan="2"><strong>シフトタイプ別内訳</strong></td></tr>
-            ${rows || '<tr><td colspan="2" class="muted">-</td></tr>'}
+            <tr><td>ユニーク従業員数</td><td>${data.uniqueEmployees??0}</td></tr>
+            <tr><td colspan="2"><strong>シフト種別内訳</strong></td></tr>
+            ${rows || '<tr><td colspan="2" class="muted">内訳なし</td></tr>'}
           </tbody>
         </table>`;
+      // Mirror to compact counters and legacy list
+      const totalEl = document.getElementById('stat-total-shifts'); if (totalEl) totalEl.textContent = data.totalShifts ?? 0;
+      const uniqEl = document.getElementById('stat-unique-employees'); if (uniqEl) uniqEl.textContent = data.uniqueEmployees ?? 0;
+      const list = document.getElementById('shift-type-list');
+      if (list) {
+        list.innerHTML = '';
+        Object.entries(byType).sort((a,b)=>b[1]-a[1]).forEach(([name,count])=>{
+          const li = document.createElement('li'); li.textContent = `${name||'-'}: ${count}`; list.appendChild(li);
+        });
+      }
     }
     async function loadFreeDaily(){
       const host = document.getElementById('free-daily-body');

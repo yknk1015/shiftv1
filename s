@@ -1,0 +1,1 @@
+var f=WScript.Arguments(0),s=Number(WScript.Arguments(1)),e=Number(WScript.Arguments(2));var fs=new ActiveXObject('Scripting.FileSystemObject');var ts=fs.OpenTextFile(f,1);var i=0;while(!ts.AtEndOfStream){var line=ts.ReadLine();i++; if(i 

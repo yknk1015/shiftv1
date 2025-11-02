@@ -24,6 +24,12 @@ public interface ShiftAssignmentRepository extends JpaRepository<ShiftAssignment
     List<ShiftAssignment> findByWorkDate(LocalDate workDate);
 
     /**
+     * 指定日付のシフト割り当てを従業員情報を含めて取得（N+1回避・LAZY対策）
+     */
+    @Query("SELECT sa FROM ShiftAssignment sa JOIN FETCH sa.employee WHERE sa.workDate = :workDate")
+    List<ShiftAssignment> findByWorkDateFetchEmployee(@Param("workDate") LocalDate workDate);
+
+    /**
      * 指定従業員のシフト割り当てを取得
      */
     List<ShiftAssignment> findByEmployee(Employee employee);

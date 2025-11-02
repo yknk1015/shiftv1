@@ -25,7 +25,10 @@ public interface DemandIntervalRepository extends JpaRepository<DemandInterval, 
     @Query("SELECT COALESCE(MAX(d.sortOrder), 0) FROM DemandInterval d")
     Integer findMaxSortOrder();
 
-    @Query("SELECT d FROM DemandInterval d WHERE (d.date = :date OR (d.date IS NULL AND d.dayOfWeek = :dow)) AND (d.active = true OR d.active IS NULL) AND d.skill IS NOT NULL")
+    // Include both generic (skill is NULL) and skill-specific demands.
+    // Previously filtered with "d.skill IS NOT NULL" which excluded generic demand
+    // and caused unmet demand on days configured without skill.
+    @Query("SELECT d FROM DemandInterval d WHERE (d.date = :date OR (d.date IS NULL AND d.dayOfWeek = :dow)) AND (d.active = true OR d.active IS NULL)")
     List<DemandInterval> findEffectiveForDate(@Param("date") LocalDate date, @Param("dow") DayOfWeek dow);
 
     long countBySkill_Id(Long skillId);

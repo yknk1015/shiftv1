@@ -45,10 +45,18 @@ public class EmployeeController {
     @PostMapping
     public ResponseEntity<ApiResponse<Employee>> createEmployee(@Valid @RequestBody EmployeeRequest request) {
         try {
-            Employee employee = new Employee(request.name(), request.role());
-            if (request.assignPriority() != null) {
-                employee.setAssignPriority(clampPriority(request.assignPriority()));
+            String name = request.name() == null ? null : request.name().trim();
+            String role = request.role() == null ? null : request.role().trim();
+            if (role != null && role.isBlank()) role = null;
+            if (name == null || name.isBlank()) {
+                return ResponseEntity.badRequest().body(ApiResponse.failure("氏名は必須です"));
             }
+            if (employeeRepository.findByName(name).isPresent()) {
+                return ResponseEntity.status(HttpStatus.CONFLICT).body(ApiResponse.failure("同名の従業員が既に存在します"));
+            }
+            Employee employee = new Employee(name, role);
+            Integer pr = request.assignPriority();
+            employee.setAssignPriority(clampPriority(pr == null ? 3 : pr));
             Employee savedEmployee = employeeRepository.save(employee);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("従業員を作成しました", savedEmployee));
@@ -66,8 +74,11 @@ public class EmployeeController {
         }
 
         Employee employee = existingEmployee.get();
-        employee.setName(request.name());
-        employee.setRole(request.role());
+        String name = request.name() == null ? null : request.name().trim();
+        String role = request.role() == null ? null : request.role().trim();
+        if (role != null && role.isBlank()) role = null;
+        employee.setName(name);
+        employee.setRole(role);
         if (request.assignPriority() != null) {
             employee.setAssignPriority(clampPriority(request.assignPriority()));
         }

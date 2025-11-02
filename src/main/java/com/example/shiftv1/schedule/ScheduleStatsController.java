@@ -19,11 +19,14 @@ public class ScheduleStatsController {
 
     private final ShiftAssignmentRepository assignmentRepository;
     private final com.example.shiftv1.employee.EmployeeRepository employeeRepository;
+    private final com.example.shiftv1.employee.EmployeeRuleRepository employeeRuleRepository;
 
     public ScheduleStatsController(ShiftAssignmentRepository assignmentRepository,
-                                   com.example.shiftv1.employee.EmployeeRepository employeeRepository) {
+                                   com.example.shiftv1.employee.EmployeeRepository employeeRepository,
+                                   com.example.shiftv1.employee.EmployeeRuleRepository employeeRuleRepository) {
         this.assignmentRepository = assignmentRepository;
         this.employeeRepository = employeeRepository;
+        this.employeeRuleRepository = employeeRuleRepository;
     }
 
     @GetMapping("/monthly")
@@ -74,6 +77,74 @@ public class ScheduleStatsController {
         }
     }
 
+    // Weekly OFF debug view (Sunday-Saturday weeks)
+    @GetMapping("/weekly-off")
+    public ResponseEntity<ApiResponse<java.util.List<java.util.Map<String, Object>>>> getWeeklyOff(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            LocalDate start = target.atDay(1);
+            LocalDate end = target.atEndOfMonth();
+
+            // Preload assignments in month
+            java.util.List<ShiftAssignment> all = assignmentRepository.findByWorkDateBetween(start, end);
+            java.util.Map<LocalDate, java.util.List<ShiftAssignment>> byDate = all.stream()
+                    .collect(java.util.stream.Collectors.groupingBy(ShiftAssignment::getWorkDate));
+
+            // Prepare weeks aligned to Sunday
+            int startDow = start.getDayOfWeek().getValue() % 7; // SUNDAY->0
+            LocalDate cursor = start.minusDays(startDow);
+            java.util.List<java.util.Map<String, Object>> weeks = new java.util.ArrayList<>();
+            java.util.List<com.example.shiftv1.employee.Employee> emps = employeeRepository.findAll();
+
+            while (!cursor.isAfter(end)) {
+                LocalDate weekStart = cursor;
+                LocalDate weekEnd = weekStart.plusDays(6);
+                LocalDate rangeStart = weekStart.isBefore(start) ? start : weekStart;
+                LocalDate rangeEnd = weekEnd.isAfter(end) ? end : weekEnd;
+
+                java.util.List<java.util.Map<String, Object>> summaries = new java.util.ArrayList<>();
+                for (com.example.shiftv1.employee.Employee emp : emps) {
+                    Long empId = emp.getId();
+                    int targetRest = employeeRuleRepository.findByEmployeeId(empId)
+                            .map(com.example.shiftv1.employee.EmployeeRule::getWeeklyRestDays)
+                            .filter(v -> v != null && v >= 0)
+                            .orElse(2);
+                    java.util.List<String> offDates = new java.util.ArrayList<>();
+                    int offCount = 0;
+                    for (LocalDate d = rangeStart; !d.isAfter(rangeEnd); d = d.plusDays(1)) {
+                        java.util.List<ShiftAssignment> dayList = byDate.getOrDefault(d, java.util.Collections.emptyList());
+                        boolean hasOff = dayList.stream().anyMatch(sa -> java.util.Objects.equals(sa.getEmployee().getId(), empId) &&
+                                (Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())))));
+                        if (hasOff) { offCount++; offDates.add(d.toString()); }
+                    }
+                    java.util.Map<String, Object> m = new java.util.HashMap<>();
+                    m.put("employeeId", empId);
+                    m.put("employeeName", emp.getName());
+                    m.put("targetRestDays", targetRest);
+                    m.put("offCount", offCount);
+                    m.put("offDates", offDates);
+                    m.put("meetsTarget", offCount >= targetRest);
+                    summaries.add(m);
+                }
+
+                java.util.Map<String, Object> wk = new java.util.HashMap<>();
+                wk.put("weekStart", weekStart.toString());
+                wk.put("weekEnd", weekEnd.toString());
+                wk.put("rangeStart", rangeStart.toString());
+                wk.put("rangeEnd", rangeEnd.toString());
+                wk.put("employees", summaries);
+                weeks.add(wk);
+                cursor = weekEnd.plusDays(1);
+            }
+
+            return ResponseEntity.ok(ApiResponse.success("weekly off summary", weeks));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("週休日デバッグの取得に失敗しました"));
+        }
+    }
+
     @GetMapping("/employee-days")
     public ResponseEntity<ApiResponse<List<EmployeeDaysResponse>>> getEmployeeDays(
             @RequestParam(name = "year", required = false) Integer year,
@@ -86,7 +157,13 @@ public class ScheduleStatsController {
             List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
 
             Map<Long, Long> workDaysByEmployeeId = assignments.stream()
-                    .filter(a -> a.getShiftName() != null && !"FREE".equalsIgnoreCase(a.getShiftName()))
+                    .filter(a -> {
+                        Boolean free = null; Boolean off = null;
+                        try { free = a.getIsFree(); off = a.getIsOff(); } catch (Exception ignored) {}
+                        if (Boolean.TRUE.equals(free) || Boolean.TRUE.equals(off)) return false;
+                        String name = a.getShiftName();
+                        return !(name != null && ("FREE".equalsIgnoreCase(name) || "休日".equals(name) || "OFF".equalsIgnoreCase(name)));
+                    })
                     .collect(Collectors.groupingBy(
                             a -> a.getEmployee().getId(),
                             Collectors.mapping(ShiftAssignment::getWorkDate, Collectors.collectingAndThen(Collectors.toSet(), set -> (long) set.size()))
@@ -186,7 +263,12 @@ public class ScheduleStatsController {
 
             List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
             Map<LocalDate, Long> cnt = assignments.stream()
-                    .filter(a -> a.getShiftName() != null && "FREE".equalsIgnoreCase(a.getShiftName()))
+                    .filter(a -> {
+                        Boolean free = null; try { free = a.getIsFree(); } catch (Exception ignored) {}
+                        if (Boolean.TRUE.equals(free)) return true;
+                        String name = a.getShiftName();
+                        return name != null && "FREE".equalsIgnoreCase(name);
+                    })
                     .collect(Collectors.groupingBy(ShiftAssignment::getWorkDate, Collectors.counting()));
 
             java.util.List<FreeDailyResponse> list = java.util.stream.IntStream.rangeClosed(1, target.lengthOfMonth())
@@ -213,7 +295,12 @@ public class ScheduleStatsController {
 
             List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
             Map<LocalDate, Long> cnt = assignments.stream()
-                    .filter(a -> a.getShiftName() != null && ("休日".equals(a.getShiftName()) || "OFF".equalsIgnoreCase(a.getShiftName())))
+                    .filter(a -> {
+                        Boolean off = null; try { off = a.getIsOff(); } catch (Exception ignored) {}
+                        if (Boolean.TRUE.equals(off)) return true;
+                        String name = a.getShiftName();
+                        return name != null && ("休日".equals(name) || "OFF".equalsIgnoreCase(name));
+                    })
                     .collect(Collectors.groupingBy(ShiftAssignment::getWorkDate, Collectors.counting()));
 
             java.util.List<OffDailyResponse> list = java.util.stream.IntStream.rangeClosed(1, target.lengthOfMonth())

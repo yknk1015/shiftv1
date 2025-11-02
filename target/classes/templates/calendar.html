@@ -288,10 +288,12 @@
                     const endTime = shift.endTime ? String(shift.endTime).slice(0,5) : '';
                     const timeText = (startTime && endTime) ? `${startTime}-${endTime}` : '';
 
-                    if (shift.shiftName === 'FREE') {
+                    const isFree = (shift.isFree === true) || (String(shift.shiftName).toUpperCase() === 'FREE');
+                    const isOff = (shift.isOff === true) || (shift.shiftName === '休日' || String(shift.shiftName).toUpperCase() === 'OFF');
+                    if (isFree) {
                         shiftItem.classList.add('free');
                         shiftItem.textContent = `${shift.employeeName} FREE`;
-                    } else if (shift.shiftName === '休日') {
+                    } else if (isOff) {
                         shiftItem.classList.add('off');
                         shiftItem.textContent = `${shift.employeeName} 休日`;
                     } else {

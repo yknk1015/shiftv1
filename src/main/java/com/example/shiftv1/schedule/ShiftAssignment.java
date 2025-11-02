@@ -38,6 +38,13 @@ public class ShiftAssignment {
     @JoinColumn(name = "employee_id", nullable = false)
     private Employee employee;
 
+    // Flags to mark placeholders instead of relying on names/times
+    @Column(name = "is_free")
+    private Boolean isFree = false;
+
+    @Column(name = "is_off")
+    private Boolean isOff = false;
+
     protected ShiftAssignment() {
     }
 
@@ -92,4 +99,9 @@ public class ShiftAssignment {
     public void setEmployee(Employee employee) {
         this.employee = employee;
     }
+
+    public Boolean getIsFree() { return isFree; }
+    public void setIsFree(Boolean isFree) { this.isFree = isFree; }
+    public Boolean getIsOff() { return isOff; }
+    public void setIsOff(Boolean isOff) { this.isOff = isOff; }
 }

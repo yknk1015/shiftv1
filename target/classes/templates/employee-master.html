@@ -22,6 +22,387 @@
   <div class="container">
     <h2>従業員マスタ</h2>
 
+    <!-- 統合ビュー（β）：マスタ/詳細タブ -->
+    <div class="card" id="beta-integrated">
+      <h3 style="margin:0 0 8px;">統合ビュー（β）</h3>
+      <div class="muted" style="margin-bottom:8px;">左で従業員を選択し、右のタブで編集します。まずは「基本情報＋優先度」のみ保存対応。その他は順次接続予定です。</div>
+      <style>
+        .beta-layout { display:grid; grid-template-columns: 260px 1fr; gap:16px; }
+        .beta-list { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#fff; }
+        .beta-list-search { padding:8px; border-bottom:1px solid #e2e8f0; }
+        .beta-list ul { list-style:none; margin:0; padding:0; max-height:360px; overflow:auto; }
+        .beta-list li { padding:8px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
+        .beta-list li.active { background:#eff6ff; font-weight:600; }
+        .beta-tabs { display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:12px; }
+        .beta-tab { padding:8px 10px; cursor:pointer; border-radius:6px 6px 0 0; }
+        .beta-tab.active { background:#eff6ff; font-weight:600; }
+        .beta-panel { background:#fff; border:1px solid #e2e8f0; border-radius:8px; padding:12px; }
+        .beta-row { display:flex; gap:12px; flex-wrap:wrap; align-items:end; }
+        .beta-row label { display:block; font-size:13px; color:#475569; }
+        .beta-actions { display:flex; gap:8px; margin-top:8px; }
+      </style>
+      <div class="beta-layout">
+        <div class="beta-list">
+          <div class="beta-list-search">
+            <input id="beta-q" type="text" placeholder="名前/役割で絞込" style="width:100%;"/>
+          </div>
+          <ul id="beta-emp-list"><li class="muted" style="padding:8px 10px;">読み込み中...</li></ul>
+        </div>
+        <div>
+          <div class="beta-tabs">
+            <div class="beta-tab active" data-tab="basic">基本情報</div>
+            <div class="beta-tab" data-tab="skills">スキル</div>
+            <div class="beta-tab" data-tab="rules">勤務ルール</div>
+            <div class="beta-tab" data-tab="availability">出勤可能時間</div>
+            <div class="beta-tab" data-tab="pto">PTO</div>
+          </div>
+          <div class="beta-panel">
+            <div id="beta-panel-basic">
+              <div class="beta-row">
+                <label>氏名<br><input id="beta-name" type="text"/></label>
+                <label>役割<br><input id="beta-role" type="text"/></label>
+                <label>優先度(1-5)<br><input id="beta-priority" type="number" min="1" max="5" step="1"/></label>
+              </div>
+              <div class="beta-actions">
+                <button id="beta-save-basic">保存</button>
+                <div id="beta-msg" class="muted"></div>
+              </div>
+            </div>
+            <div id="beta-panel-skills" style="display:none;">
+              <div class="beta-row" style="align-items:center;">
+                <label style="flex:1;">検索<br><input id="beta-skill-q" type="text" placeholder="code/name 部分一致"/></label>
+                <button id="beta-skill-search">検索</button>
+                <button id="beta-skill-save">保存</button>
+              </div>
+              <div class="beta-row" style="align-items:flex-start; gap:24px; margin-top:8px;">
+                <div style="flex:1; min-width:280px;">
+                  <div class="muted">スキル一覧</div>
+                  <div id="beta-skill-list" style="max-height:280px; overflow:auto; border:1px solid #e2e8f0; border-radius:8px; padding:8px;"></div>
+                </div>
+                <div style="flex:1; min-width:220px;">
+                  <div class="muted">付与済み</div>
+                  <ul id="beta-emp-skill-list" style="list-style:none; padding-left:0; margin:0; border:1px solid #e2e8f0; border-radius:8px; padding:8px; max-height:280px; overflow:auto;"></ul>
+                </div>
+              </div>
+              <div id="beta-skill-msg" class="muted" style="margin-top:6px;"></div>
+            </div>
+            <div id="beta-panel-rules" style="display:none;">
+              <div class="beta-row">
+                <label>週最大時間<br><input type="number" id="beta-rule-weeklyMax"/></label>
+                <label>日最大時間<br><input type="number" id="beta-rule-dailyMax"/></label>
+                <label>連勤上限(日)<br><input type="number" id="beta-rule-maxConsec"/></label>
+                <label>最低休息(時)<br><input type="number" id="beta-rule-minRest"/></label>
+                <label>週休日数<br><input type="number" id="beta-rule-weeklyRest" min="0" max="7"/></label>
+              </div>
+              <div class="beta-row">
+                <label><input type="checkbox" id="beta-rule-allowMulti"/> 1日に複数シフト可</label>
+                <label><input type="checkbox" id="beta-rule-allowHoliday"/> 休日勤務可</label>
+              </div>
+              <div class="beta-actions">
+                <button id="beta-rule-save">ルール保存</button>
+                <div id="beta-rule-msg" class="muted"></div>
+              </div>
+            </div>
+            <div id="beta-panel-availability" style="display:none;">
+              <div class="beta-row">
+                <label>曜日
+                  <select id="beta-av-dow">
+                    <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
+                    <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
+                  </select>
+                </label>
+                <label>開始<br><input type="time" id="beta-av-start" value="09:00"/></label>
+                <label>終了<br><input type="time" id="beta-av-end" value="21:00"/></label>
+                <button id="beta-av-add">追加</button>
+                <button id="beta-av-clear">全クリア</button>
+                <button id="beta-av-save">保存</button>
+              </div>
+              <table style="margin-top:8px; width:100%; border-collapse:collapse;">
+                <thead><tr><th>曜日</th><th>開始</th><th>終了</th><th>操作</th></tr></thead>
+                <tbody id="beta-av-tbody"></tbody>
+              </table>
+              <div class="muted" id="beta-av-msg" style="margin-top:6px;"></div>
+            </div>
+            <div id="beta-panel-pto" style="display:none;">
+              <div class="beta-row">
+                <div>残数: 
+                  <span class="muted">付与</span> <span id="beta-pto-annual">0</span>
+                  <span class="muted">繰越</span> <span id="beta-pto-carried">0</span>
+                  <span class="muted">使用</span> <span id="beta-pto-used">0</span>
+                  <span class="muted">残</span> <strong id="beta-pto-remaining">0</strong>
+                </div>
+              </div>
+              <div class="beta-row">
+                <label>有給付与(日)<br><input type="number" id="beta-pto-grantDays" min="1" value="1"/></label>
+                <button id="beta-pto-grant">付与</button>
+              </div>
+              <div class="beta-row">
+                <label>有給取得日<br><input type="date" id="beta-pto-date"/></label>
+                <button id="beta-pto-request">登録</button>
+              </div>
+              <div class="muted" id="beta-pto-msg"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <script>
+        let betaSelectedId = null;
+        async function betaFetch(url, opt={}){
+          const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });
+          const ct = res.headers.get('content-type')||''; const data = ct.includes('json') ? await res.json() : await res.text();
+          if(!res.ok) throw new Error((data&&data.message)||('HTTP '+res.status));
+          if(data && data.success===false) throw new Error(data.message||'処理に失敗しました');
+          return data;
+        }
+        function betaRenderList(list){
+          const ul = document.getElementById('beta-emp-list');
+          const q = (document.getElementById('beta-q').value||'').trim().toLowerCase();
+          const filtered = list.filter(e => {
+            const n=(e.name||'').toLowerCase(); const r=(e.role||'').toLowerCase();
+            return !q || n.includes(q) || r.includes(q);
+          });
+          if(filtered.length===0){ ul.innerHTML = '<li class="muted" style="padding:8px 10px;">該当なし</li>'; return; }
+          ul.innerHTML = '';
+          filtered.forEach(e => {
+            const li = document.createElement('li');
+            li.textContent = `${e.id} ${e.name||''} ${e.role?('('+e.role+')'):''}`;
+            if (betaSelectedId===e.id) li.classList.add('active');
+            li.addEventListener('click', ()=>{ betaLoadDetail(e.id); });
+            ul.appendChild(li);
+          });
+        }
+        async function betaLoadList(){
+          try{
+            const j = await betaFetch('/api/employees');
+            const list = j.data||[]; betaRenderList(list);
+          }catch(e){ document.getElementById('beta-emp-list').innerHTML = '<li class="muted" style="padding:8px 10px;">読み込みに失敗しました</li>'; }
+        }
+        async function betaLoadDetail(id){
+          try{
+            const j = await betaFetch(`/api/employees/${id}`);
+            const emp = (j&&j.data)||null; if(!emp) throw new Error('従業員が見つかりません');
+            betaSelectedId = emp.id;
+            document.querySelectorAll('#beta-emp-list li').forEach(li => { li.classList.remove('active'); if(li.textContent.startsWith(String(emp.id)+' ')) li.classList.add('active'); });
+            document.getElementById('beta-name').value = emp.name||'';
+            document.getElementById('beta-role').value = emp.role||'';
+            const ap = emp.assignPriority; const shown = Math.max(1, Math.min(5, parseInt(ap??3,10)||3));
+            document.getElementById('beta-priority').value = shown;
+            document.getElementById('beta-msg').textContent='';
+            // If the active tab is skills/rules/availability/pto, refresh that panel for the newly selected employee
+            const activeTab = (document.querySelector('.beta-tab.active')?.getAttribute('data-tab')) || 'basic';
+            if (activeTab==='skills') { betaEmpSkillsSet = new Set(); await betaLoadSkills(); }
+            if (activeTab==='rules') { await betaLoadRule(); }
+            if (activeTab==='availability') { await betaLoadAvailability(); }
+            if (activeTab==='pto') { await betaLoadPto(); }
+          }catch(e){ document.getElementById('beta-msg').textContent = e.message||'詳細の取得に失敗しました'; }
+        }
+        function betaSwitchTab(key){
+          document.querySelectorAll('.beta-tab').forEach(t=>{ t.classList.toggle('active', t.getAttribute('data-tab')===key); });
+          document.querySelectorAll('#beta-panel-basic,#beta-panel-skills,#beta-panel-rules,#beta-panel-availability,#beta-panel-pto').forEach(el=>{ el.style.display='none'; });
+          const map = {basic:'#beta-panel-basic', skills:'#beta-panel-skills', rules:'#beta-panel-rules', availability:'#beta-panel-availability', pto:'#beta-panel-pto'};
+          const sel = document.querySelector(map[key]||'#beta-panel-basic'); if (sel) sel.style.display='block';
+          if (key==='skills') { betaLoadSkills(); }
+          if (key==='rules') { betaLoadRule(); }
+          if (key==='availability') { betaLoadAvailability(); }
+          if (key==='pto') { betaLoadPto(); }
+        }
+        async function betaSaveBasic(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-msg').textContent='従業員を選択してください'; return; }
+          const name = document.getElementById('beta-name').value.trim();
+          const role = document.getElementById('beta-role').value.trim();
+          let assignPriority = parseInt(document.getElementById('beta-priority').value,10);
+          if (isNaN(assignPriority)) assignPriority = 3; assignPriority = Math.max(1, Math.min(5, assignPriority));
+          try{
+            await betaFetch(`/api/employees/${id}`, { method:'PUT', body: JSON.stringify({ name, role, assignPriority }) });
+            document.getElementById('beta-msg').textContent='保存しました';
+            // Refresh list to reflect name/role updates
+            await betaLoadList();
+          }catch(e){ document.getElementById('beta-msg').textContent = e.message||'保存に失敗しました'; }
+        }
+        // events
+        document.getElementById('beta-q').addEventListener('input', betaLoadList);
+        document.getElementById('beta-save-basic').addEventListener('click', betaSaveBasic);
+        document.querySelectorAll('.beta-tab').forEach(t=> t.addEventListener('click', ()=> betaSwitchTab(t.getAttribute('data-tab'))));
+        document.getElementById('beta-skill-search').addEventListener('click', betaLoadSkills);
+        document.getElementById('beta-skill-save').addEventListener('click', betaSaveSkills);
+        document.getElementById('beta-rule-save').addEventListener('click', betaSaveRule);
+        document.getElementById('beta-av-add').addEventListener('click', betaAvAdd);
+        document.getElementById('beta-av-clear').addEventListener('click', betaAvClear);
+        document.getElementById('beta-av-save').addEventListener('click', betaAvSave);
+        document.getElementById('beta-pto-grant').addEventListener('click', betaPtoGrant);
+        document.getElementById('beta-pto-request').addEventListener('click', betaPtoRequest);
+        // init
+        betaLoadList().then(()=>{
+          // auto select first
+          const first = document.querySelector('#beta-emp-list li'); if(first){ const id = (first.textContent||'').split(' ')[0]; if(id) betaLoadDetail(id); }
+        });
+
+        // ===== Skills Tab Logic =====
+        let betaAllSkillsCache = [];
+        let betaEmpSkillsSet = new Set();
+        async function betaLoadSkills(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-skill-msg').textContent='従業員を選択してください'; return; }
+          const q = (document.getElementById('beta-skill-q').value||'').trim();
+          try{
+            const [all, mine] = await Promise.all([
+              betaFetch(`/api/skills${q? ('?query='+encodeURIComponent(q)) : ''}`),
+              betaFetch(`/api/employees/${id}/skills`)
+            ]);
+            betaAllSkillsCache = (all && all.data) ? all.data : [];
+            const mineList = (mine && mine.data) ? mine.data : [];
+            betaEmpSkillsSet = new Set(mineList.map(s => s.id));
+            betaRenderSkills();
+            document.getElementById('beta-skill-msg').textContent='';
+          }catch(e){ document.getElementById('beta-skill-msg').textContent = e.message||'読み込みに失敗しました'; }
+        }
+        function betaRenderSkills(){
+          const listHost = document.getElementById('beta-skill-list');
+          const mineHost = document.getElementById('beta-emp-skill-list');
+          if (!listHost || !mineHost) return;
+          // render all list with checkboxes
+          if (betaAllSkillsCache.length===0){ listHost.innerHTML = '<div class="muted">スキルが見つかりません</div>'; }
+          else {
+            listHost.innerHTML = betaAllSkillsCache.map(s => {
+              const checked = betaEmpSkillsSet.has(s.id) ? 'checked' : '';
+              const code = (s.code||'').toString(); const name = (s.name||'').toString();
+              return `<label style="display:flex;align-items:center;gap:8px;padding:4px 0;border-bottom:1px solid #f1f5f9;"><input type="checkbox" data-skill-id="${s.id}" ${checked}/> <span style="min-width:80px;font-weight:600;">${code}</span> <span>${name}</span></label>`;
+            }).join('');
+            listHost.querySelectorAll('input[type="checkbox"][data-skill-id]').forEach(cb => {
+              cb.addEventListener('change', (e)=>{
+                const sid = Number(e.currentTarget.getAttribute('data-skill-id'));
+                if (e.currentTarget.checked) betaEmpSkillsSet.add(sid); else betaEmpSkillsSet.delete(sid);
+                betaRenderMine();
+              });
+            });
+          }
+          betaRenderMine();
+        }
+        function betaRenderMine(){
+          const mineHost = document.getElementById('beta-emp-skill-list');
+          const byId = new Map(betaAllSkillsCache.map(s => [s.id, s]));
+          const mine = Array.from(betaEmpSkillsSet).map(id => byId.get(id)).filter(Boolean);
+          if (mine.length===0){ mineHost.innerHTML = '<li class="muted">なし</li>'; return; }
+          mineHost.innerHTML = mine.map(s => `<li><span style="display:inline-block;min-width:80px;font-weight:600;">${s.code||''}</span> ${(s.name||'')}</li>`).join('');
+        }
+        async function betaSaveSkills(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-skill-msg').textContent='従業員を選択してください'; return; }
+          try{
+            const arr = Array.from(betaEmpSkillsSet);
+            await betaFetch(`/api/employees/${id}/skills`, { method:'PUT', body: JSON.stringify(arr) });
+            document.getElementById('beta-skill-msg').textContent='保存しました';
+          }catch(e){ document.getElementById('beta-skill-msg').textContent = e.message||'保存に失敗しました'; }
+        }
+
+        // ===== Rules Tab Logic =====
+        async function betaLoadRule(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-rule-msg').textContent='従業員を選択してください'; return; }
+          try{
+            const j = await betaFetch(`/api/employees/${id}/rule`);
+            const r = (j&&j.data)||{};
+            document.getElementById('beta-rule-weeklyMax').value = r.weeklyMaxHours ?? '';
+            document.getElementById('beta-rule-dailyMax').value = r.dailyMaxHours ?? '';
+            document.getElementById('beta-rule-maxConsec').value = r.maxConsecutiveDays ?? '';
+            document.getElementById('beta-rule-minRest').value = r.minRestHours ?? '';
+            document.getElementById('beta-rule-allowMulti').checked = !!r.allowMultipleShiftsPerDay;
+            document.getElementById('beta-rule-allowHoliday').checked = !!r.allowHolidayWork;
+            document.getElementById('beta-rule-weeklyRest').value = r.weeklyRestDays ?? '';
+            document.getElementById('beta-rule-msg').textContent = '';
+          }catch(e){ document.getElementById('beta-rule-msg').textContent = e.message||'取得に失敗しました'; }
+        }
+        async function betaSaveRule(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-rule-msg').textContent='従業員を選択してください'; return; }
+          const body = {
+            weeklyMaxHours: parseInt(document.getElementById('beta-rule-weeklyMax').value||''),
+            dailyMaxHours: parseInt(document.getElementById('beta-rule-dailyMax').value||''),
+            maxConsecutiveDays: parseInt(document.getElementById('beta-rule-maxConsec').value||''),
+            minRestHours: parseInt(document.getElementById('beta-rule-minRest').value||''),
+            allowMultipleShiftsPerDay: document.getElementById('beta-rule-allowMulti').checked,
+            allowHolidayWork: document.getElementById('beta-rule-allowHoliday').checked,
+            weeklyRestDays: parseInt(document.getElementById('beta-rule-weeklyRest').value||'')
+          };
+          // remove NaN
+          Object.keys(body).forEach(k => { if (typeof body[k]==='number' && Number.isNaN(body[k])) delete body[k]; });
+          try{
+            await betaFetch(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)});
+            document.getElementById('beta-rule-msg').textContent='保存しました';
+          }catch(e){ document.getElementById('beta-rule-msg').textContent = e.message||'保存に失敗しました'; }
+        }
+
+        // ===== Availability Tab Logic =====
+        let betaAvList = [];
+        async function betaLoadAvailability(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-av-msg').textContent='従業員を選択してください'; return; }
+          try{
+            const j = await betaFetch(`/api/employees/${id}/availability`);
+            betaAvList = (j&&j.data)||[];
+            betaAvRender();
+            document.getElementById('beta-av-msg').textContent='';
+          }catch(e){ document.getElementById('beta-av-msg').textContent = e.message||'取得に失敗しました'; }
+        }
+        function betaAvRender(){
+          const tbody = document.getElementById('beta-av-tbody');
+          if (!betaAvList || betaAvList.length===0){ tbody.innerHTML = '<tr><td colspan="4" class="muted">なし</td></tr>'; return; }
+          tbody.innerHTML = betaAvList.map((a,i)=>{
+            const s = (a.startTime||'').toString().slice(0,5); const e = (a.endTime||'').toString().slice(0,5);
+            const d = a.dayOfWeek;
+            return `<tr><td>${d}</td><td>${s}</td><td>${e}</td><td><button data-av-del="${i}">削除</button></td></tr>`;
+          }).join('');
+          tbody.querySelectorAll('button[data-av-del]').forEach(btn=> btn.addEventListener('click', (ev)=>{
+            const idx = parseInt(ev.currentTarget.getAttribute('data-av-del'),10);
+            betaAvList.splice(idx,1); betaAvRender();
+          }));
+        }
+        function betaAvAdd(){
+          const d = document.getElementById('beta-av-dow').value;
+          const s = document.getElementById('beta-av-start').value;
+          const e = document.getElementById('beta-av-end').value;
+          if (!s || !e){ document.getElementById('beta-av-msg').textContent='開始/終了を入力してください'; return; }
+          betaAvList.push({ dayOfWeek:d, startTime:s, endTime:e });
+          betaAvRender();
+        }
+        function betaAvClear(){ betaAvList = []; betaAvRender(); }
+        async function betaAvSave(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-av-msg').textContent='従業員を選択してください'; return; }
+          try{
+            await betaFetch(`/api/employees/${id}/availability`, { method:'PUT', body: JSON.stringify(betaAvList) });
+            document.getElementById('beta-av-msg').textContent='保存しました';
+          }catch(e){ document.getElementById('beta-av-msg').textContent = e.message||'保存に失敗しました'; }
+        }
+
+        // ===== PTO Tab Logic =====
+        async function betaLoadPto(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-pto-msg').textContent='従業員を選択してください'; return; }
+          try{
+            const j = await betaFetch(`/api/leave/balance/${id}`);
+            const d = (j&&j.data)||{};
+            document.getElementById('beta-pto-annual').textContent = d.annualGranted ?? 0;
+            document.getElementById('beta-pto-carried').textContent = d.carriedOver ?? 0;
+            document.getElementById('beta-pto-used').textContent = d.used ?? 0;
+            document.getElementById('beta-pto-remaining').textContent = d.remaining ?? 0;
+            document.getElementById('beta-pto-msg').textContent = '';
+          }catch(e){ document.getElementById('beta-pto-msg').textContent = e.message||'取得に失敗しました'; }
+        }
+        async function betaPtoGrant(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-pto-msg').textContent='従業員を選択してください'; return; }
+          let days = parseInt(document.getElementById('beta-pto-grantDays').value,10); if (isNaN(days)||days<=0) days=1;
+          try{
+            await betaFetch('/api/leave/balance/grant', { method:'POST', body: JSON.stringify({ employeeId: id, days }) });
+            document.getElementById('beta-pto-msg').textContent = '付与しました';
+            await betaLoadPto();
+          }catch(e){ document.getElementById('beta-pto-msg').textContent = e.message||'付与に失敗しました'; }
+        }
+        async function betaPtoRequest(){
+          const id = betaSelectedId; if(!id){ document.getElementById('beta-pto-msg').textContent='従業員を選択してください'; return; }
+          const date = document.getElementById('beta-pto-date').value; if (!date){ document.getElementById('beta-pto-msg').textContent='日付を選択してください'; return; }
+          try{
+            await betaFetch('/api/leave/requests', { method:'POST', body: JSON.stringify({ employeeId: id, date }) });
+            document.getElementById('beta-pto-msg').textContent = '登録しました';
+            await betaLoadPto();
+          }catch(e){ document.getElementById('beta-pto-msg').textContent = e.message||'登録に失敗しました'; }
+        }
+      </script>
+    </div>
+
     <!-- 従業員の登録・一覧 -->
     <div class="card">
       <div class="row">
@@ -115,7 +496,7 @@
       <div class="muted" id="lv-msg" style="margin-top:6px;"></div>
     </div>
 
-    <div class="muted"><a href="/dashboard">ダッシュボード</a> / <a href="/admin-actions">管理メニュー</a></div>
+    <div class="muted"><a href="/dashboard">ダッシュボード</a></div>
   </div>
 
   <!-- シフトアサイン優先度設定 -->

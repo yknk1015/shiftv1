@@ -15,7 +15,6 @@ com\example\shiftv1\schedule\ShiftAssignment.class
 com\example\shiftv1\employee\EmployeeRuleController$RuleRequest.class
 com\example\shiftv1\skill\SkillPattern$PriorityHint.class
 com\example\shiftv1\schedule\ScheduleStatsController$ShiftDistributionResponse.class
-com\example\shiftv1\skill\SkillController$SkillRequest.class
 com\example\shiftv1\constraint\EmployeeConstraintController$TimeConstraintRequest.class
 com\example\shiftv1\breaks\BreakPeriodRepository.class
 com\example\shiftv1\leave\LeaveController$GrantRequest.class
@@ -26,6 +25,7 @@ com\example\shiftv1\constraint\EmployeeConstraintController.class
 com\example\shiftv1\common\HealthController.class
 com\example\shiftv1\breaks\BreakPeriod$BreakType.class
 com\example\shiftv1\auth\AuthController.class
+com\example\shiftv1\schedule\ScheduleStatsController$OffDailyResponse.class
 com\example\shiftv1\auth\UserDataInitializer.class
 com\example\shiftv1\auth\AuthController$RegisterRequest.class
 com\example\shiftv1\skill\SkillPatternController$PatternRequest.class
@@ -39,11 +39,9 @@ com\example\shiftv1\demand\DemandController.class
 com\example\shiftv1\shiftchange\ShiftChangeDataInitializer.class
 com\example\shiftv1\config\PairingSettingsController.class
 com\example\shiftv1\common\error\ErrorLogBuffer.class
-com\example\shiftv1\schedule\ScheduleService$BlockType.class
 com\example\shiftv1\schedule\TimelineController.class
 com\example\shiftv1\common\ApiResponse.class
 com\example\shiftv1\Shiftv1Application.class
-com\example\shiftv1\schedule\ScheduleService$1DIWrap.class
 com\example\shiftv1\skill\SkillRepository.class
 com\example\shiftv1\admin\AdminController$SystemStatusResponse.class
 com\example\shiftv1\shiftchange\ShiftChangeRequest.class
@@ -62,6 +60,7 @@ com\example\shiftv1\admin\AdminController$ResetResponse.class
 com\example\shiftv1\leave\LeaveRequest$Status.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestRepository.class
 com\example\shiftv1\demand\DemandIntervalRepository.class
+com\example\shiftv1\employee\EmployeeController$PriorityRequest.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestController$ChangeRequestWithSubstituteDto.class
 com\example\shiftv1\leave\LeaveRequest.class
 com\example\shiftv1\config\CacheConfig.class
@@ -76,7 +75,6 @@ com\example\shiftv1\schedule\ScheduleStatsController.class
 com\example\shiftv1\constraint\EmployeeConstraint$ConstraintType.class
 com\example\shiftv1\common\error\ErrorLogBuffer$Entry.class
 com\example\shiftv1\leave\LeaveBalance.class
-com\example\shiftv1\schedule\ScheduleController$CoreBoostRequest.class
 com\example\shiftv1\skill\SkillPattern.class
 com\example\shiftv1\shiftchange\ShiftChangeRequestController$ChangeRequestDto.class
 com\example\shiftv1\constraint\EmployeeConstraintController$ConstraintUpdateRequest.class
@@ -97,6 +95,7 @@ com\example\shiftv1\web\WebController.class
 com\example\shiftv1\config\PairingSettings.class
 com\example\shiftv1\constraint\EmployeeConstraintController$ConstraintRequest.class
 com\example\shiftv1\breaks\BreakController.class
+com\example\shiftv1\schedule\ScheduleStatsController$FreeDailyResponse.class
 com\example\shiftv1\leave\LeaveController$LeaveRequestBody.class
 com\example\shiftv1\demand\DemandController$ExportRequest.class
 com\example\shiftv1\config\SecurityConfig.class
