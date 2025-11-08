@@ -24,6 +24,19 @@
       if(!res.ok || (data && data.success===false)) throw new Error((data && data.message) || ('HTTP '+res.status));
       return data;
     }
+    function initDefaults(){
+      try{
+        const now = new Date();
+        const y = now.getFullYear();
+        const m = now.getMonth()+1; // 1..12
+        const first = `${y}-${String(m).padStart(2,'0')}-01`;
+        const iy = document.getElementById('year'); if (iy) iy.value = y;
+        const im = document.getElementById('month'); if (im) im.value = m;
+        const id = document.getElementById('date'); if (id) id.value = first;
+      }catch(_){}
+    }
+    document.addEventListener('DOMContentLoaded', initDefaults);
+
     async function genSync(){
       setMsg('sync','実行中...');
       try{
@@ -57,6 +70,41 @@
         const data = await call('/api/schedule/stats/monthly', 'GET', { year:y, month:m });
         setMsg('stats', JSON.stringify(data, null, 2));
       }catch(e){ setMsg('stats', 'ERROR: '+e.message); }
+    }
+    async function meta(){
+      setMsg('meta','取得中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const data = await call('/api/schedule/meta', 'GET', { year:y, month:m });
+        setMsg('meta', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('meta', 'ERROR: '+e.message); }
+    }
+    async function housekeeping(){
+      setMsg('house','実行中...');
+      try{
+        const y = document.getElementById('year').value; const m = document.getElementById('month').value;
+        const data = await call('/api/schedule/housekeeping', 'POST', { year:y, month:m });
+        setMsg('house', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('house', 'ERROR: '+e.message); }
+    }
+    async function resetDayOnly(){
+      setMsg('resetday','実行中...');
+      try{
+        const d = document.getElementById('date').value;
+        const data = await call('/api/schedule/reset/day', 'DELETE', { date:d });
+        setMsg('resetday', JSON.stringify(data, null, 2));
+      }catch(e){ setMsg('resetday', 'ERROR: '+e.message); }
+    }
+    async function available(){
+      setMsg('avail','取得中...');
+      try{
+        const d = document.getElementById('date').value;
+        const s = document.getElementById('a_start').value;
+        const e = document.getElementById('a_end').value;
+        const k = document.getElementById('a_skill').value;
+        const data = await call('/api/schedule/debug/available','GET', { date:d, start:s, end:e, skillId:k||undefined });
+        setMsg('avail', JSON.stringify(data, null, 2));
+      }catch(err){ setMsg('avail', 'ERROR: '+err.message); }
     }
     async function errors(){
       setMsg('logs','取得中...');
@@ -97,6 +145,8 @@
       <div class="row">
         <button onclick="genSync()">月同期生成 /api/schedule/generate/demand</button>
         <button onclick="genAsync()">月非同期生成 /api/schedule/generate/demand/async</button>
+        <button onclick="meta()">メタ取得 /api/schedule/meta</button>
+        <button onclick="housekeeping()">FREE/OFF補完 /api/schedule/housekeeping</button>
         <button onclick="stats()">月次統計 /api/schedule/stats/monthly</button>
       </div>
         <button onclick="resetMonth()" style="background:#ef4444">月次リセット /api/schedule/reset</button>
@@ -123,15 +173,26 @@
       <div class="row">
         <label>日付 <input type="date" id="date" value="2025-10-01" /></label>
         <label><input type="checkbox" id="resetDay" checked /> 当日をリセット</label>
+        <div class="row">
+          <label>開始 <input type="time" id="a_start" value="09:00"/></label>
+          <label>終了 <input type="time" id="a_end" value="18:00"/></label>
+          <label>skillId <input type="number" id="a_skill" min="1"/></label>
+          <button onclick="available()">空き従業員 /api/schedule/debug/available</button>
+        </div>
       </div>
       <div class="row">
         <button onclick="genDay()">1日同期生成 /api/schedule/generate/demand/day</button>
+        <button onclick="resetDayOnly()">1日リセット /api/schedule/reset/day</button>
         <button onclick="errors()">エラーログ /api/admin/error-logs?limit=200</button>
         </div>
 	<button onclick="downloadEmployees()">従業員JSON /api/admin/snapshot/employees</button>
 	<button onclick="downloadAssignments()">シフトJSON /api/admin/snapshot/assignments</button>
 	</div>
       <pre id="out_day"></pre>
+      <pre id="out_resetday"></pre>
+      <pre id="out_meta"></pre>
+      <pre id="out_house"></pre>
+      <pre id="out_avail"></pre>
       <pre id="out_logs"></pre>
     </div>
   </div>

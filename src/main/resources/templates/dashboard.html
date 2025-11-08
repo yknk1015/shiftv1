@@ -536,6 +536,7 @@
             <div class="user-actions">
                 <span id="user-info" class="user-info">ログイン情報を取得しています...</span>
                 <div class="user-buttons">
+                    <button class="button" onclick="location.href='/rules-management'">ルール管理</button>
                     <button class="button ghost" id="open-calendar">カレンダー</button>
                     <button class="button danger" onclick="logout()">ログアウト</button>
     </div>
@@ -592,6 +593,7 @@
             <button class="button" onclick="location.href='/calendar'">Calendar</button>
             <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
             <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
+            <button class="button" onclick="location.href='/rules-management'">Rules</button>
             <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
         </div>
 
@@ -901,6 +903,37 @@
             document.getElementById('next-month')?.addEventListener('click', () => changeMonth(1));
             document.getElementById('open-calendar')?.addEventListener('click', () => window.location.href = '/calendar');
             document.getElementById('generate-schedule')?.addEventListener('click', handleGenerateSchedule);
+            // Add robust watcher to refresh after async generation completes (low-spec friendly)
+            document.getElementById('generate-schedule')?.addEventListener('click', async () => {
+                try {
+                    const { year, month } = getPeriod();
+                    // Lightweight job-status polling until done
+                    let delay = 700; const maxWait = Date.now() + 5*60*1000; // up to 5 min
+                    const msgEl = document.getElementById('schedule-message');
+                    // mark generating state ON
+                    try { window.__schedGen = window.__schedGen || {}; window.__schedGen.generating = true; } catch(_){}
+                    while (Date.now() < maxWait) {
+                        await new Promise(r => setTimeout(r, delay));
+                        try {
+                            const st = await callApi(`/api/schedule/jobs/status?year=${year}&month=${month}`);
+                            const d = st && (st.data || st.meta) || {};
+                            const running = !!(d.running);
+                            const done = !!(d.done);
+                            const cnt = Number(d.count || 0);
+                            if (msgEl) msgEl.textContent = done ? '生成完了。反映中...' : `生成中... ${cnt}件`;
+                            if (done) break;
+                        } catch (_) {}
+                        delay = Math.min(2000, Math.floor(delay * 1.4));
+                    }
+                    if (msgEl) msgEl.textContent = '反映中...';
+                    await loadSchedule();
+                    await loadStatistics();
+                    await loadDataStats();
+                    // clear generating state and message
+                    try { if (window.__schedGen) window.__schedGen.generating = false; } catch(_){}
+                    if (msgEl) msgEl.textContent = '';
+                } catch (_) { /* ignore */ }
+            });
             document.getElementById('reset-schedule')?.addEventListener('click', handleResetSchedule);
             document.getElementById('refresh-schedule')?.addEventListener('click', () => loadSchedule(true));
             document.getElementById('refresh-stats')?.addEventListener('click', loadStatistics);
@@ -965,7 +998,8 @@
 
         async function handleGenerateSchedule() {
             const { year, month } = getPeriod();
-            setMessage('schedule-message', '', 'info');
+            try { window.__schedGen = window.__schedGen || {}; window.__schedGen.generating = true; } catch(_){}
+            setMessage('schedule-message', '生成を開始しました...', 'info');
             const shortageBox = document.getElementById('shortage-details');
             shortageBox.style.display = 'none';
             shortageBox.textContent = '';
@@ -1036,10 +1070,13 @@
                 const hasAssignments = renderSchedule(assignments);
                 updateScheduleSummary(response.meta || {}, assignments);
                 scheduleEmpty.style.display = hasAssignments ? 'none' : 'block';
-                if (showMessageOnSuccess) {
-                    setMessage('schedule-message', response.message || 'シフトを取得しました。', 'info');
-                } else {
-                    setMessage('schedule-message', '', 'info');
+                const gen = (window.__schedGen && window.__schedGen.generating) ? true : false;
+                if (!gen) {
+                    if (showMessageOnSuccess) {
+                        setMessage('schedule-message', response.message || 'シフトを取得しました。', 'info');
+                    } else {
+                        setMessage('schedule-message', '', 'info');
+                    }
                 }
             } catch (error) {
                 renderSchedule([]);
@@ -1946,13 +1983,6 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
   </script>
 </body>
 </html>
-
-
-
-
-
-
-
 
 
 

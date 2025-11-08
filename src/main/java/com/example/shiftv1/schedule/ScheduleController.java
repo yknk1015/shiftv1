@@ -1,6 +1,8 @@
 package com.example.shiftv1.schedule;
 
 import com.example.shiftv1.common.ApiResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -18,12 +20,18 @@ public class ScheduleController {
 
     private final ScheduleService scheduleService;
     private final ShiftAssignmentRepository assignmentRepository;
+    private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
+    private final ScheduleJobStatusService jobStatusService;
+    private static final Logger logger = LoggerFactory.getLogger(ScheduleController.class);
 
     public ScheduleController(ScheduleService scheduleService,
                               ShiftAssignmentRepository assignmentRepository,
-                              com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer) {
+                              com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer,
+                              ScheduleJobStatusService jobStatusService) {
         this.scheduleService = scheduleService;
         this.assignmentRepository = assignmentRepository;
+        this.errorLogBuffer = errorLogBuffer;
+        this.jobStatusService = jobStatusService;
     }
 
     // Fallback generator (delegates to demand-based simple)
@@ -64,6 +72,24 @@ public class ScheduleController {
             return ResponseEntity.ok(ApiResponse.success("デマンドベース同期生成が完了しました", meta));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.failure("需要ベースのシフト生成に失敗しました"));
+        }
+    }
+
+    // --- Demand-based generation for a single day (admin-debug use) ---
+    @PostMapping("/generate/demand/day")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> generateDemandForDay(
+            @RequestParam("date") LocalDate date,
+            @RequestParam(name = "reset", required = false, defaultValue = "false") boolean reset) {
+        try {
+            List<ShiftAssignment> created = scheduleService.generateForDateFromDemand(date, reset);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("date", date.toString());
+            meta.put("generated", created.size());
+            return ResponseEntity.ok(ApiResponse.success("デマンドベース同期生成（1日）が完了しました", meta));
+        } catch (Exception e) {
+            logger.error("/api/schedule/generate/demand/day failed for date={} reset={}", date, reset, e);
+            try { if (errorLogBuffer != null) errorLogBuffer.addError("/api/schedule/generate/demand/day failed", e); } catch (Exception ignore) {}
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("需要ベースの1日シフト生成に失敗しました"));
         }
     }
 
@@ -194,5 +220,83 @@ public class ScheduleController {
         meta.put("month", ym.getMonthValue());
         meta.put("count", items.size());
         return meta;
+    }
+    // Lightweight meta for polling (count only)
+    @GetMapping("/meta")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getScheduleMeta(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            var start = target.atDay(1);
+            var end = target.atEndOfMonth();
+            long count = assignmentRepository.countByWorkDateBetween(start, end);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("year", target.getYear());
+            meta.put("month", target.getMonthValue());
+            meta.put("count", count);
+            return ResponseEntity.ok(ApiResponse.success("Schedule meta", meta));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("メタ情報の取得に失敗しました"));
+        }
+    }
+
+    @GetMapping("/jobs/status")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getJobStatus(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            var s = jobStatusService.get(target.getYear(), target.getMonthValue());
+            long live = 0L;
+            try { live = assignmentRepository.countByWorkDateBetween(target.atDay(1), target.atEndOfMonth()); } catch (Exception ignore) {}
+            long count = Math.max(s.createdCount, live);
+            boolean running = s.running || (!s.done && live > 0 && s.startedAt == null);
+            Map<String, Object> data = new HashMap<>();
+            data.put("running", running);
+            data.put("done", s.done);
+            data.put("count", count);
+            data.put("startedAt", s.startedAt);
+            data.put("finishedAt", s.finishedAt);
+            return ResponseEntity.ok(ApiResponse.success("Job status", data));
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("ジョブ状況の取得に失敗しました"));
+        }
+    }
+
+    @PostMapping("/housekeeping")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> housekeeping(
+            @RequestParam(name = "year", required = false) Integer year,
+            @RequestParam(name = "month", required = false) Integer month) {
+        try {
+            YearMonth target = resolveYearMonth(year, month);
+            scheduleService.ensurePatternOffPlaceholders(target.getYear(), target.getMonthValue());
+            scheduleService.ensureWeeklyHolidays(target.getYear(), target.getMonthValue());
+            scheduleService.ensureFreePlaceholders(target.getYear(), target.getMonthValue());
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("year", target.getYear());
+            meta.put("month", target.getMonthValue());
+            return ResponseEntity.ok(ApiResponse.success("Housekeeping completed", meta));
+        } catch (Exception e) {
+            logger.error("/api/schedule/housekeeping failed", e);
+            try { if (errorLogBuffer != null) errorLogBuffer.addError("/api/schedule/housekeeping failed", e); } catch (Exception ignore) {}
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("補完処理に失敗しました"));
+        }
+    }
+
+    @DeleteMapping("/reset/day")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resetDay(@RequestParam("date") LocalDate date) {
+        try {
+            long before = assignmentRepository.findByWorkDate(date).size();
+            assignmentRepository.deleteByWorkDate(date);
+            Map<String, Object> meta = new HashMap<>();
+            meta.put("date", date.toString());
+            meta.put("deleted", before);
+            return ResponseEntity.ok(ApiResponse.success("対象日のシフトを削除しました", meta));
+        } catch (Exception e) {
+            logger.error("/api/schedule/reset/day failed for date={}", date, e);
+            try { if (errorLogBuffer != null) errorLogBuffer.addError("/api/schedule/reset/day failed", e); } catch (Exception ignore) {}
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("対象日の削除に失敗しました"));
+        }
     }
 }

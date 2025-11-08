@@ -47,6 +47,10 @@ public class EmployeeRuleController {
         public Boolean allowMultipleShiftsPerDay;
         public Boolean allowHolidayWork;
         public Integer weeklyRestDays;
+        // 追加: 勤務/休パターン設定
+        public String workOffPattern;          // 例: "3W-1O-2W-1O"
+        public java.time.LocalDate patternAnchorDate; // アンカー日
+        public Boolean patternStrict;          // 厳格適用
     }
 
     @PutMapping("/{id}/rule")
@@ -65,6 +69,9 @@ public class EmployeeRuleController {
                     if (req.allowMultipleShiftsPerDay != null) rule.setAllowMultipleShiftsPerDay(req.allowMultipleShiftsPerDay);
                     if (req.allowHolidayWork != null) rule.setAllowHolidayWork(req.allowHolidayWork);
                     if (req.weeklyRestDays != null) rule.setWeeklyRestDays(req.weeklyRestDays);
+                    if (req.workOffPattern != null) rule.setWorkOffPattern(req.workOffPattern);
+                    if (req.patternAnchorDate != null) rule.setPatternAnchorDate(req.patternAnchorDate);
+                    if (req.patternStrict != null) rule.setPatternStrict(req.patternStrict);
                     EmployeeRule saved = ruleRepository.save(rule);
                     return ResponseEntity.ok(ApiResponse.success("勤務ルールを更新しました", saved));
                 })

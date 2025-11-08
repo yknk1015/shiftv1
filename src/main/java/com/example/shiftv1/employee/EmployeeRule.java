@@ -36,6 +36,18 @@ public class EmployeeRule {
     @Column(name = "weekly_rest_days")
     private Integer weeklyRestDays = 2;
 
+    // 勤務/休パターン（例: "3W-1O-2W-1O"）
+    @Column(name = "work_off_pattern")
+    private String workOffPattern;
+
+    // パターンのアンカー日（基準開始日）。この日をパターンの先頭とみなす。
+    @Column(name = "pattern_anchor_date")
+    private java.time.LocalDate patternAnchorDate;
+
+    // パターン厳格適用（true: OFF日の割当を抑止、false: 可能なら遵守）
+    @Column(name = "pattern_strict")
+    private Boolean patternStrict = Boolean.FALSE;
+
     public Long getId() { return id; }
     public Employee getEmployee() { return employee; }
     public void setEmployee(Employee employee) { this.employee = employee; }
@@ -53,4 +65,13 @@ public class EmployeeRule {
     public void setAllowHolidayWork(Boolean allowHolidayWork) { this.allowHolidayWork = allowHolidayWork; }
     public Integer getWeeklyRestDays() { return weeklyRestDays; }
     public void setWeeklyRestDays(Integer weeklyRestDays) { this.weeklyRestDays = weeklyRestDays; }
+
+    public String getWorkOffPattern() { return workOffPattern; }
+    public void setWorkOffPattern(String workOffPattern) { this.workOffPattern = workOffPattern; }
+
+    public java.time.LocalDate getPatternAnchorDate() { return patternAnchorDate; }
+    public void setPatternAnchorDate(java.time.LocalDate patternAnchorDate) { this.patternAnchorDate = patternAnchorDate; }
+
+    public Boolean getPatternStrict() { return patternStrict; }
+    public void setPatternStrict(Boolean patternStrict) { this.patternStrict = patternStrict; }
 }

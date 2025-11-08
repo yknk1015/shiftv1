@@ -22,3 +22,4 @@ public class ShiftConfigDataInitializer implements CommandLineRunner {
         logger.info("ShiftConfig seeding is disabled (legacy morning/evening/weekend not created).");
     }
 }
+

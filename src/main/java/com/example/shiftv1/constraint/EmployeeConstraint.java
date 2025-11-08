@@ -48,6 +48,12 @@ public class EmployeeConstraint {
     @Column(name = "is_active")
     private Boolean active = true;
 
+    public enum Severity { HARD, SOFT }
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "severity")
+    private Severity severity = Severity.SOFT;
+
     protected EmployeeConstraint() {
     }
 
@@ -159,6 +165,9 @@ public class EmployeeConstraint {
     public void setActive(Boolean active) {
         this.active = active;
     }
+
+    public Severity getSeverity() { return severity; }
+    public void setSeverity(Severity severity) { this.severity = severity; }
 
     public enum ConstraintType {
         UNAVAILABLE("勤務不可"),

@@ -73,4 +73,7 @@ public class WebController {
 
     @GetMapping("/leave")
     public String leave() { return "leave"; }
+
+    @GetMapping("/rules-management")
+    public String rulesManagement() { return "rules-management"; }
 }
