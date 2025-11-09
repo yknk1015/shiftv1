@@ -79,15 +79,31 @@
             gap: 8px;
         }
 
+        .quick-links-card {
+            margin-bottom: 20px;
+        }
+
+        .quick-links-card .quick-links {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .quick-links-card .quick-links .button {
+            background: var(--accent-soft);
+            color: var(--accent-dark);
+            border: 1px solid var(--border);
+        }
+
+        .period-card {
+            margin-bottom: 24px;
+        }
+
         .period-toolbar {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 24px;
-            padding: 16px 20px;
-            border-radius: 12px;
-            background: rgba(255, 255, 255, 0.9);
-            border: 1px solid var(--border);
+            margin-top: 12px;
         }
 
         .period-picker {
@@ -140,6 +156,13 @@
             gap: 24px;
         }
 
+        .management-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+            gap: 24px;
+            margin-top: 24px;
+        }
+
         .card {
             background: var(--card-bg);
             border-radius: 16px;
@@ -187,6 +210,28 @@
             color: var(--text-secondary);
             font-size: 14px;
             line-height: 1.5;
+        }
+
+        .form-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+
+        .form-row label {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            font-size: 13px;
+            color: var(--text-secondary);
+            min-width: 140px;
+        }
+
+        .form-row .range-sep {
+            font-size: 14px;
+            color: var(--text-secondary);
+            padding-bottom: 6px;
         }
 
         .button {
@@ -287,6 +332,28 @@
             display: block;
             background: var(--error-bg);
             color: var(--error-text);
+        }
+
+        .timeline-panel {
+            margin-top: 24px;
+            padding: 16px;
+            border-radius: 14px;
+            background: #f8fafc;
+            border: 1px dashed var(--border);
+        }
+
+        .timeline-grid {
+            display: grid;
+            grid-template-columns: 140px 1fr;
+            gap: 8px;
+            margin-top: 12px;
+        }
+
+        #t_times,
+        #t_rows {
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            background: #fff;
         }
 
         .loading {
@@ -545,202 +612,67 @@
             </div>
         </header>
 
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin: 8px 0 12px;">
-            <button class="button" onclick="location.href='/warnings'">Warnings</button>
-            <button class="button" onclick="location.href='/pairing-settings'">Pairing</button>
-            <button class="button" onclick="location.href='/demand'">Demand</button>
-            <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
-            <button class="button" onclick="location.href='/leave'">Leave</button>
-            <button class="button" onclick="location.href='/calendar'">Calendar</button>
-            <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
-            <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
-            <button class="button" onclick="location.href='/holidays'">Holidays</button>
-            <button class="button" onclick="location.href='/rules-management'">Rules</button>
-            <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
-            <button class="button ghost" id="download-csv">CSVダウンロード</button>
-        </div>
-<section class="card" id="reservation-card">
+        <section class="card quick-links-card">
             <div class="section-header compact">
-                <h2>シフトの手動編集</h2>
+                <div>
+                    <h2>クイックアクセス</h2>
+                    <p class="section-subtitle">需要・勤怠・設定系ページへのショートカットです。</p>
+                </div>
+                <button class="button ghost" id="download-csv">CSVダウンロード</button>
             </div>
-            <div class="section-subtitle">手動で1件ずつシフトを追加・編集できます。未割当の枠は自動で埋められます。</div>
-            <div class="row" style="gap:10px; align-items:flex-end;"><input type="hidden" id="man-id" />
-                <label> 日付
-                    <input type="date" id="man-date" />
-                </label>
-                <label> 担当者
-                    <select id="man-employee" style="min-width:180px;"></select>
-                </label>
-                <label> 開始
-                    <input type="time" id="man-start" value="09:00" />
-                </label>
-                <label> 終了
-                    <input type="time" id="man-end" value="18:00" />
-                </label>
-                <label> シフト名 
-                    <input type="text" id="man-name" placeholder="Manual" style="width:140px;" />
-                </label>
-                <button class="button primary" id="man-create">作成</button> <button class="button" id="man-update">更新</button>
-                <button class="button" id="day-fill-gaps">当日の不足を埋める</button>
-                <button class="button" id="month-fill-gaps">当月の不足を埋める（自動）</button>
-                <button class="button ghost" id="man-refresh">一覧を更新</button>
-            </div>
-            <div id="man-msg" class="message"></div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr><th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>担当者</th><th>シフト名</th><th></th></tr>
-                    </thead>
-                    <tbody id="man-list"></tbody>
-                </table>
+            <div class="quick-links">
+                <button class="button ghost" onclick="location.href='/warnings'">Warnings</button>
+                <button class="button ghost" onclick="location.href='/pairing-settings'">Pairing</button>
+                <button class="button ghost" onclick="location.href='/monthly-demand'">Monthly Demand</button>
+                <button class="button ghost" onclick="location.href='/demand'">Demand</button>
+                <button class="button ghost" onclick="location.href='/demand-analytics'">Demand Analytics</button>
+                <button class="button ghost" onclick="location.href='/leave'">Leave</button>
+                <button class="button ghost" onclick="location.href='/calendar'">Calendar</button>
+                <button class="button ghost" onclick="location.href='/skill-management'">Skill Management</button>
+                <button class="button ghost" onclick="location.href='/employee-master'">Employee Master</button>
+                <button class="button ghost" onclick="location.href='/holidays'">Holidays</button>
+                <button class="button ghost" onclick="location.href='/rules-management'">Rules</button>
+                <button class="button ghost" onclick="location.href='/admin-debug'">Admin Debug</button>
             </div>
         </section>
-        <section class="card" id="reservation-card">
-            <div class="section-header compact">
-                <h2>事前シフト予約</h2>
-            </div>
-            <div class="section-subtitle">自動生成より前に確定させたい枠を登録できます。入力済みの予約は生成時に優先反映されます。</div>
-            <div class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end;">
-                <label>日付
-                    <input type="date" id="res-date" />
-                </label>
-                <label>従業員
-                    <select id="res-employee" style="min-width:180px;"></select>
-                </label>
-                <label>スキル
-                    <select id="res-skill" style="min-width:140px;">
-                        <option value="">指定なし</option>
-                    </select>
-                </label>
-                <label>開始
-                    <input type="time" id="res-start" value="09:00" />
-                </label>
-                <label>終了
-                    <input type="time" id="res-end" value="18:00" />
-                </label>
-                <label>ラベル
-                    <input type="text" id="res-label" placeholder="Reservation" style="width:140px;" />
-                </label>
-                <label>メモ
-                    <input type="text" id="res-note" placeholder="任意" style="width:180px;" />
-                </label>
-                <button class="button primary" id="res-create">予約を登録</button>
-                <button class="button ghost" id="res-clear" type="button">入力をクリア</button>
-            </div>
-            <div class="row" style="gap:10px; align-items:flex-end;">
-                <label>表示開始日
-                    <input type="date" id="res-range-start" />
-                </label>
-                <label>表示終了日
-                    <input type="date" id="res-range-end" />
-                </label>
-                <button class="button ghost" id="res-range-sync">表示月に合わせる</button>
-                <button class="button" id="res-refresh">予約一覧を更新</button>
-                <button class="button danger" id="res-bulk-delete" type="button">表示期間の予約を削除</button>
-            </div>
-            <div id="res-msg" class="message"></div>
-            <div class="table-container">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>日付</th>
-                            <th>時間</th>
-                            <th>従業員</th>
-                            <th>スキル</th>
-                            <th>ラベル</th>
-                            <th>ステータス</th>
-                            <th>メモ</th>
-                            <th>操作</th>
-                        </tr>
-                    </thead>
-                    <tbody id="res-list"></tbody>
-                </table>
-            </div>
-            <div class="timeline-panel" style="margin-top:24px;">
-                <h3 style="margin:0 0 12px;">タイムライン（プレビュー）と一時需要</h3>
-                <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap;">
-                    <label>粒度
-                        <select id="t_gran">
-                            <option value="15">15分</option>
-                            <option value="30">30分</option>
-                            <option value="60" selected>60分</option>
-                        </select>
-                    </label>
-                    <label>スキル
-                        <select id="t_skill" style="min-width:140px;">
-                            <option value="">すべて</option>
-                        </select>
-                    </label>
-                    <button class="button ghost" type="button" id="t_refresh">プレビュー更新</button>
-                </div>
-                <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:10px;">
-                    <strong style="font-size:14px;">一時需要の追加</strong>
-                    <label>開始<input type="time" id="b_start" value="12:00" /></label>
-                    <label>終了<input type="time" id="b_end" value="13:00" /></label>
-                    <label>座席<input type="number" id="b_seats" value="1" min="1" style="width:90px;" /></label>
-                    <label>スキル
-                        <select id="b_skill" style="min-width:140px;">
-                            <option value="">未指定</option>
-                        </select>
-                    </label>
-                    <button class="button" id="b_add" type="button">追加</button>
-                    <span id="b_msg" class="muted"></span>
-                </div>
-                <div class="muted" style="margin-top:6px;">※ 事前シフト予約の日付を基準に表示します。</div>
-                <div class="timeline-grid" style="display:grid; grid-template-columns:140px 1fr; gap:8px; margin-top:12px;">
-                    <div id="t_times" style="border:1px solid #e2e8f0; border-radius:10px; background:#fff;"></div>
-                    <div id="t_rows" style="border:1px solid #e2e8f0; border-radius:10px; background:#fff;"></div>
-                </div>
-            </div>
-        </section>
-    </div>
-</div>
-        </header>
-        <!-- Quick links: warnings and pairing settings -->
-        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin: 8px 0 12px;">
-            <button class="button" onclick="location.href='/warnings'">Warnings</button>
-            <button class="button" onclick="location.href='/pairing-settings'">Pairing</button>
-            <button class="button" onclick="location.href='/monthly-demand'">Monthly Demand</button>
-            <button class="button" onclick="location.href='/demand'">Demand</button>
-            <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
-            <button class="button" onclick="location.href='/leave'">Leave</button>
-            <button class="button" onclick="location.href='/calendar'">Calendar</button>
-            <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
-            <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
-            <button class="button" onclick="location.href='/rules-management'">Rules</button>
-            <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
-            <button class="button ghost" id="download-csv">CSVダウンロード</button>
-        </div>
 
-        <section class="period-toolbar">
-            <div class="period-picker">
-                <button class="button ghost" id="prev-month">前月</button>
-                <div class="period-inputs">
-                    <label>
-                        <span>年</span>
-                        <input type="number" id="year-input" min="2000" max="2100">
-                    </label>
-                    <label>
-                        <span>月</span>
-                        <select id="month-input"></select>
-                    </label>
-                    <label>
-                        <span>粒度</span>
-                        <select id="granularity-select">
-                            <option value="60" selected>60分</option>
-                            <option value="30">30分</option>
-                            <option value="15">15分</option>
-                        </select>
-                    </label>
+                <section class="card period-card">
+            <div class="section-header compact">
+                <div>
+                    <h2>表示期間</h2>
+                    <p class="section-subtitle">プレビュー対象の年月と粒度を選択します。</p>
                 </div>
-                <button class="button ghost" id="next-month">次月</button>
+                <div class="period-label">
+                    <span>対象:</span>
+                    <strong id="schedule-period"></strong>
+                </div>
             </div>
-            <div class="period-label">
-                <span>対象:</span>
-                <strong id="schedule-period"></strong>
+            <div class="period-toolbar">
+                <div class="period-picker">
+                    <button class="button ghost" id="prev-month">前月</button>
+                    <div class="period-inputs">
+                        <label>
+                            <span>年</span>
+                            <input type="number" id="year-input" min="2000" max="2100">
+                        </label>
+                        <label>
+                            <span>月</span>
+                            <select id="month-input"></select>
+                        </label>
+                        <label>
+                            <span>粒度</span>
+                            <select id="granularity-select">
+                                <option value="60" selected>60分</option>
+                                <option value="30">30分</option>
+                                <option value="15">15分</option>
+                            </select>
+                        </label>
+                    </div>
+                    <button class="button ghost" id="next-month">翌月</button>
+                </div>
             </div>
         </section>
+
 
         <div class="grid">
             <section class="card span-2" id="schedule-card">
@@ -976,6 +908,158 @@
             </section>
 
             
+        </div>
+
+        <div class="management-grid">
+            <section class="card" id="manual-edit-card">
+                <div class="section-header compact">
+                    <div>
+                        <h2>シフトの手動編集</h2>
+                        <p class="section-subtitle">直近の1日分のシフトを追加・編集できます。確定済みの枠は下部の一覧で確認できます。</p>
+                    </div>
+                    <div class="section-actions">
+                        <button class="button ghost" id="man-refresh" type="button">一覧を更新</button>
+                    </div>
+                </div>
+                <input type="hidden" id="man-id" />
+                <div class="form-row">
+                    <label>日付
+                        <input type="date" id="man-date" />
+                    </label>
+                    <label>勤務者
+                        <select id="man-employee" style="min-width:180px;"></select>
+                    </label>
+                    <label>開始
+                        <input type="time" id="man-start" value="09:00" />
+                    </label>
+                    <label>終了
+                        <input type="time" id="man-end" value="18:00" />
+                    </label>
+                    <label>シフト名
+                        <input type="text" id="man-name" placeholder="Manual" />
+                    </label>
+                </div>
+                <div class="form-row">
+                    <button class="button primary" id="man-create" type="button">作成</button>
+                    <button class="button" id="man-update" type="button">更新</button>
+                    <button class="button" id="day-fill-gaps" type="button">当日の空枠を埋める</button>
+                    <button class="button" id="month-fill-gaps" type="button">期間の空枠を埋める(試験)</button>
+                </div>
+                <div id="man-msg" class="message"></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr><th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>勤務者</th><th>シフト名</th><th></th></tr>
+                        </thead>
+                        <tbody id="man-list"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card" id="reservation-card">
+                <div class="section-header compact">
+                    <div>
+                        <h2>事前シフト予約</h2>
+                        <p class="section-subtitle">スケジュール作成時に考慮される予約枠を登録できます。自動生成の予約は候補枠に保存されます。</p>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <label>日付
+                        <input type="date" id="res-date" />
+                    </label>
+                    <label>勤務者
+                        <select id="res-employee" style="min-width:180px;"></select>
+                    </label>
+                    <label>スキル
+                        <select id="res-skill" style="min-width:140px;">
+                            <option value="">未選択</option>
+                        </select>
+                    </label>
+                    <label>開始
+                        <input type="time" id="res-start" value="09:00" />
+                    </label>
+                    <label>終了
+                        <input type="time" id="res-end" value="18:00" />
+                    </label>
+                    <label>ラベル
+                        <input type="text" id="res-label" value="Reservation" />
+                    </label>
+                    <label>メモ
+                        <input type="text" id="res-note" placeholder="任意" />
+                    </label>
+                </div>
+                <div class="form-row">
+                    <button class="button" id="res-create" type="button">予約を登録</button>
+                    <button class="button ghost" id="res-refresh" type="button">最新表示</button>
+                    <button class="button ghost" id="res-clear" type="button">フォームをリセット</button>
+                </div>
+                <div class="form-row">
+                    <label>一括対象
+                        <input type="date" id="res-range-start" />
+                    </label>
+                    <span class="range-sep">〜</span>
+                    <label>
+                        <input type="date" id="res-range-end" />
+                    </label>
+                    <button class="button ghost" id="res-range-sync" type="button">当月に同期</button>
+                    <button class="button ghost" id="res-bulk-delete" type="button">期間の予約を削除</button>
+                </div>
+                <div id="reservation-message" class="message"></div>
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>日付</th>
+                                <th>時間</th>
+                                <th>勤務者</th>
+                                <th>スキル</th>
+                                <th>ラベル</th>
+                                <th>ステータス</th>
+                                <th>メモ</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody id="res-list"></tbody>
+                    </table>
+                </div>
+                <div class="timeline-panel">
+                    <h3 style="margin:0 0 12px;">タイムライン（プレビュー）と一時需要</h3>
+                    <div class="form-row">
+                        <label>粒度
+                            <select id="t_gran">
+                                <option value="15">15分</option>
+                                <option value="30">30分</option>
+                                <option value="60" selected>60分</option>
+                            </select>
+                        </label>
+                        <label>スキル
+                            <select id="t_skill" style="min-width:140px;">
+                                <option value="">すべて</option>
+                            </select>
+                        </label>
+                        <button class="button ghost" type="button" id="t_refresh">プレビュー更新</button>
+                    </div>
+                    <div class="form-row">
+                        <strong style="font-size:14px;">一時需要の追加</strong>
+                        <label>開始<input type="time" id="b_start" value="12:00" /></label>
+                        <label>終了<input type="time" id="b_end" value="13:00" /></label>
+                        <label>座席<input type="number" id="b_seats" value="1" min="1" style="width:90px;" /></label>
+                        <label>スキル
+                            <select id="b_skill" style="min-width:140px;">
+                                <option value="">未指定</option>
+                            </select>
+                        </label>
+                        <button class="button" id="b_add" type="button">追加</button>
+                        <span id="b_msg" class="muted"></span>
+                    </div>
+                    <div class="muted" style="margin-top:6px;">※ 事前シフト予約の日付を基準にプレビューを表示します。</div>
+                    <div class="timeline-grid">
+                        <div id="t_times"></div>
+                        <div id="t_rows"></div>
+                    </div>
+                </div>
+            </section>
         </div>
     </div>
     <script>
