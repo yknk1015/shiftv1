@@ -3,16 +3,21 @@ package com.example.shiftv1.schedule;
 import com.example.shiftv1.common.ApiResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -221,6 +226,28 @@ public class ScheduleController {
         meta.put("count", items.size());
         return meta;
     }
+
+    private String boolToStr(Boolean value) {
+        return (value != null && value) ? "1" : "0";
+    }
+
+    private String formatTime(LocalTime time, DateTimeFormatter formatter) {
+        return (time == null) ? "" : formatter.format(time);
+    }
+
+    private String escapeCsv(String value) {
+        if (value == null) {
+            return "";
+        }
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
+    }
+
+    private String safeId(Long value) {
+        return value == null ? "" : value.toString();
+    }
     // Lightweight meta for polling (count only)
     @GetMapping("/meta")
     public ResponseEntity<ApiResponse<Map<String, Object>>> getScheduleMeta(
@@ -262,6 +289,49 @@ public class ScheduleController {
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.failure("ジョブ状況の取得に失敗しました"));
         }
+    }
+
+    @PostMapping("/assignments/{id}/convert-leave")
+    public ResponseEntity<ApiResponse<ShiftAssignmentDto>> convertFreeToLeave(@PathVariable("id") Long assignmentId) {
+        try {
+            ShiftAssignment updated = scheduleService.convertFreePlaceholderToPaidLeave(assignmentId);
+            return ResponseEntity.ok(ApiResponse.success("FREE枠を有給に変更しました", ShiftAssignmentDto.from(updated)));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.status(404).body(ApiResponse.failure(e.getMessage()));
+        } catch (IllegalStateException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("Failed converting FREE to leave", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("有給変更に失敗しました"));
+        }
+    }
+
+    @GetMapping(value = "/export/csv", produces = "text/csv")
+    public ResponseEntity<byte[]> exportCsv(@RequestParam(name = "year", required = false) Integer year,
+                                            @RequestParam(name = "month", required = false) Integer month) {
+        YearMonth target = resolveYearMonth(year, month);
+        List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(target.atDay(1), target.atEndOfMonth());
+        DateTimeFormatter dateFmt = DateTimeFormatter.ISO_LOCAL_DATE;
+        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
+        StringBuilder sb = new StringBuilder();
+        sb.append("date,employeeId,employeeName,shiftName,startTime,endTime,isFree,isOff,isLeave\n");
+        for (ShiftAssignment sa : assignments) {
+            sb.append(dateFmt.format(sa.getWorkDate())).append(',')
+                    .append(safeId(sa.getEmployee() != null ? sa.getEmployee().getId() : null)).append(',')
+                    .append(escapeCsv(sa.getEmployee() != null ? sa.getEmployee().getName() : "")).append(',')
+                    .append(escapeCsv(sa.getShiftName())).append(',')
+                    .append(formatTime(sa.getStartTime(), timeFmt)).append(',')
+                    .append(formatTime(sa.getEndTime(), timeFmt)).append(',')
+                    .append(boolToStr(sa.getIsFree())).append(',')
+                    .append(boolToStr(sa.getIsOff())).append(',')
+                    .append(boolToStr(sa.getIsLeave())).append('\n');
+        }
+        byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
+        String filename = String.format("schedule-%d-%02d.csv", target.getYear(), target.getMonthValue());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.TEXT_PLAIN)
+                .body(bytes);
     }
 
     @PostMapping("/housekeeping")

@@ -11,14 +11,16 @@ public record ShiftAssignmentDto(
         LocalTime endTime,
         String employeeName,
         Boolean isFree,
-        Boolean isOff) {
+        Boolean isOff,
+        Boolean isLeave) {
 
     public static ShiftAssignmentDto from(ShiftAssignment assignment) {
         boolean free = safeBool(assignment.getIsFree());
         boolean off = safeBool(assignment.getIsOff());
+        boolean leave = safeBool(assignment.getIsLeave());
         // Mask times for FREE/OFF so clients can display them as blank without DB schema change
-        java.time.LocalTime st = (free || off) ? null : assignment.getStartTime();
-        java.time.LocalTime et = (free || off) ? null : assignment.getEndTime();
+        java.time.LocalTime st = (free || off || leave) ? null : assignment.getStartTime();
+        java.time.LocalTime et = (free || off || leave) ? null : assignment.getEndTime();
         return new ShiftAssignmentDto(
                 assignment.getId(),
                 assignment.getWorkDate(),
@@ -27,7 +29,8 @@ public record ShiftAssignmentDto(
                 et,
                 assignment.getEmployee().getName(),
                 free,
-                off
+                off,
+                leave
         );
     }
 

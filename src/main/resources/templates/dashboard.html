@@ -308,7 +308,8 @@
         .table-container {
             border: 1px solid var(--border);
             border-radius: 12px;
-            overflow: hidden;
+            overflow-x: auto;
+            overflow-y: hidden;
             background: #fff;
         }
 
@@ -579,6 +580,69 @@
                 </table>
             </div>
         </section>
+        <section class="card" id="reservation-card">
+            <div class="section-header compact">
+                <h2>事前シフト予約</h2>
+            </div>
+            <div class="section-subtitle">自動生成より前に確定させたい枠を登録できます。入力済みの予約は生成時に優先反映されます。</div>
+            <div class="row" style="gap:10px; flex-wrap:wrap; align-items:flex-end;">
+                <label>日付
+                    <input type="date" id="res-date" />
+                </label>
+                <label>従業員
+                    <select id="res-employee" style="min-width:180px;"></select>
+                </label>
+                <label>スキル
+                    <select id="res-skill" style="min-width:140px;">
+                        <option value="">指定なし</option>
+                    </select>
+                </label>
+                <label>開始
+                    <input type="time" id="res-start" value="09:00" />
+                </label>
+                <label>終了
+                    <input type="time" id="res-end" value="18:00" />
+                </label>
+                <label>ラベル
+                    <input type="text" id="res-label" placeholder="Reservation" style="width:140px;" />
+                </label>
+                <label>メモ
+                    <input type="text" id="res-note" placeholder="任意" style="width:180px;" />
+                </label>
+                <button class="button primary" id="res-create">予約を登録</button>
+                <button class="button ghost" id="res-clear" type="button">入力をクリア</button>
+            </div>
+            <div class="row" style="gap:10px; align-items:flex-end;">
+                <label>表示開始日
+                    <input type="date" id="res-range-start" />
+                </label>
+                <label>表示終了日
+                    <input type="date" id="res-range-end" />
+                </label>
+                <button class="button ghost" id="res-range-sync">表示月に合わせる</button>
+                <button class="button" id="res-refresh">予約一覧を更新</button>
+                <button class="button danger" id="res-bulk-delete" type="button">表示期間の予約を削除</button>
+            </div>
+            <div id="res-msg" class="message"></div>
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>日付</th>
+                            <th>時間</th>
+                            <th>従業員</th>
+                            <th>スキル</th>
+                            <th>ラベル</th>
+                            <th>ステータス</th>
+                            <th>メモ</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="res-list"></tbody>
+                </table>
+            </div>
+        </section>
     </div>
 </div>
         </header>
@@ -595,6 +659,7 @@
             <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
             <button class="button" onclick="location.href='/rules-management'">Rules</button>
             <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
+            <button class="button ghost" id="download-csv">CSVダウンロード</button>
         </div>
 
         <section class="period-toolbar">
@@ -1853,7 +1918,15 @@ async function callApi2(url, options = {}, expectSuccess = true){
   return data;
 }
 async function loadEmployeesForManual(){
-  try{ const j=await callApi2('/api/employees'); const list=j.data||[]; const sel=document.getElementById('man-employee'); if(!sel) return; sel.innerHTML='<option value="">選択</option>'+list.map(e=>`<option value="${e.id}">${e.name||( 'Emp#'+e.id )}</option>`).join(''); }catch(_){ }
+  try{
+    const j=await callApi2('/api/employees');
+    const list=j.data||[];
+    const options='<option value="">選択してください</option>'+list.map(e=>`<option value="${e.id}">${e.name||( 'Emp#'+e.id )}</option>`).join('');
+    const sel=document.getElementById('man-employee');
+    if(sel) sel.innerHTML=options;
+    const resSel=document.getElementById('res-employee');
+    if(resSel) resSel.innerHTML=options;
+  }catch(_){ }
 }
 async function refreshManualList(){
   const date=document.getElementById('man-date')?.value; const tbody=document.getElementById('man-list'); const msg=document.getElementById('man-msg'); if(!tbody) return; tbody.innerHTML=''; if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message info'; } return; }
@@ -1981,8 +2054,333 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
     }
     document.getElementById('refresh-off')?.addEventListener('click', loadOffDaily);
   </script>
+  <script>
+    (() => {
+      const statusMap = { PENDING: '待機', APPLIED: '反映済み', CANCELLED: 'キャンセル' };
+
+      function pad2(num) { return String(num).padStart(2, '0'); }
+
+      function getSelectedYearMonth() {
+        const now = new Date();
+        const y = document.getElementById('year-input');
+        const m = document.getElementById('month-input');
+        return {
+          year: y ? (parseInt(y.value, 10) || now.getFullYear()) : now.getFullYear(),
+          month: m ? (parseInt(m.value, 10) || (now.getMonth() + 1)) : (now.getMonth() + 1)
+        };
+      }
+
+      function ensureManualHeader() {
+        const headerRow = document.querySelector('#manual-edit-card thead tr');
+        if (headerRow && headerRow.childElementCount < 8) {
+          headerRow.innerHTML = '<th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>従業員</th><th>シフト名</th><th>種別</th><th>操作</th>';
+        }
+      }
+
+      async function convertFreeToLeave(id) {
+        const msg = document.getElementById('man-msg');
+        try {
+          await callApi2(`/api/schedule/assignments/${id}/convert-leave`, { method: 'POST' });
+          if (msg) { msg.textContent = 'FREE枠を有給に変更しました'; msg.className = 'message success'; }
+          await refreshManualList();
+        } catch (err) {
+          if (msg) { msg.textContent = err.message || '有給への変更に失敗しました'; msg.className = 'message error'; }
+        }
+      }
+
+      const originalRefreshManualList = refreshManualList;
+
+      const enhancedRefreshManualList = async function () {
+        ensureManualHeader();
+        const date = document.getElementById('man-date')?.value;
+        const tbody = document.getElementById('man-list');
+        const msg = document.getElementById('man-msg');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (!date) {
+          if (msg) { msg.textContent = '日付を選択してください'; msg.className = 'message info'; }
+          return;
+        }
+        try {
+          const y = Number(date.slice(0, 4));
+          const m = Number(date.slice(5, 7));
+          const res = await callApi2(`/api/schedule?year=${y}&month=${m}`);
+          const rows = (res.data || []).filter(a => a.workDate === date);
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="8">データがありません</td></tr>';
+            return;
+          }
+          tbody.innerHTML = rows.map(r => {
+            const typeLabel = r.isLeave ? '有給' : (r.isOff ? 'OFF' : (r.isFree ? 'FREE' : ''));
+            const buttons = [`<button class="button" data-act="del" data-id="${r.id}">削除</button>`];
+            if (r.isFree) {
+              buttons.push(`<button class="button ghost" data-act="leave" data-id="${r.id}">FREE→有給</button>`);
+            }
+            return `<tr data-id="${r.id}">
+              <td>${r.id}</td>
+              <td>${r.workDate}</td>
+              <td>${(r.startTime || '').slice(0, 5)}</td>
+              <td>${(r.endTime || '').slice(0, 5)}</td>
+              <td>${r.employeeName || ''}</td>
+              <td>${r.shiftName || ''}</td>
+              <td>${typeLabel || ''}</td>
+              <td>${buttons.join(' ')}</td>
+            </tr>`;
+          }).join('');
+          tbody.querySelectorAll('button[data-act="del"]').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              if (!confirm(`ID=${id} を削除しますか?`)) return;
+              try {
+                await callApi2(`/api/schedule/assignments/${id}`, { method: 'DELETE' });
+                if (msg) { msg.textContent = '削除しました'; msg.className = 'message success'; }
+                await refreshManualList();
+              } catch (err) {
+                if (msg) { msg.textContent = err.message || '削除に失敗しました'; msg.className = 'message error'; }
+              }
+            });
+          });
+          tbody.querySelectorAll('button[data-act="leave"]').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+              const id = e.currentTarget.getAttribute('data-id');
+              if (!id) return;
+              await convertFreeToLeave(id);
+            });
+          });
+        } catch (err) {
+          if (msg) { msg.textContent = err.message || '取得に失敗しました'; msg.className = 'message error'; }
+        }
+      };
+
+      refreshManualList = enhancedRefreshManualList;
+      document.getElementById('man-refresh')?.removeEventListener('click', originalRefreshManualList);
+      document.getElementById('man-date')?.removeEventListener('change', originalRefreshManualList);
+
+      function setReservationMessage(text, type) {
+        const msg = document.getElementById('res-msg');
+        if (!msg) return;
+        msg.textContent = text || '';
+        msg.className = type ? `message ${type}` : 'message';
+      }
+
+      function syncReservationRangeToMonth(refresh = false) {
+        const startEl = document.getElementById('res-range-start');
+        const endEl = document.getElementById('res-range-end');
+        if (!startEl || !endEl) return;
+        const { year, month } = getSelectedYearMonth();
+        startEl.value = `${year}-${pad2(month)}-01`;
+        const lastDay = new Date(year, month, 0).getDate();
+        endEl.value = `${year}-${pad2(month)}-${pad2(lastDay)}`;
+        if (refresh) refreshReservationList();
+      }
+
+      function clearReservationForm(resetRange = false) {
+        const today = new Date();
+        const dateInput = document.getElementById('res-date');
+        if (dateInput) {
+          dateInput.value = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
+        }
+        const startInput = document.getElementById('res-start');
+        if (startInput) startInput.value = '09:00';
+        const endInput = document.getElementById('res-end');
+        if (endInput) endInput.value = '18:00';
+        const labelInput = document.getElementById('res-label');
+        if (labelInput) labelInput.value = 'Reservation';
+        const noteInput = document.getElementById('res-note');
+        if (noteInput) noteInput.value = '';
+        const empSelect = document.getElementById('res-employee');
+        if (empSelect) empSelect.value = '';
+        const skillSelect = document.getElementById('res-skill');
+        if (skillSelect) skillSelect.value = '';
+        if (resetRange) syncReservationRangeToMonth(false);
+        setReservationMessage('', '');
+      }
+
+      function initReservationDefaults() {
+        clearReservationForm(true);
+      }
+
+      async function loadSkillsForReservation() {
+        try {
+          const res = await callApi2('/api/skills');
+          const list = res.data || [];
+          const sel = document.getElementById('res-skill');
+          if (!sel) return;
+          sel.innerHTML = '<option value=\"\">指定なし</option>' + list.map(s => `<option value="${s.id}">${s.code || s.name || ('Skill#' + s.id)}</option>`).join('');
+        } catch (_e) { }
+      }
+
+      async function refreshReservationList() {
+        const tbody = document.getElementById('res-list');
+        if (!tbody) return;
+        const start = document.getElementById('res-range-start')?.value;
+        const end = document.getElementById('res-range-end')?.value;
+        if (!start || !end) {
+          setReservationMessage('表示期間を設定してください', 'error');
+          tbody.innerHTML = '';
+          return;
+        }
+        if (start > end) {
+          setReservationMessage('開始日は終了日以前にしてください', 'error');
+          return;
+        }
+        try {
+          const res = await callApi2(`/api/schedule/reservations?start=${start}&end=${end}`);
+          const rows = res.data || [];
+          if (!rows.length) {
+            tbody.innerHTML = '<tr><td colspan="9">予約がありません</td></tr>';
+            setReservationMessage('該当する予約はありません', 'info');
+            return;
+          }
+          const shortTime = (v) => (v || '').slice(0, 5);
+          tbody.innerHTML = rows.map(r => {
+            const timeRange = `${shortTime(r.startTime)}-${shortTime(r.endTime)}`;
+            const actions = [];
+            if (r.status === 'PENDING') {
+              actions.push(`<button class="button ghost" data-act="cancel" data-id="${r.id}">キャンセル</button>`);
+            } else if (r.status === 'CANCELLED') {
+              actions.push(`<button class="button ghost" data-act="pending" data-id="${r.id}">再開</button>`);
+            }
+            actions.push(`<button class="button danger" data-act="delete" data-id="${r.id}">削除</button>`);
+            return `<tr data-id="${r.id}">
+              <td>${r.id}</td>
+              <td>${r.workDate}</td>
+              <td>${timeRange}</td>
+              <td>${r.employeeName || ''}</td>
+              <td>${r.skillCode || '-'}</td>
+              <td>${r.label || ''}</td>
+              <td>${statusMap[r.status] || r.status || '-'}</td>
+              <td>${r.note || ''}</td>
+              <td>${actions.join(' ')}</td>
+            </tr>`;
+          }).join('');
+          tbody.querySelectorAll('button[data-act="cancel"]').forEach(btn => {
+            btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'CANCELLED'));
+          });
+          tbody.querySelectorAll('button[data-act="pending"]').forEach(btn => {
+            btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'PENDING'));
+          });
+          tbody.querySelectorAll('button[data-act="delete"]').forEach(btn => {
+            btn.addEventListener('click', () => {
+              const id = btn.getAttribute('data-id');
+              if (!id) return;
+              if (confirm(`ID=${id} の予約を削除しますか?`)) {
+                deleteReservation(id);
+              }
+            });
+          });
+          setReservationMessage('', '');
+        } catch (err) {
+          setReservationMessage(err.message || '予約の取得に失敗しました', 'error');
+        }
+      }
+
+      async function createReservation() {
+        const payload = {
+          workDate: document.getElementById('res-date')?.value,
+          employeeId: Number(document.getElementById('res-employee')?.value || 0),
+          skillId: document.getElementById('res-skill')?.value ? Number(document.getElementById('res-skill').value) : null,
+          startTime: document.getElementById('res-start')?.value,
+          endTime: document.getElementById('res-end')?.value,
+          label: document.getElementById('res-label')?.value || 'Reservation',
+          note: document.getElementById('res-note')?.value || ''
+        };
+        if (!payload.workDate || !payload.employeeId || !payload.startTime || !payload.endTime) {
+          setReservationMessage('日付・従業員・時間を入力してください', 'error');
+          return;
+        }
+        try {
+          await callApi2('/api/schedule/reservations', { method: 'POST', body: JSON.stringify(payload) });
+          setReservationMessage('予約を登録しました', 'success');
+          clearReservationForm(false);
+          await refreshReservationList();
+        } catch (err) {
+          setReservationMessage(err.message || '予約の登録に失敗しました', 'error');
+        }
+      }
+
+      async function deleteReservationsInRange() {
+        const start = document.getElementById('res-range-start')?.value;
+        const end = document.getElementById('res-range-end')?.value;
+        if (!start || !end) {
+          setReservationMessage('表示期間を設定してください', 'error');
+          return;
+        }
+        if (end < start) {
+          setReservationMessage('開始日は終了日以前にしてください', 'error');
+          return;
+        }
+        if (!confirm(`期間 ${start} 〜 ${end} の予約をすべて削除しますか？`)) return;
+        try {
+          await callApi2(`/api/schedule/reservations/bulk?start=${start}&end=${end}`, { method: 'DELETE' });
+          setReservationMessage('指定期間の予約を削除しました', 'success');
+          await refreshReservationList();
+        } catch (err) {
+          setReservationMessage(err.message || '一括削除に失敗しました', 'error');
+        }
+      }
+
+      async function updateReservationStatus(id, status) {
+        if (!id) return;
+        try {
+          await callApi2(`/api/schedule/reservations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+          setReservationMessage('ステータスを更新しました', 'success');
+          await refreshReservationList();
+        } catch (err) {
+          setReservationMessage(err.message || 'ステータスの更新に失敗しました', 'error');
+        }
+      }
+
+      async function deleteReservation(id) {
+        try {
+          await callApi2(`/api/schedule/reservations/${id}`, { method: 'DELETE' });
+          setReservationMessage('予約を削除しました', 'success');
+          await refreshReservationList();
+        } catch (err) {
+          setReservationMessage(err.message || '削除に失敗しました', 'error');
+        }
+      }
+
+      async function downloadScheduleCsv() {
+        const { year, month } = getSelectedYearMonth();
+        const btn = document.getElementById('download-csv');
+        if (btn) btn.disabled = true;
+        try {
+          const res = await fetch(`/api/schedule/export/csv?year=${year}&month=${month}`, { credentials: 'include' });
+          if (!res.ok) throw new Error('CSVダウンロードに失敗しました');
+          const blob = await res.blob();
+          const link = document.createElement('a');
+          const url = window.URL.createObjectURL(blob);
+          link.href = url;
+          link.download = `schedule-${year}-${pad2(month)}.csv`;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+          window.URL.revokeObjectURL(url);
+        } catch (err) {
+          alert(err.message || 'CSVダウンロードに失敗しました');
+        } finally {
+          if (btn) btn.disabled = false;
+        }
+      }
+
+      document.getElementById('res-create')?.addEventListener('click', createReservation);
+      document.getElementById('res-refresh')?.addEventListener('click', refreshReservationList);
+      document.getElementById('res-range-sync')?.addEventListener('click', () => { syncReservationRangeToMonth(true); });
+      document.getElementById('res-bulk-delete')?.addEventListener('click', deleteReservationsInRange);
+      document.getElementById('res-clear')?.addEventListener('click', () => clearReservationForm(false));
+      document.getElementById('res-employee')?.addEventListener('change', () => setReservationMessage('', ''));
+      document.getElementById('download-csv')?.addEventListener('click', downloadScheduleCsv);
+      document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
+      document.getElementById('man-date')?.addEventListener('change', refreshManualList);
+      document.getElementById('year-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
+      document.getElementById('month-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
+
+      ensureManualHeader();
+      initReservationDefaults();
+      loadSkillsForReservation();
+      refreshReservationList();
+    })();
+  </script>
 </body>
 </html>
-
-
-

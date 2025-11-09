@@ -4,10 +4,12 @@ import com.example.shiftv1.demand.DemandInterval;
 import com.example.shiftv1.demand.DemandIntervalRepository;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
-import com.example.shiftv1.skill.Skill;
-import com.example.shiftv1.skill.SkillRepository;
 import com.example.shiftv1.employee.EmployeeRuleRepository;
 import com.example.shiftv1.employee.EmployeeRule;
+import com.example.shiftv1.leave.LeaveBalance;
+import com.example.shiftv1.leave.LeaveBalanceRepository;
+import com.example.shiftv1.leave.LeaveRequest;
+import com.example.shiftv1.leave.LeaveRequestRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -19,10 +21,13 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
 import java.util.*;
+import java.util.stream.Collectors;
 import com.example.shiftv1.holiday.HolidayRepository;
 import com.example.shiftv1.config.FreePlaceholderSettings;
 import com.example.shiftv1.constraint.EmployeeConstraint;
 import com.example.shiftv1.constraint.EmployeeConstraintRepository;
+import com.example.shiftv1.skill.Skill;
+import com.example.shiftv1.skill.SkillRepository;
 
 @Service
 public class ScheduleService {
@@ -37,6 +42,9 @@ public class ScheduleService {
     private final FreePlaceholderSettings freeSettings;
     private final EmployeeConstraintRepository constraintRepository;
     private final ScheduleJobStatusService jobStatusService;
+    private final ShiftReservationRepository reservationRepository;
+    private final LeaveBalanceRepository leaveBalanceRepository;
+    private final LeaveRequestRepository leaveRequestRepository;
 
     @Value("${shift.placeholder.free.start:00:00}")
     private String cfgFreeStart;
@@ -61,7 +69,10 @@ public class ScheduleService {
             HolidayRepository holidayRepository,
             FreePlaceholderSettings freeSettings,
             EmployeeConstraintRepository constraintRepository,
-            ScheduleJobStatusService jobStatusService) {
+            ScheduleJobStatusService jobStatusService,
+            ShiftReservationRepository reservationRepository,
+            LeaveBalanceRepository leaveBalanceRepository,
+            LeaveRequestRepository leaveRequestRepository) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
         this.demandRepository = demandRepository;
@@ -71,6 +82,9 @@ public class ScheduleService {
         this.freeSettings = freeSettings;
         this.constraintRepository = constraintRepository;
         this.jobStatusService = jobStatusService;
+        this.reservationRepository = reservationRepository;
+        this.leaveBalanceRepository = leaveBalanceRepository;
+        this.leaveRequestRepository = leaveRequestRepository;
     }
 
     // Legacy wrapper used by older endpoint
@@ -111,6 +125,11 @@ public class ScheduleService {
         // Preload rules once to avoid per-employee DB hits
         Map<Long, EmployeeRule> rulesByEmp = loadRulesByEmployee(employees);
 
+        Map<LocalDate, List<ShiftReservation>> reservationsByDate = reservationRepository
+                .findByWorkDateBetweenAndStatusIn(start, end, List.of(ShiftReservation.Status.PENDING))
+                .stream()
+                .collect(Collectors.groupingBy(ShiftReservation::getWorkDate));
+
         // Preload per-employee allowed working days per week (7 - weeklyRestDays)
         Map<Long, Integer> allowedWorkDaysPerWeek = new HashMap<>();
         for (var emp : employees) {
@@ -131,7 +150,8 @@ public class ScheduleService {
                     || (sa.getShiftName() != null && "FREE".equalsIgnoreCase(sa.getShiftName()));
             boolean isOff = Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null
                     && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())));
-            if (isFree || isOff)
+            boolean isLeave = Boolean.TRUE.equals(sa.getIsLeave());
+            if (isFree || isOff || isLeave)
                 continue;
             Long empId = sa.getEmployee() != null ? sa.getEmployee().getId() : null;
             if (empId == null)
@@ -197,6 +217,24 @@ public class ScheduleService {
             Map<LocalTime, Integer> assignedBySlot = new HashMap<>();
             for (LocalTime t : slots)
                 assignedBySlot.put(t, 0);
+
+            List<ShiftReservation> dayReservations = reservationsByDate.getOrDefault(day, Collections.emptyList());
+            List<ShiftAssignment> reservationAssignments = applyReservationsForDay(
+                    day,
+                    dayReservations,
+                    dayCtx,
+                    assignedBySlot,
+                    reservedSkillBySlot,
+                    granularity,
+                    workedDaysByEmployee,
+                    assignedToday,
+                    mtdTotalWorkedDays,
+                    mtdWeekendHolidayWorkedDays,
+                    isWkHol);
+            if (!reservationAssignments.isEmpty()) {
+                createdAll.addAll(reservationAssignments);
+                rotate += reservationAssignments.size();
+            }
 
             for (DemandInterval d : demands) {
                 Integer seatsObj = d.getRequiredSeats();
@@ -411,7 +449,8 @@ public class ScheduleService {
                         || (sa.getShiftName() != null && "FREE".equalsIgnoreCase(sa.getShiftName()));
                 boolean isOff = Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null
                         && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())));
-                if (isFree || isOff)
+                boolean isLeave = Boolean.TRUE.equals(sa.getIsLeave());
+                if (isFree || isOff || isLeave)
                     continue;
                 Long empId = sa.getEmployee() != null ? sa.getEmployee().getId() : null;
                 if (empId == null)
@@ -423,9 +462,12 @@ public class ScheduleService {
         }
         final boolean isWkHol = isWeekendOrHoliday(date);
         Set<Long> assignedToday = new HashSet<>();
+        Map<Long, Set<LocalDate>> workedDaysByEmployee = new HashMap<>();
         // Preload rules/constraints and build per-day context
         Map<Long, EmployeeRule> rulesByEmp = loadRulesByEmployee(employees);
         DayContext dayCtx = buildDayContext(date, employees, rulesByEmp);
+        List<ShiftReservation> dayReservations = reservationRepository
+                .findByWorkDateBetweenAndStatusIn(date, date, List.of(ShiftReservation.Status.PENDING));
 
         List<ShiftAssignment> created = new ArrayList<>();
         int rotate = 0;
@@ -484,6 +526,23 @@ public class ScheduleService {
         Map<LocalTime, Integer> assignedBySlot = new HashMap<>();
         for (LocalTime t : slots)
             assignedBySlot.put(t, 0);
+
+        List<ShiftAssignment> reservationAssignments = applyReservationsForDay(
+                date,
+                dayReservations,
+                dayCtx,
+                assignedBySlot,
+                reservedSkillBySlot,
+                granularity,
+                workedDaysByEmployee,
+                assignedToday,
+                mtdTotalWorkedDays,
+                mtdWeekendHolidayWorkedDays,
+                isWkHol);
+        if (!reservationAssignments.isEmpty()) {
+            created.addAll(reservationAssignments);
+            rotate += reservationAssignments.size();
+        }
 
         for (DemandInterval d : demands) {
             Integer seatsObj = d.getRequiredSeats();
@@ -638,6 +697,94 @@ public class ScheduleService {
         return res;
     }
 
+    private List<ShiftAssignment> applyReservationsForDay(LocalDate day,
+                                                          List<ShiftReservation> reservations,
+                                                          DayContext dayCtx,
+                                                          Map<LocalTime, Integer> assignedBySlot,
+                                                          Map<LocalTime, Integer> reservedSkillBySlot,
+                                                          int granularityMinutes,
+                                                          Map<Long, Set<LocalDate>> workedDaysByEmployee,
+                                                          Set<Long> assignedToday,
+                                                          Map<Long, Integer> mtdTotalWorkedDays,
+                                                          Map<Long, Integer> mtdWeekendHolidayWorkedDays,
+                                                          boolean isWeekendOrHoliday) {
+        if (reservations == null || reservations.isEmpty()) {
+            return Collections.emptyList();
+        }
+        List<ShiftAssignment> created = new ArrayList<>();
+        for (ShiftReservation reservation : reservations) {
+            if (reservation == null || !reservation.isPending()) {
+                continue;
+            }
+            Employee employee = reservation.getEmployee();
+            if (employee == null || employee.getId() == null) {
+                continue;
+            }
+            Long empId = employee.getId();
+            if (dayCtx.excludeByPatternStrict.getOrDefault(empId, false)) {
+                continue;
+            }
+            if (dayCtx.hardUnavailable.getOrDefault(empId, false)) {
+                continue;
+            }
+            List<ShiftAssignment> dayAssignments = assignmentRepository.findByEmployeeAndWorkDate(employee, day);
+            boolean conflict = false;
+            for (ShiftAssignment existing : dayAssignments) {
+                if (existing.getStartTime() == null || existing.getEndTime() == null) {
+                    continue;
+                }
+                if (overlaps(existing.getStartTime(), existing.getEndTime(), reservation.getStartTime(), reservation.getEndTime())) {
+                    conflict = true;
+                    break;
+                }
+            }
+            if (conflict) {
+                continue;
+            }
+            ShiftAssignment assignment = new ShiftAssignment(
+                    day,
+                    reservationLabel(reservation),
+                    reservation.getStartTime(),
+                    reservation.getEndTime(),
+                    employee
+            );
+            assignmentRepository.save(assignment);
+            reservation.setStatus(ShiftReservation.Status.APPLIED);
+            reservationRepository.save(reservation);
+            created.add(assignment);
+
+            workedDaysByEmployee.computeIfAbsent(empId, k -> new HashSet<>()).add(day);
+            if (assignedToday.add(empId)) {
+                mtdTotalWorkedDays.merge(empId, 1, Integer::sum);
+                if (isWeekendOrHoliday) {
+                    mtdWeekendHolidayWorkedDays.merge(empId, 1, Integer::sum);
+                }
+            }
+            List<LocalTime> covers = slotsCoveredBy(reservation.getStartTime(), reservation.getEndTime(), granularityMinutes);
+            for (LocalTime slot : covers) {
+                assignedBySlot.compute(slot, (k, v) -> (v == null ? 0 : v) + 1);
+                if (reservation.getSkill() != null) {
+                    reservedSkillBySlot.compute(slot, (k, v) -> Math.max(0, (v == null ? 0 : v) - 1));
+                }
+            }
+        }
+        return created;
+    }
+
+    private boolean overlaps(LocalTime s1, LocalTime e1, LocalTime s2, LocalTime e2) {
+        return s1.isBefore(e2) && s2.isBefore(e1);
+    }
+
+    private String reservationLabel(ShiftReservation reservation) {
+        if (reservation.getLabel() != null && !reservation.getLabel().isBlank()) {
+            return reservation.getLabel();
+        }
+        if (reservation.getSkill() != null) {
+            return "Reservation-" + safeCode(reservation.getSkill().getCode());
+        }
+        return "Reservation";
+    }
+
     // ---------------- Placeholders ----------------
     @Transactional
     public void ensureFreePlaceholders(int year, int month) {
@@ -675,11 +822,12 @@ public class ScheduleService {
                         || (sa.getShiftName() != null && "FREE".equalsIgnoreCase(sa.getShiftName()));
                 boolean isOff = Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null
                         && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())));
+                boolean isLeave = Boolean.TRUE.equals(sa.getIsLeave());
                 if (isFree)
                     hasFree.add(sa.getEmployee().getId());
-                if (isOff)
+                if (isOff || isLeave)
                     hasOff.add(sa.getEmployee().getId());
-                if (!isFree && !isOff)
+                if (!isFree && !isOff && !isLeave)
                     hasReal.add(sa.getEmployee().getId());
             }
             for (Employee emp : employees) {
@@ -718,9 +866,10 @@ public class ScheduleService {
                         || (sa.getShiftName() != null && "FREE".equalsIgnoreCase(sa.getShiftName()));
                 boolean isOff = Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null
                         && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())));
-                if (!isFree && !isOff)
+                boolean isLeave = Boolean.TRUE.equals(sa.getIsLeave());
+                if (!isFree && !isOff && !isLeave)
                     existing.put(empId, "REAL");
-                if (isOff)
+                if (isOff || isLeave)
                     existing.put(empId, "OFF");
                 if (isFree && !existing.containsKey(empId))
                     existing.put(empId, "FREE");
@@ -862,10 +1011,11 @@ public class ScheduleService {
                                 || (sa.getShiftName() != null && "FREE".equalsIgnoreCase(sa.getShiftName()));
                         boolean isOff = Boolean.TRUE.equals(sa.getIsOff()) || (sa.getShiftName() != null
                                 && ("休日".equals(sa.getShiftName()) || "OFF".equalsIgnoreCase(sa.getShiftName())));
-                        if (isOff) {
+                        boolean isLeave = Boolean.TRUE.equals(sa.getIsLeave());
+                        if (isOff || isLeave) {
                             hasOff = true;
                         }
-                        if (!isFree && !isOff) {
+                        if (!isFree && !isOff && !isLeave) {
                             hasReal = true;
                         }
                     }
@@ -919,6 +1069,36 @@ public class ScheduleService {
         }
         if (!pending.isEmpty())
             assignmentRepository.saveAll(pending);
+    }
+
+    @Transactional
+    public ShiftAssignment convertFreePlaceholderToPaidLeave(Long assignmentId) {
+        ShiftAssignment assignment = assignmentRepository.findById(assignmentId)
+                .orElseThrow(() -> new IllegalArgumentException("対象のシフトが見つかりません"));
+        if (!Boolean.TRUE.equals(assignment.getIsFree())) {
+            throw new IllegalStateException("FREEプレースホルダー以外は有給に変更できません");
+        }
+        Employee employee = assignment.getEmployee();
+        LeaveBalance balance = leaveBalanceRepository.findTopByEmployeeOrderByIdDesc(employee)
+                .orElse(new LeaveBalance(employee, 0, 0, null, null));
+        if (balance.remaining() <= 0) {
+            throw new IllegalStateException("有給残数が不足しています");
+        }
+        LeaveRequest request = new LeaveRequest(employee, assignment.getWorkDate());
+        request.setStatus(LeaveRequest.Status.APPROVED);
+        leaveRequestRepository.save(request);
+        EmployeeConstraint constraint = new EmployeeConstraint(employee,
+                assignment.getWorkDate(),
+                EmployeeConstraint.ConstraintType.VACATION,
+                "PTO");
+        constraintRepository.save(constraint);
+        balance.setUsed((balance.getUsed() == null ? 0 : balance.getUsed()) + 1);
+        leaveBalanceRepository.save(balance);
+        assignment.setShiftName("有給");
+        assignment.setIsFree(false);
+        assignment.setIsOff(true);
+        assignment.setIsLeave(true);
+        return assignmentRepository.save(assignment);
     }
 
     // Day-level rule and constraint view used during generation

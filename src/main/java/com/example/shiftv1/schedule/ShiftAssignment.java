@@ -45,6 +45,9 @@ public class ShiftAssignment {
     @Column(name = "is_off")
     private Boolean isOff = false;
 
+    @Column(name = "is_leave")
+    private Boolean isLeave = false;
+
     protected ShiftAssignment() {
     }
 
@@ -104,4 +107,6 @@ public class ShiftAssignment {
     public void setIsFree(Boolean isFree) { this.isFree = isFree; }
     public Boolean getIsOff() { return isOff; }
     public void setIsOff(Boolean isOff) { this.isOff = isOff; }
+    public Boolean getIsLeave() { return isLeave; }
+    public void setIsLeave(Boolean isLeave) { this.isLeave = isLeave; }
 }
