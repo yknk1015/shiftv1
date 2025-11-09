@@ -6,6 +6,9 @@ import com.example.shiftv1.constraint.EmployeeConstraint;
 import com.example.shiftv1.constraint.EmployeeConstraintRepository;
 import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
+import com.example.shiftv1.schedule.ScheduleGridBulkRequest;
+import com.example.shiftv1.schedule.ScheduleGridBulkResult;
+import com.example.shiftv1.schedule.ScheduleGridResponse;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,6 +49,9 @@ class ScheduleServiceTest {
 
     @Autowired
     private EmployeeConstraintRepository constraintRepository;
+
+    private final LocalTime DEFAULT_START = LocalTime.of(9, 0);
+    private final LocalTime DEFAULT_END = LocalTime.of(18, 0);
 
     @BeforeEach
     void setUp() {
@@ -200,5 +206,56 @@ class ScheduleServiceTest {
                     assertThat(assignment.getStartTime()).isAfterOrEqualTo(LocalTime.of(15, 0));
                     assertThat(assignment.getEndTime()).isBeforeOrEqualTo(LocalTime.of(21, 0));
                 });
+    }
+
+    @Test
+    void loadGrid_returnsAssignmentsWithinRequestedRange() {
+        Employee employee = employeeRepository.findAll().get(0);
+        LocalDate day = LocalDate.of(2024, 1, 10);
+        assignmentRepository.deleteAll();
+        assignmentRepository.save(new ShiftAssignment(day, "Manual", DEFAULT_START, DEFAULT_END, employee));
+
+        ScheduleGridResponse response = scheduleService.loadGrid(day, day.plusDays(6));
+
+        assertThat(response.employees()).isNotEmpty();
+        assertThat(response.assignments())
+                .anyMatch(a -> a.workDate().equals(day) && a.employeeId().equals(employee.getId()));
+    }
+
+    @Test
+    void applyGridChanges_supportsCreateUpdateDelete() {
+        Employee employee = employeeRepository.findAll().get(0);
+        LocalDate workDate = LocalDate.of(2024, 2, 5);
+        ScheduleGridBulkRequest.CreatePayload createPayload = new ScheduleGridBulkRequest.CreatePayload();
+        createPayload.setEmployeeId(employee.getId());
+        createPayload.setWorkDate(workDate);
+        createPayload.setShiftName("Manual");
+        createPayload.setStartTime(DEFAULT_START);
+        createPayload.setEndTime(DEFAULT_END);
+
+        ScheduleGridBulkRequest createRequest = new ScheduleGridBulkRequest();
+        createRequest.setCreate(List.of(createPayload));
+        ScheduleGridBulkResult createResult = scheduleService.applyGridChanges(createRequest);
+        assertThat(createResult.created()).isEqualTo(1);
+
+        ShiftAssignment created = assignmentRepository.findByEmployeeAndWorkDate(employee, workDate).get(0);
+
+        ScheduleGridBulkRequest.UpdatePayload updatePayload = new ScheduleGridBulkRequest.UpdatePayload();
+        updatePayload.setId(created.getId());
+        updatePayload.setStartTime(LocalTime.of(10, 0));
+        updatePayload.setEndTime(LocalTime.of(19, 0));
+        ScheduleGridBulkRequest updateRequest = new ScheduleGridBulkRequest();
+        updateRequest.setUpdate(List.of(updatePayload));
+        ScheduleGridBulkResult updateResult = scheduleService.applyGridChanges(updateRequest);
+        assertThat(updateResult.updated()).isEqualTo(1);
+
+        ShiftAssignment updated = assignmentRepository.findById(created.getId()).orElseThrow();
+        assertThat(updated.getStartTime()).isEqualTo(LocalTime.of(10, 0));
+
+        ScheduleGridBulkRequest deleteRequest = new ScheduleGridBulkRequest();
+        deleteRequest.setDelete(List.of(created.getId()));
+        ScheduleGridBulkResult deleteResult = scheduleService.applyGridChanges(deleteRequest);
+        assertThat(deleteResult.deleted()).isEqualTo(1);
+        assertThat(assignmentRepository.findById(created.getId())).isEmpty();
     }
 }

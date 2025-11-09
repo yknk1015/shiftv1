@@ -1,6 +1,7 @@
 package com.example.shiftv1.schedule;
 
 import com.example.shiftv1.common.ApiResponse;
+import com.example.shiftv1.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -25,16 +26,19 @@ public class ScheduleController {
 
     private final ScheduleService scheduleService;
     private final ShiftAssignmentRepository assignmentRepository;
+    private final ShiftReservationRepository reservationRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
     private final ScheduleJobStatusService jobStatusService;
     private static final Logger logger = LoggerFactory.getLogger(ScheduleController.class);
 
     public ScheduleController(ScheduleService scheduleService,
                               ShiftAssignmentRepository assignmentRepository,
+                              ShiftReservationRepository reservationRepository,
                               com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer,
                               ScheduleJobStatusService jobStatusService) {
         this.scheduleService = scheduleService;
         this.assignmentRepository = assignmentRepository;
+        this.reservationRepository = reservationRepository;
         this.errorLogBuffer = errorLogBuffer;
         this.jobStatusService = jobStatusService;
     }
@@ -202,6 +206,12 @@ public class ScheduleController {
             var end = target.atEndOfMonth();
             long before = assignmentRepository.countByWorkDateBetween(start, end);
             assignmentRepository.deleteByWorkDateBetween(start, end);
+            List<ShiftReservation> reservationsToReset = reservationRepository.findByWorkDateBetweenAndStatusIn(
+                    start, end, List.of(ShiftReservation.Status.APPLIED));
+            if (!reservationsToReset.isEmpty()) {
+                reservationsToReset.forEach(res -> res.setStatus(ShiftReservation.Status.PENDING));
+                reservationRepository.saveAll(reservationsToReset);
+            }
             Map<String, Object> meta = new HashMap<>();
             meta.put("year", target.getYear());
             meta.put("month", target.getMonthValue());
@@ -209,6 +219,35 @@ public class ScheduleController {
             return ResponseEntity.ok(ApiResponse.success("対象月のシフトをリセットしました", meta));
         } catch (Exception e) {
             return ResponseEntity.internalServerError().body(ApiResponse.failure("リセットに失敗しました"));
+        }
+    }
+
+    @GetMapping("/grid")
+    public ResponseEntity<ApiResponse<ScheduleGridResponse>> getGrid(
+            @RequestParam(name = "start", required = false) LocalDate start,
+            @RequestParam(name = "end", required = false) LocalDate end) {
+        try {
+            ScheduleGridResponse grid = scheduleService.loadGrid(start, end);
+            return ResponseEntity.ok(ApiResponse.success("グリッドを取得しました", grid));
+        } catch (BusinessException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("/api/schedule/grid failed", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("グリッドの取得に失敗しました"));
+        }
+    }
+
+    @PostMapping("/grid/bulk")
+    public ResponseEntity<ApiResponse<ScheduleGridBulkResult>> applyGrid(
+            @RequestBody ScheduleGridBulkRequest request) {
+        try {
+            ScheduleGridBulkResult result = scheduleService.applyGridChanges(request);
+            return ResponseEntity.ok(ApiResponse.success("変更を保存しました", result));
+        } catch (BusinessException e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure(e.getMessage()));
+        } catch (Exception e) {
+            logger.error("/api/schedule/grid/bulk failed", e);
+            return ResponseEntity.internalServerError().body(ApiResponse.failure("変更の保存に失敗しました"));
         }
     }
 

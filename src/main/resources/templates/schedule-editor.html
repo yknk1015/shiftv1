@@ -1,0 +1,787 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>シフトグリッド調整</title>
+    <style>
+        :root {
+            color-scheme: light;
+        }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            background-color: #f4f6f8;
+        }
+        .page {
+            max-width: 1600px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        header h1 {
+            font-size: 22px;
+            margin: 0;
+            color: #1f2933;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        .controls label {
+            font-size: 12px;
+            color: #4c566a;
+            display: block;
+            margin-bottom: 4px;
+        }
+        .controls input,
+        .controls select {
+            padding: 8px 10px;
+            border: 1px solid #d0d5dd;
+            border-radius: 6px;
+            font-size: 14px;
+            min-width: 120px;
+        }
+        .btn {
+            border: none;
+            border-radius: 6px;
+            padding: 10px 18px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+        .btn-primary {
+            background-color: #2563eb;
+            color: #fff;
+        }
+        .btn-secondary {
+            background-color: #e4e7ec;
+            color: #1f2933;
+        }
+        .btn-danger {
+            background-color: #dc2626;
+            color: #fff;
+        }
+        .btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .layout {
+            display: grid;
+            grid-template-columns: 1fr 320px;
+            gap: 16px;
+        }
+        .grid-panel,
+        .editor-panel {
+            background: #fff;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(15, 23, 42, 0.08);
+            padding: 16px;
+        }
+        .grid-wrapper {
+            overflow-x: auto;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            min-width: 900px;
+        }
+        th, td {
+            border: 1px solid #e5e7eb;
+            min-width: 140px;
+            vertical-align: top;
+        }
+        th {
+            background-color: #f8fafc;
+            font-weight: 600;
+            font-size: 13px;
+            padding: 10px;
+            color: #1f2933;
+        }
+        td {
+            padding: 6px;
+            background-color: #fff;
+        }
+        .employee-cell {
+            font-weight: 600;
+            background-color: #f3f4f6;
+            position: sticky;
+            left: 0;
+            z-index: 2;
+            min-width: 160px;
+        }
+        .grid-cell {
+            min-height: 88px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            background-image: linear-gradient(180deg, rgba(15,23,42,0.02), rgba(15,23,42,0.02));
+        }
+        .grid-cell.active {
+            outline: 2px solid #2563eb;
+            outline-offset: -1px;
+        }
+        .grid-cell.dirty {
+            background-color: #fff9db;
+        }
+        .shift-card {
+            border-radius: 6px;
+            padding: 6px 8px;
+            font-size: 12px;
+            background-color: #e0f2fe;
+            color: #0f172a;
+            cursor: grab;
+            border: 1px solid #bae6fd;
+            user-select: none;
+        }
+        .shift-card.free {
+            background-color: #fef3c7;
+            border-color: #fde68a;
+        }
+        .shift-card.off {
+            background-color: #fee2e2;
+            border-color: #fecaca;
+        }
+        .shift-card.selected {
+            box-shadow: 0 0 0 2px #2563eb inset;
+        }
+        .shift-card.dirty {
+            border-style: dashed;
+            border-color: #f97316;
+        }
+        .editor-panel h2 {
+            font-size: 16px;
+            margin-top: 0;
+            color: #111827;
+        }
+        .form-group {
+            margin-bottom: 12px;
+        }
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 8px 10px;
+            border: 1px solid #d0d5dd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        .chip-row {
+            display: flex;
+            gap: 8px;
+        }
+        .chip-row label {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 13px;
+            color: #334155;
+        }
+        .status-bar {
+            margin-top: 12px;
+            font-size: 13px;
+            color: #475569;
+        }
+        .message {
+            margin-top: 8px;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 13px;
+            display: none;
+        }
+        .message.show {
+            display: block;
+        }
+        .message.success {
+            background-color: #ecfdf5;
+            color: #065f46;
+        }
+        .message.error {
+            background-color: #fef2f2;
+            color: #b91c1c;
+        }
+        @media (max-width: 1100px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+            .employee-cell {
+                position: static;
+            }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <h1>シフトグリッド最終調整</h1>
+        <div>
+            <button class="btn btn-secondary" id="discardBtn">変更を破棄</button>
+            <button class="btn btn-primary" id="saveBtn">保存</button>
+        </div>
+    </header>
+
+    <section class="controls">
+        <div>
+            <label for="startDate">開始日</label>
+            <input type="date" id="startDate">
+        </div>
+        <div>
+            <label for="viewMode">ビュー</label>
+            <select id="viewMode">
+                <option value="week">週次 (7日)</option>
+                <option value="month">月次</option>
+                <option value="custom">自由入力</option>
+            </select>
+        </div>
+        <div>
+            <label for="endDate">終了日</label>
+            <input type="date" id="endDate">
+        </div>
+        <div style="align-self: flex-end;">
+            <button class="btn btn-secondary" id="loadBtn">読み込み</button>
+        </div>
+        <div class="status-bar" id="metaInfo"></div>
+    </section>
+
+    <div class="layout">
+        <section class="grid-panel">
+            <div class="grid-wrapper">
+                <table id="gridTable">
+                    <thead></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </section>
+        <section class="editor-panel">
+            <h2>セル/シフト編集</h2>
+            <div class="form-group">
+                <label for="employeeSelect">従業員</label>
+                <select id="employeeSelect"></select>
+            </div>
+            <div class="form-group">
+                <label for="workDateInput">日付</label>
+                <input type="date" id="workDateInput">
+            </div>
+            <div class="form-group">
+                <label for="shiftNameInput">シフト名</label>
+                <input type="text" id="shiftNameInput" placeholder="例: Manual / Demand-A">
+            </div>
+            <div class="form-group chip-row">
+                <div>
+                    <label for="startTimeInput">開始</label>
+                    <input type="time" id="startTimeInput" step="900">
+                </div>
+                <div>
+                    <label for="endTimeInput">終了</label>
+                    <input type="time" id="endTimeInput" step="900">
+                </div>
+            </div>
+            <div class="form-group chip-row">
+                <label><input type="checkbox" id="flagFree"> FREE</label>
+                <label><input type="checkbox" id="flagOff"> 休日</label>
+                <label><input type="checkbox" id="flagLeave"> 有給</label>
+            </div>
+            <div class="form-group chip-row">
+                <button class="btn btn-secondary" id="newBtn">新規追加</button>
+                <button class="btn btn-primary" id="updateBtn">選択を更新</button>
+                <button class="btn btn-danger" id="deleteBtn">削除</button>
+            </div>
+            <div class="status-bar" id="selectionInfo">未選択</div>
+            <div class="status-bar" id="pendingInfo">未保存の変更: 0 件</div>
+            <div class="message" id="messageBox"></div>
+        </section>
+    </div>
+</div>
+
+<script>
+(() => {
+    const state = {
+        employees: [],
+        days: [],
+        assignments: new Map(),
+        pending: { create: [], update: [], delete: [] },
+        clipboard: null,
+        selectedAssignmentId: null,
+        activeCellKey: null,
+        tempCounter: 0
+    };
+
+    const dom = {
+        startDate: document.getElementById('startDate'),
+        endDate: document.getElementById('endDate'),
+        viewMode: document.getElementById('viewMode'),
+        loadBtn: document.getElementById('loadBtn'),
+        saveBtn: document.getElementById('saveBtn'),
+        discardBtn: document.getElementById('discardBtn'),
+        gridTable: document.getElementById('gridTable'),
+        employeeSelect: document.getElementById('employeeSelect'),
+        workDateInput: document.getElementById('workDateInput'),
+        shiftNameInput: document.getElementById('shiftNameInput'),
+        startTimeInput: document.getElementById('startTimeInput'),
+        endTimeInput: document.getElementById('endTimeInput'),
+        flagFree: document.getElementById('flagFree'),
+        flagOff: document.getElementById('flagOff'),
+        flagLeave: document.getElementById('flagLeave'),
+        newBtn: document.getElementById('newBtn'),
+        updateBtn: document.getElementById('updateBtn'),
+        deleteBtn: document.getElementById('deleteBtn'),
+        selectionInfo: document.getElementById('selectionInfo'),
+        pendingInfo: document.getElementById('pendingInfo'),
+        messageBox: document.getElementById('messageBox'),
+        metaInfo: document.getElementById('metaInfo')
+    };
+
+    const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+
+    function initDates() {
+        const today = new Date();
+        const monday = new Date(today);
+        const day = monday.getDay();
+        const diff = (day === 0 ? -6 : 1 - day);
+        monday.setDate(monday.getDate() + diff);
+        const weekEnd = new Date(monday);
+        weekEnd.setDate(weekEnd.getDate() + 6);
+        dom.startDate.value = formatInputDate(monday);
+        dom.endDate.value = formatInputDate(weekEnd);
+    }
+
+    function formatInputDate(date) {
+        return date.toISOString().slice(0, 10);
+    }
+
+    function adjustEndByMode() {
+        const mode = dom.viewMode.value;
+        if (mode === 'custom') return;
+        if (!dom.startDate.value) return;
+        const start = new Date(dom.startDate.value);
+        if (mode === 'week') {
+            const end = new Date(start);
+            end.setDate(end.getDate() + 6);
+            dom.endDate.value = formatInputDate(end);
+        } else if (mode === 'month') {
+            const end = new Date(start);
+            end.setMonth(end.getMonth() + 1, 0);
+            dom.endDate.value = formatInputDate(end);
+        }
+    }
+
+    dom.viewMode.addEventListener('change', adjustEndByMode);
+    dom.startDate.addEventListener('change', adjustEndByMode);
+
+    dom.loadBtn.addEventListener('click', () => loadGrid());
+    dom.discardBtn.addEventListener('click', () => {
+        resetPending();
+        loadGrid();
+    });
+    dom.saveBtn.addEventListener('click', saveChanges);
+    dom.newBtn.addEventListener('click', handleCreate);
+    dom.updateBtn.addEventListener('click', handleUpdate);
+    dom.deleteBtn.addEventListener('click', handleDelete);
+
+    function setMessage(text, type = 'success') {
+        dom.messageBox.textContent = text;
+        dom.messageBox.className = `message show ${type === 'error' ? 'error' : 'success'}`;
+        if (text) {
+            setTimeout(() => dom.messageBox.classList.remove('show'), 4500);
+        }
+    }
+
+    async function loadGrid() {
+        if (!dom.startDate.value || !dom.endDate.value) {
+            setMessage('開始日と終了日を入力してください', 'error');
+            return;
+        }
+        try {
+            dom.metaInfo.textContent = '読み込み中...';
+            const params = new URLSearchParams({
+                start: dom.startDate.value,
+                end: dom.endDate.value
+            });
+            const res = await fetch(`/api/schedule/grid?${params.toString()}`);
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message || '取得に失敗しました');
+            const data = json.data;
+            state.days = buildDayList(data.startDate, data.endDate);
+            state.employees = data.employees || [];
+            populateEmployeeSelect();
+            state.assignments.clear();
+            (data.assignments || []).forEach(assign => {
+                state.assignments.set(String(assign.id), {
+                    ...assign,
+                    clientId: String(assign.id),
+                    isTemp: false
+                });
+            });
+            resetPending();
+            renderGrid();
+            dom.metaInfo.textContent = `期間: ${data.startDate} 〜 ${data.endDate} / 従業員 ${state.employees.length} / シフト ${data.assignments.length}`;
+            setMessage('グリッドを読み込みました', 'success');
+        } catch (err) {
+            console.error(err);
+            setMessage(err.message, 'error');
+            dom.metaInfo.textContent = '';
+        }
+    }
+
+    function buildDayList(startStr, endStr) {
+        const days = [];
+        const start = new Date(startStr);
+        const end = new Date(endStr);
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            days.push(formatInputDate(d));
+        }
+        return days;
+    }
+
+    function populateEmployeeSelect() {
+        dom.employeeSelect.innerHTML = '';
+        state.employees.forEach(emp => {
+            const option = document.createElement('option');
+            option.value = emp.id;
+            option.textContent = emp.name + (emp.role ? ` (${emp.role})` : '');
+            dom.employeeSelect.appendChild(option);
+        });
+    }
+
+    function groupAssignments() {
+        const grouped = new Map();
+        state.assignments.forEach(assign => {
+            const key = `${assign.employeeId}:${assign.workDate}`;
+            if (!grouped.has(key)) grouped.set(key, []);
+            grouped.get(key).push(assign);
+        });
+        grouped.forEach(list => list.sort((a, b) => (a.startTime || '').localeCompare(b.startTime || '')));
+        return grouped;
+    }
+
+    function renderGrid() {
+        const grouped = groupAssignments();
+        const thead = dom.gridTable.querySelector('thead');
+        const tbody = dom.gridTable.querySelector('tbody');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        const headerRow = document.createElement('tr');
+        const nameTh = document.createElement('th');
+        nameTh.textContent = '従業員';
+        headerRow.appendChild(nameTh);
+        state.days.forEach(dateStr => {
+            const th = document.createElement('th');
+            const wd = weekdays[new Date(dateStr).getDay()];
+            th.textContent = `${dateStr} (${wd})`;
+            headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+
+        state.employees.forEach(emp => {
+            const tr = document.createElement('tr');
+            const empTd = document.createElement('td');
+            empTd.className = 'employee-cell';
+            empTd.textContent = emp.name;
+            tr.appendChild(empTd);
+            state.days.forEach(dateStr => {
+                const td = document.createElement('td');
+                const key = `${emp.id}:${dateStr}`;
+                const cell = document.createElement('div');
+                cell.className = 'grid-cell';
+                cell.dataset.employeeId = emp.id;
+                cell.dataset.date = dateStr;
+                if (state.activeCellKey === key) cell.classList.add('active');
+                cell.addEventListener('click', () => selectCell(cell));
+                cell.addEventListener('dragover', evt => evt.preventDefault());
+                cell.addEventListener('drop', evt => handleDrop(evt, cell));
+                const assignments = grouped.get(key) || [];
+                assignments.forEach(assign => {
+                    const card = renderCard(assign);
+                    cell.appendChild(card);
+                });
+                if (assignments.some(a => a.dirty)) {
+                    cell.classList.add('dirty');
+                }
+                td.appendChild(cell);
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+        updatePendingSummary();
+    }
+
+    function renderCard(assign) {
+        const div = document.createElement('div');
+        div.className = 'shift-card';
+        div.draggable = true;
+        div.dataset.assignmentId = assign.clientId;
+        if (assign.isFree) div.classList.add('free');
+        if (assign.isOff || assign.isLeave) div.classList.add('off');
+        if (assign.dirty) div.classList.add('dirty');
+        if (state.selectedAssignmentId === assign.clientId) {
+            div.classList.add('selected');
+        }
+        div.textContent = buildCardLabel(assign);
+        div.addEventListener('click', evt => {
+            evt.stopPropagation();
+            selectAssignment(assign.clientId);
+        });
+        div.addEventListener('dragstart', evt => {
+            evt.dataTransfer.setData('text/plain', assign.clientId);
+        });
+        return div;
+    }
+
+    function buildCardLabel(assign) {
+        if (assign.isFree) return 'FREE';
+        if (assign.isOff) return assign.isLeave ? '有給' : '休日';
+        const times = assign.startTime && assign.endTime ? `${assign.startTime} - ${assign.endTime}` : '';
+        return `${assign.shiftName || 'Manual'} ${times}`.trim();
+    }
+
+    function selectCell(cell) {
+        state.activeCellKey = `${cell.dataset.employeeId}:${cell.dataset.date}`;
+        dom.workDateInput.value = cell.dataset.date;
+        dom.employeeSelect.value = cell.dataset.employeeId;
+        highlightSelection();
+    }
+
+    function selectAssignment(clientId) {
+        const assign = state.assignments.get(clientId);
+        if (!assign) return;
+        state.selectedAssignmentId = clientId;
+        dom.employeeSelect.value = assign.employeeId;
+        dom.workDateInput.value = assign.workDate;
+        dom.shiftNameInput.value = assign.shiftName || '';
+        dom.startTimeInput.value = assign.startTime || '';
+        dom.endTimeInput.value = assign.endTime || '';
+        dom.flagFree.checked = !!assign.isFree;
+        dom.flagOff.checked = !!assign.isOff;
+        dom.flagLeave.checked = !!assign.isLeave;
+        dom.selectionInfo.textContent = `選択中: ${assign.employeeName || ''} (${assign.workDate})`;
+        highlightSelection();
+    }
+
+    function highlightSelection() {
+        document.querySelectorAll('.grid-cell').forEach(cell => {
+            const key = `${cell.dataset.employeeId}:${cell.dataset.date}`;
+            cell.classList.toggle('active', key === state.activeCellKey);
+        });
+        document.querySelectorAll('.shift-card').forEach(card => {
+            card.classList.toggle('selected', card.dataset.assignmentId === state.selectedAssignmentId);
+        });
+    }
+
+    function collectFormValues() {
+        return {
+            employeeId: Number(dom.employeeSelect.value),
+            workDate: dom.workDateInput.value,
+            shiftName: dom.shiftNameInput.value.trim(),
+            startTime: dom.startTimeInput.value || null,
+            endTime: dom.endTimeInput.value || null,
+            isFree: dom.flagFree.checked,
+            isOff: dom.flagOff.checked,
+            isLeave: dom.flagLeave.checked
+        };
+    }
+
+    function validateForm(payload) {
+        if (!payload.employeeId) throw new Error('従業員を選択してください');
+        if (!payload.workDate) throw new Error('日付を入力してください');
+        if (!payload.startTime || !payload.endTime) throw new Error('開始・終了時刻を入力してください');
+        if (payload.startTime >= payload.endTime) throw new Error('終了時刻は開始より後にしてください');
+    }
+
+    function handleCreate() {
+        try {
+            const payload = collectFormValues();
+            validateForm(payload);
+            const clientId = `tmp-${++state.tempCounter}`;
+            const employee = state.employees.find(e => Number(e.id) === payload.employeeId);
+            state.pending.create.push({ ...payload, clientId });
+            const assign = {
+                ...payload,
+                id: clientId,
+                clientId,
+                employeeName: employee ? employee.name : '',
+                isTemp: true,
+                dirty: true
+            };
+            state.assignments.set(clientId, assign);
+            state.activeCellKey = `${payload.employeeId}:${payload.workDate}`;
+            selectAssignment(clientId);
+            renderGrid();
+            setMessage('新しいシフトを追加しました', 'success');
+        } catch (err) {
+            setMessage(err.message, 'error');
+        }
+    }
+
+    function handleUpdate() {
+        if (!state.selectedAssignmentId) {
+            setMessage('更新するシフトを選択してください', 'error');
+            return;
+        }
+        const assign = state.assignments.get(state.selectedAssignmentId);
+        if (!assign) return;
+        try {
+            const payload = collectFormValues();
+            validateForm(payload);
+            Object.assign(assign, payload, { dirty: true });
+            if (assign.isTemp) {
+                const idx = state.pending.create.findIndex(p => p.clientId === assign.clientId);
+                if (idx >= 0) state.pending.create[idx] = { ...payload, clientId: assign.clientId };
+            } else {
+                stageUpdatePayload(assign.id, payload);
+            }
+            state.assignments.set(assign.clientId, assign);
+            state.activeCellKey = `${payload.employeeId}:${payload.workDate}`;
+            renderGrid();
+            setMessage('シフトを更新しました', 'success');
+        } catch (err) {
+            setMessage(err.message, 'error');
+        }
+    }
+
+    function stageUpdatePayload(id, payload) {
+        const normalized = {
+            id: Number(id),
+            employeeId: payload.employeeId,
+            workDate: payload.workDate,
+            startTime: payload.startTime,
+            endTime: payload.endTime,
+            shiftName: payload.shiftName,
+            isFree: payload.isFree,
+            isOff: payload.isOff,
+            isLeave: payload.isLeave
+        };
+        const idx = state.pending.update.findIndex(p => p.id === normalized.id);
+        if (idx >= 0) state.pending.update[idx] = normalized;
+        else state.pending.update.push(normalized);
+    }
+
+    function handleDelete() {
+        if (!state.selectedAssignmentId) {
+            setMessage('削除するシフトを選択してください', 'error');
+            return;
+        }
+        const assign = state.assignments.get(state.selectedAssignmentId);
+        if (!assign) return;
+        if (assign.isTemp) {
+            state.pending.create = state.pending.create.filter(p => p.clientId !== assign.clientId);
+        } else {
+            if (!state.pending.delete.includes(assign.id)) {
+                state.pending.delete.push(assign.id);
+            }
+            state.pending.update = state.pending.update.filter(p => p.id !== assign.id);
+        }
+        state.assignments.delete(assign.clientId);
+        state.selectedAssignmentId = null;
+        state.selectionInfo.textContent = '未選択';
+        renderGrid();
+        setMessage('シフトを削除に追加しました', 'success');
+    }
+
+    function handleDrop(evt, cell) {
+        evt.preventDefault();
+        const assignmentId = evt.dataTransfer.getData('text/plain');
+        const assign = state.assignments.get(assignmentId);
+        if (!assign) return;
+        const payload = {
+            employeeId: Number(cell.dataset.employeeId),
+            workDate: cell.dataset.date,
+            shiftName: assign.shiftName || '',
+            startTime: assign.startTime,
+            endTime: assign.endTime,
+            isFree: assign.isFree,
+            isOff: assign.isOff,
+            isLeave: assign.isLeave
+        };
+        if (assign.isTemp) {
+            const idx = state.pending.create.findIndex(p => p.clientId === assign.clientId);
+            if (idx >= 0) state.pending.create[idx] = { ...state.pending.create[idx], ...payload };
+        } else {
+            stageUpdatePayload(assign.id, payload);
+        }
+        Object.assign(assign, payload, { dirty: true });
+        state.assignments.set(assign.clientId, assign);
+        renderGrid();
+    }
+
+    async function saveChanges() {
+        if (!state.pending.create.length && !state.pending.update.length && !state.pending.delete.length) {
+            setMessage('保存する変更がありません', 'error');
+            return;
+        }
+        try {
+            dom.saveBtn.disabled = true;
+            const body = {
+                create: state.pending.create.map(({ clientId, ...rest }) => rest),
+                update: state.pending.update,
+                delete: state.pending.delete
+            };
+            const res = await fetch('/api/schedule/grid/bulk', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            });
+            const json = await res.json();
+            if (!json.success) throw new Error(json.message || '保存に失敗しました');
+            setMessage('変更を保存しました', 'success');
+            resetPending();
+            await loadGrid();
+        } catch (err) {
+            console.error(err);
+            setMessage(err.message, 'error');
+        } finally {
+            dom.saveBtn.disabled = false;
+        }
+    }
+
+    function resetPending() {
+        state.pending = { create: [], update: [], delete: [] };
+        state.selectedAssignmentId = null;
+        state.clipboard = null;
+        updatePendingSummary();
+    }
+
+    function updatePendingSummary() {
+        const total = state.pending.create.length + state.pending.update.length + state.pending.delete.length;
+        dom.pendingInfo.textContent = `未保存の変更: ${total} 件 (追加 ${state.pending.create.length} / 更新 ${state.pending.update.length} / 削除 ${state.pending.delete.length})`;
+    }
+
+    document.addEventListener('keydown', evt => {
+        if (!evt.ctrlKey) return;
+        if (evt.key === 'c' && state.selectedAssignmentId) {
+            state.clipboard = { ...state.assignments.get(state.selectedAssignmentId) };
+            setMessage('コピーしました', 'success');
+        }
+        if (evt.key === 'v' && state.clipboard && dom.employeeSelect.value && dom.workDateInput.value) {
+            const payload = {
+                employeeId: Number(dom.employeeSelect.value),
+                workDate: dom.workDateInput.value,
+                shiftName: state.clipboard.shiftName,
+                startTime: state.clipboard.startTime,
+                endTime: state.clipboard.endTime,
+                isFree: state.clipboard.isFree,
+                isOff: state.clipboard.isOff,
+                isLeave: state.clipboard.isLeave
+            };
+            const clientId = `tmp-${++state.tempCounter}`;
+            state.pending.create.push({ ...payload, clientId });
+            state.assignments.set(clientId, { ...payload, id: clientId, clientId, isTemp: true, dirty: true });
+            renderGrid();
+            setMessage('貼り付けました', 'success');
+        }
+    });
+
+    initDates();
+    adjustEndByMode();
+    loadGrid();
+})();
+</script>
+</body>
+</html>
+

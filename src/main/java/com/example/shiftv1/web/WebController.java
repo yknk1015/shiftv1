@@ -57,6 +57,12 @@ public class WebController {
     @GetMapping("/employee-master")
     public String employeeMaster() { return "employee-master"; }
 
+    @GetMapping("/holidays")
+    public String holidays() { return "holidays"; }
+
+    @GetMapping("/schedule-editor")
+    public String scheduleEditor() { return "schedule-editor"; }
+
     // Removed: skill-patterns page (unused placeholder)
 
     @GetMapping("/pairing-settings")

@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
@@ -538,13 +538,28 @@
                 <span id="user-info" class="user-info">ログイン情報を取得しています...</span>
                 <div class="user-buttons">
                     <button class="button" onclick="location.href='/rules-management'">ルール管理</button>
+                    <button class="button ghost" onclick="location.href='/schedule-editor'">シフトグリッド編集</button>
                     <button class="button ghost" id="open-calendar">カレンダー</button>
                     <button class="button danger" onclick="logout()">ログアウト</button>
-    </div>
-    
-    <!-- Manual schedule editor (independent from other UI) -->
-    <div class="grid">
-        <section class="card" id="manual-edit-card">
+                </div>
+            </div>
+        </header>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end; margin: 8px 0 12px;">
+            <button class="button" onclick="location.href='/warnings'">Warnings</button>
+            <button class="button" onclick="location.href='/pairing-settings'">Pairing</button>
+            <button class="button" onclick="location.href='/demand'">Demand</button>
+            <button class="button" onclick="location.href='/demand-analytics'">Demand Analytics</button>
+            <button class="button" onclick="location.href='/leave'">Leave</button>
+            <button class="button" onclick="location.href='/calendar'">Calendar</button>
+            <button class="button" onclick="location.href='/skill-management'">Skill Management</button>
+            <button class="button" onclick="location.href='/employee-master'">Employee Master</button>
+            <button class="button" onclick="location.href='/holidays'">Holidays</button>
+            <button class="button" onclick="location.href='/rules-management'">Rules</button>
+            <button class="button" onclick="location.href='/admin-debug'">Admin Debug</button>
+            <button class="button ghost" id="download-csv">CSVダウンロード</button>
+        </div>
+<section class="card" id="reservation-card">
             <div class="section-header compact">
                 <h2>シフトの手動編集</h2>
             </div>
@@ -641,6 +656,42 @@
                     </thead>
                     <tbody id="res-list"></tbody>
                 </table>
+            </div>
+            <div class="timeline-panel" style="margin-top:24px;">
+                <h3 style="margin:0 0 12px;">タイムライン（プレビュー）と一時需要</h3>
+                <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap;">
+                    <label>粒度
+                        <select id="t_gran">
+                            <option value="15">15分</option>
+                            <option value="30">30分</option>
+                            <option value="60" selected>60分</option>
+                        </select>
+                    </label>
+                    <label>スキル
+                        <select id="t_skill" style="min-width:140px;">
+                            <option value="">すべて</option>
+                        </select>
+                    </label>
+                    <button class="button ghost" type="button" id="t_refresh">プレビュー更新</button>
+                </div>
+                <div class="row" style="gap:12px; align-items:flex-end; flex-wrap:wrap; margin-top:10px;">
+                    <strong style="font-size:14px;">一時需要の追加</strong>
+                    <label>開始<input type="time" id="b_start" value="12:00" /></label>
+                    <label>終了<input type="time" id="b_end" value="13:00" /></label>
+                    <label>座席<input type="number" id="b_seats" value="1" min="1" style="width:90px;" /></label>
+                    <label>スキル
+                        <select id="b_skill" style="min-width:140px;">
+                            <option value="">未指定</option>
+                        </select>
+                    </label>
+                    <button class="button" id="b_add" type="button">追加</button>
+                    <span id="b_msg" class="muted"></span>
+                </div>
+                <div class="muted" style="margin-top:6px;">※ 事前シフト予約の日付を基準に表示します。</div>
+                <div class="timeline-grid" style="display:grid; grid-template-columns:140px 1fr; gap:8px; margin-top:12px;">
+                    <div id="t_times" style="border:1px solid #e2e8f0; border-radius:10px; background:#fff;"></div>
+                    <div id="t_rows" style="border:1px solid #e2e8f0; border-radius:10px; background:#fff;"></div>
+                </div>
             </div>
         </section>
     </div>
@@ -1099,6 +1150,7 @@
                 }
                 await loadStatistics();
                 await loadDataStats();
+                await window.refreshReservationList?.();
             } catch (error) {
                 setMessage('schedule-message', error.message || 'シフト生成に失敗しました。', 'error');
             } finally {
@@ -1119,6 +1171,7 @@
                 await loadSchedule();
                 await loadStatistics();
                 await loadDataStats();
+                await window.refreshReservationList?.();
             } catch (error) {
                 setMessage('schedule-message', error.message || 'シフト初期化に失敗しました。', 'error');
             } finally {
@@ -2204,9 +2257,16 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
         try {
           const res = await callApi2('/api/skills');
           const list = res.data || [];
-          const sel = document.getElementById('res-skill');
-          if (!sel) return;
-          sel.innerHTML = '<option value=\"\">指定なし</option>' + list.map(s => `<option value="${s.id}">${s.code || s.name || ('Skill#' + s.id)}</option>`).join('');
+          const optionHtml = list.map(s => `<option value="${s.id}">${s.code || s.name || ('Skill#' + s.id)}</option>`).join('');
+          const applyOptions = (id, fallbackLabel) => {
+            const select = document.getElementById(id);
+            if (!select) return;
+            const placeholder = select.querySelector('option[value=""]')?.textContent || fallbackLabel || '未選択';
+            select.innerHTML = `<option value="">${placeholder}</option>${optionHtml}`;
+          };
+          applyOptions('res-skill', '未選択');
+          applyOptions('t_skill', 'すべて');
+          applyOptions('b_skill', 'スキル未指定');
         } catch (_e) { }
       }
 
@@ -2341,6 +2401,88 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
         }
       }
 
+      async function loadTimelineGrid() {
+        const timesCol = document.getElementById('t_times');
+        const rowsCol = document.getElementById('t_rows');
+        if (!timesCol || !rowsCol) return;
+        const date = document.getElementById('res-date')?.value;
+        if (!date) {
+          timesCol.innerHTML = '';
+          rowsCol.innerHTML = '<div class="muted">日付を選択するとタイムラインを表示します</div>';
+          return;
+        }
+        const gran = document.getElementById('t_gran')?.value || '60';
+        const skillId = document.getElementById('t_skill')?.value || '';
+        rowsCol.innerHTML = '<div class="muted">読み込み中...</div>';
+        timesCol.innerHTML = '';
+        try {
+          let url = `/api/schedule/grid/day?date=${date}&granularity=${gran}`;
+          if (skillId) url += `&skillId=${skillId}`;
+          const res = await fetch(url, { credentials: 'include' });
+          if (!res.ok) throw new Error('タイムラインの取得に失敗しました');
+          const data = await res.json();
+          const slots = (data && data.data && data.data.slots) || [];
+          if (!slots.length) {
+            rowsCol.innerHTML = '<div class="muted">データがありません</div>';
+            return;
+          }
+          timesCol.innerHTML = slots.map(s => `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${s.start}</div>`).join('');
+          rowsCol.innerHTML = slots.map(s => {
+            const badgeColor = (s.shortage || 0) > 0 ? '#fee2e2' : '#e0f2fe';
+            const badgeText = (s.shortage || 0) > 0 ? '#7f1d1d' : '#075985';
+            const badge = `<span style="margin-right:10px; padding:2px 8px; border-radius:999px; font-size:12px; background:${badgeColor}; color:${badgeText};">${s.assigned}/${s.required}</span>`;
+            const names = (s.employees || []).map(n => `<span style="background:#eef2ff; color:#3730a3; border-radius:999px; padding:2px 8px; margin:0 4px 4px 0; display:inline-block;">${n}</span>`).join('');
+            return `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${badge}${names || '<span class="muted">割当なし</span>'}</div>`;
+          }).join('');
+        } catch (err) {
+          rowsCol.innerHTML = `<div class="muted">${err.message || 'タイムラインの取得に失敗しました'}</div>`;
+        }
+      }
+
+      async function addBoostDemand() {
+        const msg = document.getElementById('b_msg');
+        if (!msg) return;
+        const date = document.getElementById('res-date')?.value;
+        if (!date) {
+          msg.textContent = '日付を選択してください';
+          msg.style.color = '#b91c1c';
+          return;
+        }
+        const start = document.getElementById('b_start')?.value;
+        const end = document.getElementById('b_end')?.value;
+        let seats = Number(document.getElementById('b_seats')?.value || 1);
+        const skillId = document.getElementById('b_skill')?.value;
+        if (!start || !end || start >= end) {
+          msg.textContent = '時間帯を確認してください';
+          msg.style.color = '#b91c1c';
+          return;
+        }
+        if (seats < 1) seats = 1;
+        try {
+          await callApi2('/api/demand', {
+            method: 'POST',
+            body: JSON.stringify({
+              date,
+              dayOfWeek: null,
+              startTime: start,
+              endTime: end,
+              requiredSeats: seats,
+              skillId: skillId ? Number(skillId) : null
+            })
+          });
+          msg.textContent = '一時需要を追加しました';
+          msg.style.color = '#15803d';
+          await loadTimelineGrid();
+          const viewerDate = document.getElementById('view-date');
+          if (viewerDate && viewerDate.value === date) {
+            await loadEffective();
+          }
+        } catch (err) {
+          msg.textContent = err.message || '追加に失敗しました';
+          msg.style.color = '#b91c1c';
+        }
+      }
+
       async function downloadScheduleCsv() {
         const { year, month } = getSelectedYearMonth();
         const btn = document.getElementById('download-csv');
@@ -2370,17 +2512,26 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
       document.getElementById('res-bulk-delete')?.addEventListener('click', deleteReservationsInRange);
       document.getElementById('res-clear')?.addEventListener('click', () => clearReservationForm(false));
       document.getElementById('res-employee')?.addEventListener('change', () => setReservationMessage('', ''));
+      document.getElementById('res-date')?.addEventListener('change', loadTimelineGrid);
+      document.getElementById('t_gran')?.addEventListener('change', loadTimelineGrid);
+      document.getElementById('t_skill')?.addEventListener('change', loadTimelineGrid);
+      document.getElementById('t_refresh')?.addEventListener('click', loadTimelineGrid);
+      document.getElementById('b_add')?.addEventListener('click', addBoostDemand);
       document.getElementById('download-csv')?.addEventListener('click', downloadScheduleCsv);
       document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
       document.getElementById('man-date')?.addEventListener('change', refreshManualList);
       document.getElementById('year-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
       document.getElementById('month-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
+      window.refreshReservationList = refreshReservationList;
 
       ensureManualHeader();
       initReservationDefaults();
-      loadSkillsForReservation();
+      loadSkillsForReservation()
+        .then(() => loadTimelineGrid())
+        .catch(() => loadTimelineGrid());
       refreshReservationList();
     })();
   </script>
 </body>
 </html>
+

@@ -1,6 +1,7 @@
 package com.example.shiftv1.demand;
 
 import com.example.shiftv1.common.ApiResponse;
+import com.example.shiftv1.holiday.HolidayRepository;
 import com.example.shiftv1.skill.Skill;
 import com.example.shiftv1.skill.SkillRepository;
 import jakarta.validation.Valid;
@@ -18,22 +19,29 @@ public class DemandController {
 
     private final DemandIntervalRepository repository;
     private final SkillRepository skillRepository;
+    private final HolidayRepository holidayRepository;
 
-    public DemandController(DemandIntervalRepository repository, SkillRepository skillRepository) {
+    public DemandController(DemandIntervalRepository repository,
+                            SkillRepository skillRepository,
+                            HolidayRepository holidayRepository) {
         this.repository = repository;
         this.skillRepository = skillRepository;
+        this.holidayRepository = holidayRepository;
     }
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<DemandInterval>>> list(
             @RequestParam(value = "date", required = false) LocalDate date,
-            @RequestParam(value = "dayOfWeek", required = false) DayOfWeek dayOfWeek
+            @RequestParam(value = "dayOfWeek", required = false) DayOfWeek dayOfWeek,
+            @RequestParam(value = "holidayOnly", required = false) Boolean holidayOnly
     ) {
         List<DemandInterval> data;
         if (date != null) {
             data = repository.findByDateOrderBySortOrderAscIdAsc(date);
         } else if (dayOfWeek != null) {
             data = repository.findByDayOfWeekOrderBySortOrderAscIdAsc(dayOfWeek);
+        } else if (Boolean.TRUE.equals(holidayOnly)) {
+            data = repository.findByHolidayOnlyTrueOrderBySortOrderAscIdAsc();
         } else {
             data = repository.findAllByOrderBySortOrderAscIdAsc();
         }
@@ -42,7 +50,13 @@ public class DemandController {
 
     @GetMapping("/effective")
     public ResponseEntity<ApiResponse<List<DemandInterval>>> effective(@RequestParam("date") LocalDate date) {
-        List<DemandInterval> data = repository.findEffectiveForDate(date, date.getDayOfWeek());
+        boolean isHoliday;
+        try {
+            isHoliday = holidayRepository.existsByDate(date);
+        } catch (Exception e) {
+            isHoliday = false;
+        }
+        List<DemandInterval> data = repository.findEffectiveForDate(date, date.getDayOfWeek(), isHoliday);
         return ResponseEntity.ok(ApiResponse.success("�����̎��v�C���^�[�o�����擾���܂���", data));
     }
 
@@ -91,7 +105,8 @@ public class DemandController {
         }
 
         for (java.time.LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            java.util.List<DemandInterval> intervals = repository.findEffectiveForDate(day, day.getDayOfWeek());
+            boolean isHoliday = isHoliday(day);
+            java.util.List<DemandInterval> intervals = repository.findEffectiveForDate(day, day.getDayOfWeek(), isHoliday);
             if (intervals.isEmpty()) continue;
 
             java.util.Map<Long, int[]> weekly = new java.util.HashMap<>();
@@ -184,6 +199,8 @@ public class DemandController {
                                 String dir,
                                 String filename) {}
 
+    public record MonthlyInitializeRequest(Integer year, Integer month) {}
+
     @PostMapping("/aggregate/export")
     public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> exportCsv(@RequestBody ExportRequest req) {
         String p = (req.period()==null?"month":req.period().trim().toLowerCase());
@@ -247,70 +264,149 @@ public class DemandController {
         return ResponseEntity.ok(ApiResponse.success("CSVを出力しました", meta));
     }
 
+    @PostMapping("/monthly/initialize")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<ApiResponse<java.util.Map<String, Object>>> initializeMonthlyDemand(
+            @RequestBody MonthlyInitializeRequest request) {
+        if (request.year() == null || request.month() == null) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("年と月を指定してください"));
+        }
+        java.time.YearMonth ym;
+        try {
+            ym = java.time.YearMonth.of(request.year(), request.month());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("年または月の指定が正しくありません"));
+        }
+        java.time.LocalDate start = ym.atDay(1);
+        java.time.LocalDate end = ym.atEndOfMonth();
+
+        java.util.List<DemandInterval> existing = repository.findByDateBetween(start, end);
+        int deleted = existing.size();
+        if (deleted > 0) {
+            repository.deleteAll(existing);
+        }
+
+        java.util.Map<java.time.DayOfWeek, java.util.List<DemandInterval>> weeklyTemplates = new java.util.EnumMap<>(java.time.DayOfWeek.class);
+        for (java.time.DayOfWeek dow : java.time.DayOfWeek.values()) {
+            weeklyTemplates.put(dow, repository.findByDayOfWeekOrderBySortOrderAscIdAsc(dow));
+        }
+        java.util.List<DemandInterval> holidayTemplates = repository.findByHolidayOnlyTrueOrderBySortOrderAscIdAsc();
+        Integer maxOrder = repository.findMaxSortOrder();
+        int nextOrder = (maxOrder == null ? 0 : maxOrder) + 1;
+        int created = 0;
+
+        for (java.time.LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
+            java.util.List<DemandInterval> templates = new java.util.ArrayList<>(weeklyTemplates.getOrDefault(day.getDayOfWeek(), java.util.List.of()));
+            if (isHoliday(day) && !holidayTemplates.isEmpty()) {
+                templates.addAll(holidayTemplates);
+            }
+            if (templates.isEmpty()) {
+                continue;
+            }
+            for (DemandInterval template : templates) {
+                if (template.getActive() != null && !template.getActive()) {
+                    continue;
+                }
+                DemandInterval copy = new DemandInterval();
+                copy.setDate(day);
+                copy.setDayOfWeek(null);
+                copy.setHolidayOnly(false);
+                copy.setStartTime(template.getStartTime());
+                copy.setEndTime(template.getEndTime());
+                copy.setRequiredSeats(template.getRequiredSeats());
+                copy.setSkill(template.getSkill());
+                copy.setActive(template.getActive() != null ? template.getActive() : true);
+                copy.setSortOrder(nextOrder++);
+                repository.save(copy);
+                created++;
+            }
+        }
+
+        java.util.Map<String, Object> meta = new java.util.HashMap<>();
+        meta.put("year", ym.getYear());
+        meta.put("month", ym.getMonthValue());
+        meta.put("created", created);
+        meta.put("deleted", deleted);
+        return ResponseEntity.ok(ApiResponse.success("曜日テンプレートを月次需要に反映しました", meta));
+    }
+
     @PostMapping
     public ResponseEntity<ApiResponse<DemandInterval>> create(@Valid @RequestBody DemandRequest req) {
-        // Global demand abolished: enforce skill
         if (req.skillId() == null) {
             return ResponseEntity.badRequest().body(ApiResponse.failure("スキルは必須です"));
         }
-        // require either date or dayOfWeek
-        if (req.date() == null && req.dayOfWeek() == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("日付または曜日のいずれかを指定してください"));
+        boolean holidayTemplate = Boolean.TRUE.equals(req.holidayOnly());
+        boolean hasDate = req.date() != null;
+        boolean hasDayOfWeek = req.dayOfWeek() != null;
+        if (!hasDate && !hasDayOfWeek && !holidayTemplate) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("日付または曜日、もしくは祝日テンプレートを指定してください"));
         }
-        // time range validation
+        if (hasDate && hasDayOfWeek) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("日付と曜日を同時には指定できません"));
+        }
+        if (holidayTemplate && hasDate) {
+            holidayTemplate = false;
+        }
         if (req.startTime() == null || req.endTime() == null || !req.startTime().isBefore(req.endTime())) {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("開始時刻は終了時刻より前である必要があります"));
+            return ResponseEntity.badRequest().body(ApiResponse.failure("開始時間は終了時間より前にする必要があります"));
         }
 
         DemandInterval d = new DemandInterval();
         d.setDate(req.date());
-        d.setDayOfWeek(req.dayOfWeek());
+        d.setDayOfWeek(hasDate ? null : req.dayOfWeek());
+        d.setHolidayOnly(holidayTemplate);
         d.setStartTime(req.startTime());
         d.setEndTime(req.endTime());
         d.setRequiredSeats(req.requiredSeats());
         d.setActive(req.active() != null ? req.active() : true);
-        // assign sort order at the end
         Integer maxOrder = repository.findMaxSortOrder();
         d.setSortOrder((maxOrder == null ? 0 : maxOrder) + 1);
 
-        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("�X�L����������܂���"));
+        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
         d.setSkill(s);
 
         DemandInterval saved = repository.save(d);
-        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("���v�C���^�[�o�����쐬���܂���", saved));
+        return ResponseEntity.status(HttpStatus.CREATED).body(ApiResponse.success("需要インターバルを作成しました", saved));
     }
 
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<DemandInterval>> update(@PathVariable Long id, @Valid @RequestBody DemandRequest req) {
         Optional<DemandInterval> od = repository.findById(id);
-        if (od.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("���v�C���^�[�o����������܂���"));
+        if (od.isEmpty()) return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("需要インターバルが見つかりません"));
         DemandInterval d = od.get();
 
-        // Global demand abolished: enforce skill
         if (req.skillId() == null) {
             return ResponseEntity.badRequest().body(ApiResponse.failure("スキルは必須です"));
         }
-        // require either date or dayOfWeek
-        if (req.date() == null && req.dayOfWeek() == null) {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("日付または曜日のいずれかを指定してください"));
+        boolean holidayTemplate = Boolean.TRUE.equals(req.holidayOnly());
+        boolean hasDate = req.date() != null;
+        boolean hasDayOfWeek = req.dayOfWeek() != null;
+        if (!hasDate && !hasDayOfWeek && !holidayTemplate) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("日付または曜日、もしくは祝日テンプレートを指定してください"));
         }
-        // time range validation
+        if (hasDate && hasDayOfWeek) {
+            return ResponseEntity.badRequest().body(ApiResponse.failure("日付と曜日を同時には指定できません"));
+        }
+        if (holidayTemplate && hasDate) {
+            holidayTemplate = false;
+        }
         if (req.startTime() == null || req.endTime() == null || !req.startTime().isBefore(req.endTime())) {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("開始時刻は終了時刻より前である必要があります"));
+            return ResponseEntity.badRequest().body(ApiResponse.failure("開始時間は終了時間より前にする必要があります"));
         }
 
         d.setDate(req.date());
-        d.setDayOfWeek(req.dayOfWeek());
+        d.setDayOfWeek(hasDate ? null : req.dayOfWeek());
+        d.setHolidayOnly(holidayTemplate);
         d.setStartTime(req.startTime());
         d.setEndTime(req.endTime());
         d.setRequiredSeats(req.requiredSeats());
         d.setActive(req.active() != null ? req.active() : d.getActive());
 
-        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("�X�L����������܂���"));
+        Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
         d.setSkill(s);
 
         DemandInterval saved = repository.save(d);
-        return ResponseEntity.ok(ApiResponse.success("���v�C���^�[�o�����X�V���܂���", saved));
+        return ResponseEntity.ok(ApiResponse.success("需要インターバルを更新しました", saved));
     }
 
     @DeleteMapping("/{id}")
@@ -382,6 +478,8 @@ public class DemandController {
         d.setEndTime(overrides!=null && overrides.endTime()!=null ? overrides.endTime() : src.getEndTime());
         d.setRequiredSeats(overrides!=null && overrides.requiredSeats()!=null ? overrides.requiredSeats() : src.getRequiredSeats());
         d.setActive(overrides!=null && overrides.active()!=null ? overrides.active() : (src.getActive()!=null? src.getActive(): true));
+        Boolean holidayFlag = overrides!=null && overrides.holidayOnly()!=null ? overrides.holidayOnly() : src.getHolidayOnly();
+        d.setHolidayOnly(holidayFlag != null ? holidayFlag : Boolean.FALSE);
         // sort order at the end
         Integer maxOrder = repository.findMaxSortOrder();
         d.setSortOrder((maxOrder == null ? 0 : maxOrder) + 1);
@@ -440,7 +538,8 @@ public class DemandController {
             java.time.LocalTime endTime,
             Integer requiredSeats,
             Long skillId,
-            Boolean active
+            Boolean active,
+            Boolean holidayOnly
     ) {}
 
     public record DemandCopyRequest(
@@ -450,7 +549,8 @@ public class DemandController {
             java.time.LocalTime endTime,
             Integer requiredSeats,
             Long skillId,
-            Boolean active
+            Boolean active,
+            Boolean holidayOnly
     ) {}
 
     // Removed BulkWeekdayRequest per request
@@ -475,6 +575,14 @@ public class DemandController {
             d.setSortOrder(ord++);
             repository.save(d);
         }
-        return ResponseEntity.ok(ApiResponse.success("整頓しました", null));
+        return ResponseEntity.ok(ApiResponse.success("���ڂ��܂���", null));
+    }
+
+    private boolean isHoliday(LocalDate date) {
+        try {
+            return holidayRepository.existsByDate(date);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

@@ -48,6 +48,9 @@ public class DemandInterval {
     @Column(name = "is_active")
     private Boolean active = true;
 
+    @Column(name = "holiday_only")
+    private Boolean holidayOnly = false;
+
     @Column(name = "sort_order")
     private Integer sortOrder;
 
@@ -91,6 +94,8 @@ public class DemandInterval {
     public void setSkill(Skill skill) { this.skill = skill; }
     public Boolean getActive() { return active; }
     public void setActive(Boolean active) { this.active = active; }
+    public Boolean getHolidayOnly() { return holidayOnly; }
+    public void setHolidayOnly(Boolean holidayOnly) { this.holidayOnly = holidayOnly; }
     public Integer getSortOrder() { return sortOrder; }
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public LocalDateTime getCreatedAt() { return createdAt; }

@@ -16,6 +16,8 @@ public interface DemandIntervalRepository extends JpaRepository<DemandInterval, 
     List<DemandInterval> findAllByOrderBySortOrderAscIdAsc();
     List<DemandInterval> findByDateOrderBySortOrderAscIdAsc(LocalDate date);
     List<DemandInterval> findByDayOfWeekOrderBySortOrderAscIdAsc(DayOfWeek dayOfWeek);
+    List<DemandInterval> findByHolidayOnlyTrueOrderBySortOrderAscIdAsc();
+    List<DemandInterval> findByDateIsNull();
 
     // Neighbors for reordering
     DemandInterval findFirstBySortOrderLessThanOrderBySortOrderDesc(Integer sortOrder);
@@ -28,8 +30,27 @@ public interface DemandIntervalRepository extends JpaRepository<DemandInterval, 
     // Include both generic (skill is NULL) and skill-specific demands.
     // Previously filtered with "d.skill IS NOT NULL" which excluded generic demand
     // and caused unmet demand on days configured without skill.
-    @Query("SELECT d FROM DemandInterval d WHERE (d.date = :date OR (d.date IS NULL AND d.dayOfWeek = :dow)) AND (d.active = true OR d.active IS NULL)")
-    List<DemandInterval> findEffectiveForDate(@Param("date") LocalDate date, @Param("dow") DayOfWeek dow);
+    @Query("""
+            SELECT d FROM DemandInterval d
+            WHERE (
+                    d.date = :date
+                    OR (
+                        d.date IS NULL
+                        AND (
+                            (:isHoliday = true AND d.holidayOnly = true)
+                            OR ((d.holidayOnly = false OR d.holidayOnly IS NULL) AND d.dayOfWeek = :dow)
+                        )
+                    )
+                )
+              AND (d.active = true OR d.active IS NULL)
+            """)
+    List<DemandInterval> findEffectiveForDate(@Param("date") LocalDate date,
+                                              @Param("dow") DayOfWeek dow,
+                                              @Param("isHoliday") boolean isHoliday);
 
     long countBySkill_Id(Long skillId);
+
+    List<DemandInterval> findByDateIsNullAndSkill_Id(Long skillId);
+    List<DemandInterval> findByDateBetween(LocalDate start, LocalDate end);
+    List<DemandInterval> findBySkill_IdAndDateBetween(Long skillId, LocalDate start, LocalDate end);
 }

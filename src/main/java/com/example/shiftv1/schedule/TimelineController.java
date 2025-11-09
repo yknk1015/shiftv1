@@ -3,6 +3,7 @@ package com.example.shiftv1.schedule;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.demand.DemandInterval;
 import com.example.shiftv1.demand.DemandIntervalRepository;
+import com.example.shiftv1.holiday.HolidayRepository;
 import org.springframework.http.ResponseEntity;
 import com.example.shiftv1.breaks.BreakPeriod;
 import com.example.shiftv1.breaks.BreakPeriodRepository;
@@ -21,13 +22,16 @@ public class TimelineController {
     private final ShiftAssignmentRepository assignmentRepository;
     private final DemandIntervalRepository demandRepository;
     private final BreakPeriodRepository breakRepository;
+    private final HolidayRepository holidayRepository;
 
     public TimelineController(ShiftAssignmentRepository assignmentRepository,
                               DemandIntervalRepository demandRepository,
-                              BreakPeriodRepository breakRepository) {
+                              BreakPeriodRepository breakRepository,
+                              HolidayRepository holidayRepository) {
         this.assignmentRepository = assignmentRepository;
         this.demandRepository = demandRepository;
         this.breakRepository = breakRepository;
+        this.holidayRepository = holidayRepository;
     }
 
     @GetMapping("/day")
@@ -41,7 +45,8 @@ public class TimelineController {
         // Fetch with employee to avoid LAZY loading issues and N+1 queries
         List<ShiftAssignment> dayAssignments = assignmentRepository.findByWorkDateFetchEmployee(date);
         List<BreakPeriod> breaks = breakRepository.findByWorkDate(date);
-        List<DemandInterval> demand = demandRepository.findEffectiveForDate(date, date.getDayOfWeek());
+        boolean isHoliday = isHoliday(date);
+        List<DemandInterval> demand = demandRepository.findEffectiveForDate(date, date.getDayOfWeek(), isHoliday);
         Map<String, Object> result = buildGrid(dayAssignments, demand, breaks, granularityMinutes, skillId);
         return ResponseEntity.ok(ApiResponse.success("タイムラインを取得しました", result));
     }
@@ -131,5 +136,13 @@ public class TimelineController {
         grid.put("skillId", skillId);
         grid.put("slots", slots);
         return grid;
+    }
+
+    private boolean isHoliday(LocalDate date) {
+        try {
+            return holidayRepository.existsByDate(date);
+        } catch (Exception e) {
+            return false;
+        }
     }
 }

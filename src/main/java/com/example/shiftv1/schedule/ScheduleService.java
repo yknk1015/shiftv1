@@ -10,6 +10,7 @@ import com.example.shiftv1.leave.LeaveBalance;
 import com.example.shiftv1.leave.LeaveBalanceRepository;
 import com.example.shiftv1.leave.LeaveRequest;
 import com.example.shiftv1.leave.LeaveRequestRepository;
+import com.example.shiftv1.exception.BusinessException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -20,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.example.shiftv1.holiday.HolidayRepository;
@@ -32,6 +34,7 @@ import com.example.shiftv1.skill.SkillRepository;
 @Service
 public class ScheduleService {
     private static final Logger logger = LoggerFactory.getLogger(ScheduleService.class);
+    private static final int GRID_RANGE_LIMIT_DAYS = 62;
 
     private final EmployeeRepository employeeRepository;
     private final ShiftAssignmentRepository assignmentRepository;
@@ -163,7 +166,8 @@ public class ScheduleService {
             // Track real assignments counted once per day per employee
             Set<Long> assignedToday = new HashSet<>();
             DayContext dayCtx = buildDayContext(day, employees, rulesByEmp);
-            List<DemandInterval> demands = demandRepository.findEffectiveForDate(day, day.getDayOfWeek());
+            boolean isHoliday = isHoliday(day);
+            List<DemandInterval> demands = demandRepository.findEffectiveForDate(day, day.getDayOfWeek(), isHoliday);
             // Process skill-specific first (by higher priority), then generic
             demands.sort((a, b) -> {
                 boolean aGeneric = (a.getSkill() == null);
@@ -431,7 +435,8 @@ public class ScheduleService {
     public List<ShiftAssignment> generateForDateFromDemand(LocalDate date, boolean resetDay) {
         if (resetDay)
             assignmentRepository.deleteByWorkDate(date);
-        List<DemandInterval> demands = demandRepository.findEffectiveForDate(date, date.getDayOfWeek());
+        boolean isHoliday = isHoliday(date);
+        List<DemandInterval> demands = demandRepository.findEffectiveForDate(date, date.getDayOfWeek(), isHoliday);
         List<Employee> employees = employeeRepository.findAll();
         if (demands.isEmpty() || employees.isEmpty())
             return Collections.emptyList();
@@ -674,6 +679,276 @@ public class ScheduleService {
         }
         ensureFreePlaceholders(date.getYear(), date.getMonthValue());
         return created;
+    }
+
+    @Transactional(readOnly = true)
+    public ScheduleGridResponse loadGrid(LocalDate start, LocalDate end) {
+        LocalDate[] normalized = normalizeRange(start, end);
+        LocalDate rangeStart = normalized[0];
+        LocalDate rangeEnd = normalized[1];
+        List<Employee> employees = employeeRepository.findAll();
+        employees.sort(Comparator
+                .comparing((Employee e) -> e.getAssignPriority() == null ? 0 : e.getAssignPriority())
+                .thenComparing(Employee::getName, String.CASE_INSENSITIVE_ORDER));
+        List<ScheduleGridEmployeeDto> employeeDtos = employees.stream()
+                .map(ScheduleGridEmployeeDto::from)
+                .toList();
+        List<ScheduleGridAssignmentDto> assignments = assignmentRepository.findWithEmployeeBetween(rangeStart, rangeEnd)
+                .stream()
+                .map(ScheduleGridAssignmentDto::from)
+                .toList();
+        Map<String, Object> meta = new HashMap<>();
+        meta.put("rangeDays", ChronoUnit.DAYS.between(rangeStart, rangeEnd) + 1);
+        meta.put("employeeCount", employeeDtos.size());
+        meta.put("assignmentCount", assignments.size());
+        return new ScheduleGridResponse(rangeStart, rangeEnd, employeeDtos, assignments, meta);
+    }
+
+    @Transactional
+    public ScheduleGridBulkResult applyGridChanges(ScheduleGridBulkRequest request) {
+        if (request == null) {
+            throw new BusinessException("GRID_BULK_EMPTY", "更新内容が空です");
+        }
+        List<ScheduleGridBulkRequest.CreatePayload> creates = Optional.ofNullable(request.getCreate()).orElseGet(List::of);
+        List<ScheduleGridBulkRequest.UpdatePayload> updates = Optional.ofNullable(request.getUpdate()).orElseGet(List::of);
+        List<Long> deletes = Optional.ofNullable(request.getDelete()).orElseGet(List::of);
+
+        Set<Long> deleteSet = new HashSet<>(deletes);
+        if (deleteSet.size() != deletes.size()) {
+            throw new BusinessException("GRID_BULK_DUPLICATE_DELETE", "削除対象が重複しています");
+        }
+        if (updates.stream().anyMatch(u -> deleteSet.contains(u.getId()))) {
+            throw new BusinessException("GRID_BULK_CONFLICT", "更新と削除が同一のシフトに指定されています");
+        }
+
+        Map<Long, ShiftAssignment> assignmentsById = updates.isEmpty()
+                ? Collections.emptyMap()
+                : assignmentRepository.findAllById(
+                        updates.stream()
+                                .map(ScheduleGridBulkRequest.UpdatePayload::getId)
+                                .filter(Objects::nonNull)
+                                .toList())
+                .stream()
+                .collect(Collectors.toMap(ShiftAssignment::getId, sa -> sa));
+        for (ScheduleGridBulkRequest.UpdatePayload payload : updates) {
+            if (payload.getId() == null || !assignmentsById.containsKey(payload.getId())) {
+                throw new BusinessException("GRID_UPDATE_NOT_FOUND", "更新対象シフトが見つかりません");
+            }
+        }
+
+        Set<Long> employeeIds = new HashSet<>();
+        creates.stream().map(ScheduleGridBulkRequest.BasePayload::getEmployeeId).filter(Objects::nonNull).forEach(employeeIds::add);
+        updates.stream().map(ScheduleGridBulkRequest.BasePayload::getEmployeeId).filter(Objects::nonNull).forEach(employeeIds::add);
+        Map<Long, Employee> employeesById = employeeIds.isEmpty()
+                ? Collections.emptyMap()
+                : employeeRepository.findAllById(employeeIds).stream()
+                .collect(Collectors.toMap(Employee::getId, e -> e));
+        if (employeeIds.size() != employeesById.size()) {
+            throw new BusinessException("GRID_EMPLOYEE_NOT_FOUND", "指定された従業員が見つかりません");
+        }
+
+        Map<CacheKey, List<ShiftWindow>> workingState = new HashMap<>();
+        List<String> warnings = new ArrayList<>();
+        int created = 0;
+        int updated = 0;
+        int deleted = 0;
+
+        for (ScheduleGridBulkRequest.CreatePayload payload : creates) {
+            Employee employee = resolveEmployee(payload.getEmployeeId(), employeesById);
+            LocalDate workDate = payload.getWorkDate();
+            if (workDate == null) {
+                throw new BusinessException("GRID_DATE_REQUIRED", "日付は必須です");
+            }
+            LocalTime startTime = requireTime(payload.getStartTime(), "startTime");
+            LocalTime endTime = requireTime(payload.getEndTime(), "endTime");
+            validateTimeRange(startTime, endTime);
+            ensureWithinRange(workDate, workDate);
+            ensureNoConflict(workingState, employee, workDate, startTime, endTime, null);
+            ShiftAssignment entity = new ShiftAssignment(
+                    workDate,
+                    defaultShiftName(payload.getShiftName()),
+                    startTime,
+                    endTime,
+                    employee);
+            applyFlags(entity, payload);
+            assignmentRepository.save(entity);
+            registerWindow(workingState, employee, workDate, entity);
+            created++;
+        }
+
+        for (ScheduleGridBulkRequest.UpdatePayload payload : updates) {
+            ShiftAssignment entity = assignmentsById.get(payload.getId());
+            Employee targetEmployee = payload.getEmployeeId() != null
+                    ? resolveEmployee(payload.getEmployeeId(), employeesById)
+                    : entity.getEmployee();
+            LocalDate targetDate = payload.getWorkDate() != null ? payload.getWorkDate() : entity.getWorkDate();
+            LocalTime startTime = payload.getStartTime() != null ? payload.getStartTime() : entity.getStartTime();
+            LocalTime endTime = payload.getEndTime() != null ? payload.getEndTime() : entity.getEndTime();
+            validateTimeRange(startTime, endTime);
+            ensureWithinRange(targetDate, targetDate);
+            ensureNoConflict(workingState, targetEmployee, targetDate, startTime, endTime, entity.getId());
+            unregisterWindow(workingState, entity);
+            entity.setEmployee(targetEmployee);
+            entity.setWorkDate(targetDate);
+            entity.setStartTime(startTime);
+            entity.setEndTime(endTime);
+            if (payload.getShiftName() != null && !payload.getShiftName().isBlank()) {
+                entity.setShiftName(payload.getShiftName().trim());
+            }
+            applyFlags(entity, payload);
+            assignmentRepository.save(entity);
+            registerWindow(workingState, targetEmployee, targetDate, entity);
+            updated++;
+        }
+
+        if (!deleteSet.isEmpty()) {
+            List<ShiftAssignment> toDelete = assignmentRepository.findAllById(deleteSet);
+            for (ShiftAssignment entity : toDelete) {
+                unregisterWindow(workingState, entity);
+            }
+            assignmentRepository.deleteAll(toDelete);
+            deleted = toDelete.size();
+            if (deleted != deleteSet.size()) {
+                warnings.add("一部の削除対象が既に存在していませんでした");
+            }
+        }
+
+        return new ScheduleGridBulkResult(created, updated, deleted, warnings);
+    }
+
+    private LocalDate[] normalizeRange(LocalDate start, LocalDate end) {
+        LocalDate base = LocalDate.now();
+        LocalDate rangeStart = start != null ? start : weekStartSunday(base);
+        LocalDate rangeEnd = end != null ? end : rangeStart.plusDays(6);
+        if (rangeStart.isAfter(rangeEnd)) {
+            LocalDate tmp = rangeStart;
+            rangeStart = rangeEnd;
+            rangeEnd = tmp;
+        }
+        ensureWithinRange(rangeStart, rangeEnd);
+        return new LocalDate[]{rangeStart, rangeEnd};
+    }
+
+    private void ensureWithinRange(LocalDate start, LocalDate end) {
+        if (start == null || end == null) {
+            throw new BusinessException("GRID_RANGE_REQUIRED", "期間の指定が必要です");
+        }
+        long span = ChronoUnit.DAYS.between(start, end) + 1;
+        if (span <= 0) {
+            throw new BusinessException("GRID_RANGE_INVALID", "期間の指定が不正です");
+        }
+        if (span > GRID_RANGE_LIMIT_DAYS) {
+            throw new BusinessException("GRID_RANGE_TOO_WIDE", "最大" + GRID_RANGE_LIMIT_DAYS + "日まで選択できます");
+        }
+    }
+
+    private Employee resolveEmployee(Long employeeId, Map<Long, Employee> cache) {
+        if (employeeId == null) {
+            throw new BusinessException("GRID_EMPLOYEE_REQUIRED", "従業員を選択してください");
+        }
+        Employee employee = cache.get(employeeId);
+        if (employee != null) {
+            return employee;
+        }
+        return employeeRepository.findById(employeeId)
+                .orElseThrow(() -> new BusinessException("GRID_EMPLOYEE_NOT_FOUND", "従業員が見つかりません (ID=" + employeeId + ")"));
+    }
+
+    private LocalTime requireTime(LocalTime time, String fieldName) {
+        if (time == null) {
+            throw new BusinessException("GRID_TIME_REQUIRED", fieldName + "は必須です");
+        }
+        return time;
+    }
+
+    private void validateTimeRange(LocalTime start, LocalTime end) {
+        if (!start.isBefore(end)) {
+            throw new BusinessException("GRID_TIME_INVALID", "開始時刻は終了時刻より前である必要があります");
+        }
+    }
+
+    private void ensureNoConflict(Map<CacheKey, List<ShiftWindow>> state,
+                                  Employee employee,
+                                  LocalDate date,
+                                  LocalTime start,
+                                  LocalTime end,
+                                  Long ignoreId) {
+        List<ShiftWindow> windows = getOrLoadWindows(state, employee, date);
+        boolean conflict = windows.stream()
+                .filter(w -> !Objects.equals(w.assignmentId(), ignoreId))
+                .anyMatch(w -> w.overlaps(start, end));
+        if (conflict) {
+            throw new BusinessException("GRID_CONFLICT",
+                    employee.getName() + " の " + date + " は既存シフトと重複しています");
+        }
+    }
+
+    private List<ShiftWindow> getOrLoadWindows(Map<CacheKey, List<ShiftWindow>> state,
+                                               Employee employee,
+                                               LocalDate date) {
+        CacheKey key = new CacheKey(employee.getId(), date);
+        return state.computeIfAbsent(key, k -> assignmentRepository.findByEmployeeAndWorkDate(employee, date)
+                .stream()
+                .map(ShiftWindow::from)
+                .collect(Collectors.toCollection(ArrayList::new)));
+    }
+
+    private void registerWindow(Map<CacheKey, List<ShiftWindow>> state,
+                                Employee employee,
+                                LocalDate date,
+                                ShiftAssignment assignment) {
+        List<ShiftWindow> windows = getOrLoadWindows(state, employee, date);
+        windows.removeIf(w -> Objects.equals(w.assignmentId(), assignment.getId()));
+        windows.add(ShiftWindow.from(assignment));
+    }
+
+    private void unregisterWindow(Map<CacheKey, List<ShiftWindow>> state,
+                                  ShiftAssignment assignment) {
+        Employee employee = assignment.getEmployee();
+        if (employee == null) {
+            return;
+        }
+        CacheKey key = new CacheKey(employee.getId(), assignment.getWorkDate());
+        List<ShiftWindow> windows = state.get(key);
+        if (windows == null) {
+            windows = getOrLoadWindows(state, employee, assignment.getWorkDate());
+        }
+        windows.removeIf(w -> Objects.equals(w.assignmentId(), assignment.getId()));
+        if (windows.isEmpty()) {
+            state.remove(key);
+        }
+    }
+
+    private void applyFlags(ShiftAssignment assignment, ScheduleGridBulkRequest.BasePayload payload) {
+        if (payload.getIsFree() != null) {
+            assignment.setIsFree(payload.getIsFree());
+        }
+        if (payload.getIsOff() != null) {
+            assignment.setIsOff(payload.getIsOff());
+        }
+        if (payload.getIsLeave() != null) {
+            assignment.setIsLeave(payload.getIsLeave());
+        }
+    }
+
+    private String defaultShiftName(String candidate) {
+        if (candidate == null || candidate.isBlank()) {
+            return "Manual";
+        }
+        return candidate.trim();
+    }
+
+    private record CacheKey(Long employeeId, LocalDate workDate) {
+    }
+
+    private record ShiftWindow(Long assignmentId, LocalTime start, LocalTime end) {
+        static ShiftWindow from(ShiftAssignment assignment) {
+            return new ShiftWindow(assignment.getId(), assignment.getStartTime(), assignment.getEndTime());
+        }
+
+        boolean overlaps(LocalTime otherStart, LocalTime otherEnd) {
+            return start.isBefore(otherEnd) && otherStart.isBefore(end);
+        }
     }
 
     private List<LocalTime> buildSlots(int granularityMinutes) {
@@ -934,6 +1209,10 @@ public class ScheduleService {
         var dow = d.getDayOfWeek();
         if (dow == java.time.DayOfWeek.SATURDAY || dow == java.time.DayOfWeek.SUNDAY)
             return true;
+        return isHoliday(d);
+    }
+
+    private boolean isHoliday(LocalDate d) {
         try {
             return holidayRepository.existsByDate(d);
         } catch (Exception e) {

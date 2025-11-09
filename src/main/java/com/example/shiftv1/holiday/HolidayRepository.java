@@ -7,13 +7,14 @@ import org.springframework.stereotype.Repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 @Repository
 public interface HolidayRepository extends JpaRepository<Holiday, Long> {
     boolean existsByDate(LocalDate date);
     void deleteByDate(LocalDate date);
+    Optional<Holiday> findByDate(LocalDate date);
 
     @Query("select h.date from Holiday h where h.date between :start and :end")
     List<LocalDate> findDatesBetween(@Param("start") LocalDate start, @Param("end") LocalDate end);
 }
-
