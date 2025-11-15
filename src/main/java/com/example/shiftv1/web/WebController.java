@@ -36,14 +36,6 @@ public class WebController {
         return "breaks";
     }
 
-    // Removed: leave page (unused)
-
-
-    @GetMapping("/warnings")
-    public String warnings() {
-        return "warnings";
-    }
-
     // Simple mappings to expose existing templates for quick access
     @GetMapping("/calendar")
     public String calendar() { return "calendar"; }
@@ -66,19 +58,13 @@ public class WebController {
     // Removed: skill-patterns page (unused placeholder)
 
     @GetMapping("/pairing-settings")
-    public String pairingSettings() { return "pairing-settings"; }
+    public String pairingSettings() { return "redirect:/rules-management#pairing"; }
 
     @GetMapping("/admin-debug")
     public String adminDebug() { return "admin-debug"; }
 
-    @GetMapping("/monthly-demand")
-    public String monthlyDemand() { return "monthly-demand"; }
-
     @GetMapping("/setup")
     public String setup() { return "setup"; }
-
-    @GetMapping("/leave")
-    public String leave() { return "leave"; }
 
     @GetMapping("/rules-management")
     public String rulesManagement() { return "rules-management"; }

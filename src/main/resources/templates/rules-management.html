@@ -12,6 +12,7 @@
     .tab { padding:10px 14px; cursor:pointer; border:1px solid #e2e8f0; border-bottom:none; border-radius:8px 8px 0 0; background:#fff; }
     .tab.active { background:#eef2ff; border-color:#c7d2fe; }
     .panel { background:#fff; border:1px solid #e2e8f0; border-radius:0 8px 8px 8px; padding:16px; }
+    .panel h3 { margin-top:0; }
     .row { display:flex; gap:16px; align-items:center; margin:10px 0; }
     label { min-width: 180px; color:#334155; }
     input[type="text"], input[type="date"], select { padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px; }
@@ -22,21 +23,35 @@
     .msg { margin-top:8px; font-size:13px; }
     .msg.ok { color:#14532d; }
     .msg.err { color:#7f1d1d; }
+    .grid-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:12px; }
+    .card { border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; padding:14px 16px; }
+    .card h4 { margin:0 0 8px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #e2e8f0; font-size:14px; }
+    th { color:#475569; font-weight:500; }
+    .table-wrap { max-height:280px; overflow:auto; }
+    .inline-note { font-size:12px; color:#94a3b8; }
   </style>
   <script>
+    const state = { skillPairs: [], skills: [], pairingId: null };
+
     document.addEventListener('DOMContentLoaded', init);
     async function init(){
-      sel('tab-free').addEventListener('click', ()=>activate('free'));
-      sel('tab-pattern').addEventListener('click', ()=>activate('pattern'));
+      ['free','pattern','pairing'].forEach(name=>{
+        sel('tab-'+name).addEventListener('click', ()=>activate(name));
+      });
       activate('free');
-      await loadFree();
-      await loadEmployees();
+      await Promise.all([loadFree(), loadEmployees(), loadSkills()]);
+      await loadPairingSettings();
+      sel('btn-save-pairing').addEventListener('click', savePairing);
+      sel('btn-add-skillpair').addEventListener('click', addSkillPair);
     }
     function sel(id){ return document.getElementById(id); }
     function activate(name){
-      ['free','pattern'].forEach(n=>{
-        sel('tab-'+n).classList.toggle('active', n===name);
-        sel('panel-'+n).style.display = n===name? 'block':'none';
+      ['free','pattern','pairing'].forEach(n=>{
+        const active = n===name;
+        sel('tab-'+n).classList.toggle('active', active);
+        sel('panel-'+n).style.display = active? 'block':'none';
       });
     }
     async function loadFree(){
@@ -92,6 +107,155 @@
       sel('msg-pattern').textContent = js.success? '保存しました' : '保存に失敗しました';
       sel('msg-pattern').className = 'msg ' + (js.success? 'ok':'err');
     }
+
+    async function loadSkills(){
+      try{
+        const res = await fetch('/api/skills');
+        const js = await res.json();
+        state.skills = js.data || [];
+        renderSkillOptions();
+        renderSkillPairs();
+      }catch(e){
+        state.skills = [];
+        renderSkillPairs();
+      }
+    }
+    function renderSkillOptions(){
+      ['skillAnchor','skillPartner'].forEach(id=>{
+        const selEl = sel(id);
+        if(!selEl) return;
+        const opts = ['<option value=\"\">選択</option>'];
+        state.skills.forEach(sk=> opts.push(`<option value=\"${sk.id}\">${sk.name || sk.code || ('#'+sk.id)}</option>`));
+        selEl.innerHTML = opts.join('');
+      });
+    }
+    async function loadPairingSettings(){
+      try{
+        const res = await fetch('/api/config/pairing-settings');
+        const data = await res.json();
+        state.pairingId = data.id || null;
+        sel('pairEnabled').checked = !!data.enabled;
+        sel('pairPreferShorts').checked = !!data.preferShorts;
+        sel('pairTolerance').value = data.pairToleranceMinutes ?? 0;
+        sel('pairFullWindow').value = data.fullWindow || '09:00-18:00';
+        sel('pairMorningWindow').value = data.morningWindow || '09:00-13:00';
+        sel('pairAfternoonWindow').value = data.afternoonWindow || '13:00-18:00';
+        sel('pairStandaloneWindows').value = data.standaloneWindows || '';
+        state.skillPairs = parseSkillPairs(data.skillPairings);
+        renderSkillPairs();
+      }catch(e){
+        console.warn(e);
+        setPairingStatus('ペアリング設定の取得に失敗しました', false);
+      }
+    }
+    function parseSkillPairs(raw){
+      if(!raw) return [];
+      try{
+        const arr = JSON.parse(raw);
+        if(Array.isArray(arr)){
+          return arr
+            .map(item=>({
+              anchorSkillId: Number(item.anchorSkillId),
+              partnerSkillId: Number(item.partnerSkillId),
+              bidirectional: item.bidirectional !== false
+            }))
+            .filter(item=>Number.isFinite(item.anchorSkillId) && Number.isFinite(item.partnerSkillId));
+        }
+      }catch(e){
+        console.warn('skillPairings parse error', e);
+      }
+      return [];
+    }
+    function addSkillPair(){
+      const anchor = Number(sel('skillAnchor').value);
+      const partner = Number(sel('skillPartner').value);
+      const bidi = sel('skillBidirectional').checked;
+      if(!anchor || !partner){
+        setSkillPairMsg('スキルを選択してください', false); return;
+      }
+      if(anchor === partner){
+        setSkillPairMsg('同じスキル同士は設定できません', false); return;
+      }
+      if(state.skillPairs.some(p=>p.anchorSkillId===anchor && p.partnerSkillId===partner)){
+        setSkillPairMsg('既に登録されています', false); return;
+      }
+      state.skillPairs.push({ anchorSkillId: anchor, partnerSkillId: partner, bidirectional: !!bidi });
+      setSkillPairMsg('追加しました', true);
+      renderSkillPairs();
+    }
+    function removeSkillPair(index){
+      state.skillPairs.splice(index,1);
+      renderSkillPairs();
+    }
+    function renderSkillPairs(){
+      const host = sel('skillPairList');
+      if(!host) return;
+      if(!state.skillPairs.length){
+        host.innerHTML = '<p class="note">まだペアリングは登録されていません。スキルを選んで追加してください。</p>';
+        return;
+      }
+      let html = '<table><thead><tr><th>基点</th><th>ペア</th><th>双方向</th><th></th></tr></thead><tbody>';
+      state.skillPairs.forEach((p, idx)=>{
+        html += `<tr>
+          <td>${skillLabel(p.anchorSkillId)}</td>
+          <td>${skillLabel(p.partnerSkillId)}</td>
+          <td>${p.bidirectional? 'はい':'いいえ'}</td>
+          <td><button type="button" class="secondary" data-index="${idx}">削除</button></td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      host.innerHTML = html;
+      host.querySelectorAll('button[data-index]').forEach(btn=>{
+        btn.addEventListener('click', ()=>removeSkillPair(Number(btn.dataset.index)));
+      });
+    }
+    function skillLabel(id){
+      const sk = state.skills.find(s=>String(s.id)===String(id));
+      return sk ? (sk.name || sk.code || ('#'+sk.id)) : `#${id}`;
+    }
+    function setSkillPairMsg(text, ok){
+      const el = sel('skillPairMsg');
+      if(!el) return;
+      el.textContent = text || '';
+      el.className = 'msg ' + (ok? 'ok':'err');
+    }
+    async function savePairing(){
+      const payload = {
+        id: state.pairingId,
+        enabled: sel('pairEnabled').checked,
+        preferShorts: sel('pairPreferShorts').checked,
+        pairToleranceMinutes: Number(sel('pairTolerance').value || 0),
+        fullWindow: sel('pairFullWindow').value.trim(),
+        morningWindow: sel('pairMorningWindow').value.trim(),
+        afternoonWindow: sel('pairAfternoonWindow').value.trim(),
+        standaloneWindows: sel('pairStandaloneWindows').value.trim(),
+        skillPairings: JSON.stringify(state.skillPairs)
+      };
+      try{
+        const res = await fetch('/api/config/pairing-settings', {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if(res.ok){
+          const js = await res.json();
+          state.pairingId = js.id || state.pairingId;
+          setPairingStatus('保存しました', true);
+        }else{
+          setPairingStatus('保存に失敗しました', false);
+        }
+      }catch(e){
+        console.warn(e);
+        setPairingStatus('通信エラーが発生しました', false);
+      }
+    }
+    function setPairingStatus(text, ok){
+      const el = sel('msg-pairing');
+      if(!el) return;
+      el.textContent = text || '';
+      if(!text){ el.className = 'msg'; return; }
+      el.className = 'msg ' + (ok? 'ok' : 'err');
+    }
   </script>
 </head>
 <body>
@@ -103,6 +267,7 @@
     <div class="tabs">
       <div id="tab-free" class="tab active">FREE配置</div>
       <div id="tab-pattern" class="tab">勤務/休パターン</div>
+      <div id="tab-pairing" class="tab">ペアリング</div>
     </div>
     <div class="panel" id="panel-free">
       <div class="row"><label>FREEは平日のみに配置</label><span class="switch"><input id="onlyWeekdays" type="checkbox"/> 平日限定</span></div>
@@ -118,7 +283,37 @@
       <div class="row"><button onclick="saveRule()">保存</button><span id="msg-pattern" class="msg"></span></div>
       <p class="note">パターン例: "3W-1O-2W-1O" は「3勤1休→2勤1休」を繰り返します。厳格適用ONでOFF日を優先確保します。</p>
     </div>
+    <div class="panel" id="panel-pairing" style="display:none">
+      <h3>ペアリング設定</h3>
+      <p class="note">時短勤務者の組み合わせ・時間帯を揃えて配属するためのルールです。全体設定とスキル別のペアリング指示をまとめて管理できます。</p>
+      <div class="grid-two">
+        <div class="card">
+          <h4>全体ルール</h4>
+          <div class="row"><label>ペアリング有効</label><span class="switch"><input id="pairEnabled" type="checkbox"/> ペアリングを使う</span></div>
+          <div class="row"><label>時短優先</label><span class="switch"><input id="pairPreferShorts" type="checkbox"/> まず短時間枠を埋める</span></div>
+          <div class="row"><label>ペア許容差（分）</label><input id="pairTolerance" type="number" min="0" step="1"/></div>
+          <div class="row"><label>フル枠</label><input id="pairFullWindow" type="text" placeholder="09:00-18:00"/></div>
+          <div class="row"><label>AM（時短）</label><input id="pairMorningWindow" type="text" placeholder="09:00-13:00"/></div>
+          <div class="row"><label>PM（時短）</label><input id="pairAfternoonWindow" type="text" placeholder="13:00-18:00"/></div>
+          <div class="row"><label>単独枠（カンマ区切り）</label><input id="pairStandaloneWindows" type="text" placeholder="17:00-21:00,20:00-24:00"/></div>
+          <p class="note">単独枠はペアリングせず配置して良い時間帯です。複数指定するときはカンマで区切ってください。</p>
+        </div>
+        <div class="card">
+          <h4>スキル単位のペア</h4>
+          <p class="note">基点スキルとペアスキルを登録すると、生成時に優先して同じブロックとして扱います。</p>
+          <div class="row"><label>基点スキル</label><select id="skillAnchor"><option value="">選択</option></select></div>
+          <div class="row"><label>ペアスキル</label><select id="skillPartner"><option value="">選択</option></select></div>
+          <div class="row"><label>双方向</label><span class="switch"><input id="skillBidirectional" type="checkbox" checked/> 双方向でペア扱い</span></div>
+          <div class="row"><button id="btn-add-skillpair" type="button">ペアに追加</button><span id="skillPairMsg" class="msg"></span></div>
+          <div class="table-wrap" id="skillPairList"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <button id="btn-save-pairing" type="button">設定を保存</button>
+        <span id="msg-pairing" class="msg"></span>
+      </div>
+      <p class="inline-note">※ スキルデータはスキル管理画面で編集できます。ここではペアの組み合わせのみを管理します。</p>
+    </div>
   </div>
 </body>
 </html>
-
