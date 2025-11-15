@@ -45,7 +45,8 @@
 
   <div class="muted"><a class="link" href="/dashboard">ダッシュボード</a></div>
   </div>
-  <script>
+<script src="/js/app.js"></script>
+<script>
     function msg(t){ const el=document.getElementById('msg'); if(!el) return; el.textContent=t||''; }
     async function api(url, opt={}){
       const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });

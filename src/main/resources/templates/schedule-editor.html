@@ -65,6 +65,16 @@
             background-color: #e4e7ec;
             color: #1f2933;
         }
+        .btn-secondary.ghost {
+            background-color: #fff;
+            color: #2563eb;
+            border: 1px dashed #93c5fd;
+        }
+        .header-links {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
         .btn-danger {
             background-color: #dc2626;
             color: #fff;
@@ -220,7 +230,10 @@
 <div class="page">
     <header>
         <h1>シフトグリッド最終調整</h1>
-        <a href="/dashboard"><button class="secondary">ダッシュボードへ戻る</button></a>
+        <div class="header-links">
+            <a href="/dashboard"><button class="btn btn-secondary">ダッシュボードへ戻る</button></a>
+            <a href="/demand-supply" target="_blank"><button class="btn btn-secondary ghost">需要 vs 供給ビュー</button></a>
+        </div>
         <div>
             <button class="btn btn-secondary" id="discardBtn">変更を破棄</button>
             <button class="btn btn-primary" id="saveBtn">保存</button>
@@ -284,6 +297,18 @@
                 </div>
             </div>
             <div class="form-group chip-row">
+                <div>
+                    <label for="breakStartInput">休憩開始</label>
+                    <input type="time" id="breakStartInput" step="300">
+                </div>
+                <div>
+                    <label for="breakEndInput">休憩終了</label>
+                    <input type="time" id="breakEndInput" step="300">
+                </div>
+                <button class="btn btn-secondary" id="breakSuggestBtn" type="button">推奨を反映</button>
+            </div>
+            <div class="status-bar" id="breakHint">推奨休憩: 勤務時間に応じて自動提案されます</div>
+            <div class="form-group chip-row">
                 <label><input type="checkbox" id="flagFree"> FREE</label>
                 <label><input type="checkbox" id="flagOff"> 休日</label>
                 <label><input type="checkbox" id="flagLeave"> 有給</label>
@@ -300,6 +325,7 @@
     </div>
 </div>
 
+<script src="/js/app.js"></script>
 <script>
 (() => {
     const state = {
@@ -326,6 +352,10 @@
         shiftNameInput: document.getElementById('shiftNameInput'),
         startTimeInput: document.getElementById('startTimeInput'),
         endTimeInput: document.getElementById('endTimeInput'),
+        breakStartInput: document.getElementById('breakStartInput'),
+        breakEndInput: document.getElementById('breakEndInput'),
+        breakHint: document.getElementById('breakHint'),
+        breakSuggestBtn: document.getElementById('breakSuggestBtn'),
         flagFree: document.getElementById('flagFree'),
         flagOff: document.getElementById('flagOff'),
         flagLeave: document.getElementById('flagLeave'),
@@ -339,6 +369,155 @@
     };
 
     const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    let breakManual = false;
+    const PLACEHOLDER_LIMITS = {
+        free: { start: '00:00', end: '00:05' },
+        off: { start: '00:00', end: '00:05' },
+        leave: { start: '09:00', end: '18:00' },
+        default: { start: '09:00', end: '18:00' }
+    };
+
+    function timeToMinutes(str) {
+        if (!str || str.length < 4) return null;
+        const [h, m] = str.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) return null;
+        return (h * 60) + m;
+    }
+
+    function minutesToTime(mins) {
+        const clamped = Math.max(0, mins);
+        const h = String(Math.floor(clamped / 60)).padStart(2, '0');
+        const m = String(clamped % 60).padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function recommendedBreak(startStr, endStr) {
+        const start = timeToMinutes(startStr);
+        const end = timeToMinutes(endStr);
+        if (start == null || end == null || end <= start) return 0;
+        const duration = end - start;
+        if (duration >= 480) return 60;
+        if (duration >= 360) return 45;
+        return 0;
+    }
+
+    function updateBreakHint() {
+        if (dom.breakStartInput.value && dom.breakEndInput.value) {
+            const diff = timeToMinutes(dom.breakEndInput.value) - timeToMinutes(dom.breakStartInput.value);
+            const minutes = diff > 0 ? diff : 0;
+            dom.breakHint.textContent = `休憩: ${dom.breakStartInput.value} - ${dom.breakEndInput.value} (${minutes}分)`;
+        } else {
+            const suggested = recommendedBreak(dom.startTimeInput.value, dom.endTimeInput.value);
+            dom.breakHint.textContent = suggested > 0 ? `推奨休憩: ${suggested}分` : '推奨休憩: なし';
+        }
+    }
+
+    function applyBreakSuggestion(force = false) {
+        if (!force && breakManual) {
+            updateBreakHint();
+            return;
+        }
+        const startStr = dom.startTimeInput.value;
+        const endStr = dom.endTimeInput.value;
+        const suggestion = recommendedBreak(startStr, endStr);
+        if (suggestion <= 0) {
+            dom.breakStartInput.value = '';
+            dom.breakEndInput.value = '';
+        } else {
+            const start = timeToMinutes(startStr);
+            const end = timeToMinutes(endStr);
+            if (start != null && end != null && end > start) {
+                const slack = Math.max(0, end - start - suggestion);
+                const offset = Math.floor(slack / 2);
+                dom.breakStartInput.value = minutesToTime(start + offset);
+                dom.breakEndInput.value = minutesToTime(start + offset + suggestion);
+            }
+        }
+        breakManual = false;
+        updateBreakHint();
+    }
+    function effectiveTimeValue(input) {
+        if (!input) return null;
+        const value = input.disabled ? (input.dataset.savedValue || '') : input.value;
+        return value || null;
+    }
+    function currentPlaceholderType() {
+        if (dom.flagLeave.checked) return 'leave';
+        if (dom.flagOff.checked) return 'off';
+        if (dom.flagFree.checked) return 'free';
+        return null;
+    }
+
+    function maskShiftInputs(type) {
+        const limits = PLACEHOLDER_LIMITS[type] || PLACEHOLDER_LIMITS.default;
+        if (!dom.startTimeInput.dataset.savedValue) {
+            dom.startTimeInput.dataset.savedValue = dom.startTimeInput.value || limits.start;
+        }
+        if (!dom.endTimeInput.dataset.savedValue) {
+            dom.endTimeInput.dataset.savedValue = dom.endTimeInput.value || limits.end;
+        }
+        dom.startTimeInput.value = '';
+        dom.endTimeInput.value = '';
+        dom.startTimeInput.disabled = true;
+        dom.endTimeInput.disabled = true;
+
+        if (!dom.breakStartInput.dataset.savedValue) {
+            dom.breakStartInput.dataset.savedValue = dom.breakStartInput.value || '';
+        }
+        if (!dom.breakEndInput.dataset.savedValue) {
+            dom.breakEndInput.dataset.savedValue = dom.breakEndInput.value || '';
+        }
+        dom.breakStartInput.value = '';
+        dom.breakEndInput.value = '';
+        dom.breakStartInput.disabled = true;
+        dom.breakEndInput.disabled = true;
+        dom.breakSuggestBtn.disabled = true;
+        breakManual = false;
+        updateBreakHint();
+    }
+
+    function unmaskShiftInputs() {
+        if (dom.startTimeInput.dataset.savedValue !== undefined) {
+            dom.startTimeInput.value = dom.startTimeInput.dataset.savedValue;
+            delete dom.startTimeInput.dataset.savedValue;
+        }
+        if (dom.endTimeInput.dataset.savedValue !== undefined) {
+            dom.endTimeInput.value = dom.endTimeInput.dataset.savedValue;
+            delete dom.endTimeInput.dataset.savedValue;
+        }
+        dom.startTimeInput.disabled = false;
+        dom.endTimeInput.disabled = false;
+
+        if (dom.breakStartInput.dataset.savedValue !== undefined) {
+            dom.breakStartInput.value = dom.breakStartInput.dataset.savedValue;
+            delete dom.breakStartInput.dataset.savedValue;
+        }
+        if (dom.breakEndInput.dataset.savedValue !== undefined) {
+            dom.breakEndInput.value = dom.breakEndInput.dataset.savedValue;
+            delete dom.breakEndInput.dataset.savedValue;
+        }
+        dom.breakStartInput.disabled = false;
+        dom.breakEndInput.disabled = false;
+        dom.breakSuggestBtn.disabled = false;
+        updateBreakHint();
+    }
+
+    function syncPlaceholderUI(source) {
+        if (source && source.checked) {
+            [dom.flagFree, dom.flagOff, dom.flagLeave].forEach(flag => {
+                if (flag !== source) flag.checked = false;
+            });
+        }
+        const type = currentPlaceholderType();
+        if (type === 'leave') {
+            dom.shiftNameInput.value = '有休';
+        }
+        if (type) {
+            maskShiftInputs(type);
+        } else {
+            unmaskShiftInputs();
+        }
+    }
 
     function initDates() {
         const today = new Date();
@@ -374,6 +553,14 @@
 
     dom.viewMode.addEventListener('change', adjustEndByMode);
     dom.startDate.addEventListener('change', adjustEndByMode);
+    dom.startTimeInput.addEventListener('change', () => applyBreakSuggestion(false));
+    dom.endTimeInput.addEventListener('change', () => applyBreakSuggestion(false));
+    dom.breakSuggestBtn.addEventListener('click', () => applyBreakSuggestion(true));
+    dom.breakStartInput.addEventListener('input', () => { breakManual = !!(dom.breakStartInput.value || dom.breakEndInput.value); updateBreakHint(); });
+    dom.breakEndInput.addEventListener('input', () => { breakManual = !!(dom.breakStartInput.value || dom.breakEndInput.value); updateBreakHint(); });
+    dom.flagFree.addEventListener('change', () => syncPlaceholderUI(dom.flagFree));
+    dom.flagOff.addEventListener('change', () => syncPlaceholderUI(dom.flagOff));
+    dom.flagLeave.addEventListener('change', () => syncPlaceholderUI(dom.flagLeave));
 
     dom.loadBtn.addEventListener('click', () => loadGrid());
     dom.discardBtn.addEventListener('click', () => {
@@ -536,10 +723,24 @@
     }
 
     function buildCardLabel(assign) {
-        if (assign.isFree) return 'FREE';
-        if (assign.isOff) return assign.isLeave ? '有給' : '休日';
-        const times = assign.startTime && assign.endTime ? `${assign.startTime} - ${assign.endTime}` : '';
-        return `${assign.shiftName || 'Manual'} ${times}`.trim();
+        const fmt = (time) => (time ? time.slice(0, 5) : '');
+        if (assign.isLeave) {
+            return '有給';
+        }
+        if (assign.isOff) {
+            return '休日';
+        }
+        if (assign.isFree) {
+            return 'FREE';
+        }
+        const name = assign.shiftName && assign.shiftName.trim() ? assign.shiftName.trim() : 'Manual';
+        const start = fmt(assign.startTime);
+        const end = fmt(assign.endTime);
+        const times = (start && end) ? `${start} - ${end}` : '';
+        if (!times) {
+            return name;
+        }
+        return `${name} ${times}`.trim();
     }
 
     function selectCell(cell) {
@@ -558,9 +759,14 @@
         dom.shiftNameInput.value = assign.shiftName || '';
         dom.startTimeInput.value = assign.startTime || '';
         dom.endTimeInput.value = assign.endTime || '';
+        dom.breakStartInput.value = assign.breakStart || '';
+        dom.breakEndInput.value = assign.breakEnd || '';
+        breakManual = !!(assign.breakStart && assign.breakEnd);
+        updateBreakHint();
         dom.flagFree.checked = !!assign.isFree;
         dom.flagOff.checked = !!assign.isOff;
         dom.flagLeave.checked = !!assign.isLeave;
+        syncPlaceholderUI();
         dom.selectionInfo.textContent = `選択中: ${assign.employeeName || ''} (${assign.workDate})`;
         highlightSelection();
     }
@@ -576,12 +782,17 @@
     }
 
     function collectFormValues() {
+        const placeholderType = currentPlaceholderType();
+        const startTime = effectiveTimeValue(dom.startTimeInput) || (placeholderType ? (PLACEHOLDER_LIMITS[placeholderType]?.start || PLACEHOLDER_LIMITS.default.start) : null);
+        const endTime = effectiveTimeValue(dom.endTimeInput) || (placeholderType ? (PLACEHOLDER_LIMITS[placeholderType]?.end || PLACEHOLDER_LIMITS.default.end) : null);
         return {
             employeeId: Number(dom.employeeSelect.value),
             workDate: dom.workDateInput.value,
             shiftName: dom.shiftNameInput.value.trim(),
-            startTime: dom.startTimeInput.value || null,
-            endTime: dom.endTimeInput.value || null,
+            startTime,
+            endTime,
+            breakStart: placeholderType ? null : effectiveTimeValue(dom.breakStartInput),
+            breakEnd: placeholderType ? null : effectiveTimeValue(dom.breakEndInput),
             isFree: dom.flagFree.checked,
             isOff: dom.flagOff.checked,
             isLeave: dom.flagLeave.checked
@@ -589,10 +800,25 @@
     }
 
     function validateForm(payload) {
+        const placeholderActive = Boolean(currentPlaceholderType());
         if (!payload.employeeId) throw new Error('従業員を選択してください');
         if (!payload.workDate) throw new Error('日付を入力してください');
         if (!payload.startTime || !payload.endTime) throw new Error('開始・終了時刻を入力してください');
-        if (payload.startTime >= payload.endTime) throw new Error('終了時刻は開始より後にしてください');
+        if (!placeholderActive && payload.startTime >= payload.endTime) throw new Error('終了時刻は開始より後にしてください');
+        if (!placeholderActive) {
+            if ((payload.breakStart && !payload.breakEnd) || (!payload.breakStart && payload.breakEnd)) {
+                throw new Error('休憩の開始・終了を両方入力してください');
+            }
+            if (payload.breakStart && payload.breakEnd) {
+                if (payload.breakStart >= payload.breakEnd) throw new Error('休憩終了は開始より後にしてください');
+                if (payload.breakStart < payload.startTime || payload.breakEnd > payload.endTime) {
+                    throw new Error('休憩は勤務時間内に設定してください');
+                }
+            }
+        } else {
+            payload.breakStart = null;
+            payload.breakEnd = null;
+        }
     }
 
     function handleCreate() {
@@ -653,6 +879,8 @@
             workDate: payload.workDate,
             startTime: payload.startTime,
             endTime: payload.endTime,
+            breakStart: payload.breakStart,
+            breakEnd: payload.breakEnd,
             shiftName: payload.shiftName,
             isFree: payload.isFree,
             isOff: payload.isOff,
@@ -696,6 +924,8 @@
             shiftName: assign.shiftName || '',
             startTime: assign.startTime,
             endTime: assign.endTime,
+            breakStart: assign.breakStart || null,
+            breakEnd: assign.breakEnd || null,
             isFree: assign.isFree,
             isOff: assign.isOff,
             isLeave: assign.isLeave
@@ -766,6 +996,8 @@
                 shiftName: state.clipboard.shiftName,
                 startTime: state.clipboard.startTime,
                 endTime: state.clipboard.endTime,
+                breakStart: state.clipboard.breakStart || null,
+                breakEnd: state.clipboard.breakEnd || null,
                 isFree: state.clipboard.isFree,
                 isOff: state.clipboard.isOff,
                 isLeave: state.clipboard.isLeave
@@ -780,9 +1012,10 @@
 
     initDates();
     adjustEndByMode();
+    syncPlaceholderUI();
+    updateBreakHint();
     loadGrid();
 })();
 </script>
 </body>
 </html>
-

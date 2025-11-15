@@ -1,5 +1,6 @@
 package com.example.shiftv1.schedule;
 
+import com.example.shiftv1.breaks.BreakPeriodRepository;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.exception.BusinessException;
 import org.slf4j.Logger;
@@ -27,6 +28,7 @@ public class ScheduleController {
     private final ScheduleService scheduleService;
     private final ShiftAssignmentRepository assignmentRepository;
     private final ShiftReservationRepository reservationRepository;
+    private final BreakPeriodRepository breakRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
     private final ScheduleJobStatusService jobStatusService;
     private static final Logger logger = LoggerFactory.getLogger(ScheduleController.class);
@@ -34,11 +36,13 @@ public class ScheduleController {
     public ScheduleController(ScheduleService scheduleService,
                               ShiftAssignmentRepository assignmentRepository,
                               ShiftReservationRepository reservationRepository,
+                              BreakPeriodRepository breakRepository,
                               com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer,
                               ScheduleJobStatusService jobStatusService) {
         this.scheduleService = scheduleService;
         this.assignmentRepository = assignmentRepository;
         this.reservationRepository = reservationRepository;
+        this.breakRepository = breakRepository;
         this.errorLogBuffer = errorLogBuffer;
         this.jobStatusService = jobStatusService;
     }
@@ -205,6 +209,7 @@ public class ScheduleController {
             var start = target.atDay(1);
             var end = target.atEndOfMonth();
             long before = assignmentRepository.countByWorkDateBetween(start, end);
+            breakRepository.deleteByAssignment_WorkDateBetween(start, end);
             assignmentRepository.deleteByWorkDateBetween(start, end);
             List<ShiftReservation> reservationsToReset = reservationRepository.findByWorkDateBetweenAndStatusIn(
                     start, end, List.of(ShiftReservation.Status.APPLIED));

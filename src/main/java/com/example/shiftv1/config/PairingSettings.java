@@ -31,6 +31,9 @@ public class PairingSettings {
     @Column(name = "standalone_windows", length = 256)
     private String standaloneWindows = "17:00-21:00";
 
+    @Column(name = "skill_pairings", columnDefinition = "TEXT")
+    private String skillPairings;
+
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
 
@@ -54,5 +57,7 @@ public class PairingSettings {
 
     public String getStandaloneWindows() { return standaloneWindows; }
     public void setStandaloneWindows(String standaloneWindows) { this.standaloneWindows = standaloneWindows; }
-}
 
+    public String getSkillPairings() { return skillPairings; }
+    public void setSkillPairings(String skillPairings) { this.skillPairings = skillPairings; }
+}

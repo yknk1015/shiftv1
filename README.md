@@ -82,6 +82,26 @@ mvn spring-boot:run
 - Dashboard: http://localhost:8080/dashboard
 - Calendar: http://localhost:8080/calendar
 - Login: http://localhost:8080/login
+- Demand vs Supply Heatmap: http://localhost:8080/demand-supply
+
+## 需要 vs 供給ビュー
+
+休憩を含む時間帯別の需要（requiredSeats）と、シフト生成後の供給（稼働中・休憩中・FREEフォロー可能枠）を比較する画面を追加しました。
+
+- `GET /api/analytics/demand-supply?start=YYYY-MM-DD&end=YYYY-MM-DD&granularity=60&skillIds=1,2`
+  - 1〜31日分の範囲で時間粒度（15/30/60分）を指定可能
+  - 需要は DemandInterval を時間スロットに分解して集計
+  - 供給は ShiftAssignment + BreakPeriod を参照し、休憩重複分を差し引いた実稼働FTEを算出
+  - FREE勤務(`isFree=true`)は通常供給には含めず、休憩不足/純不足をフォローできる潜在数として別配列を返却
+  - レスポンス例は `/demand-supply` 画面の Network タブから確認できます
+
+UI では以下を確認できます。
+
+- 各時間帯ごとの「需要 / 稼働供給 / 休憩中 / 不足（休憩由来 or 純不足）」のヒートマップ
+- FREE 勤務者が休憩由来の不足をどこまでフォローできるか、および純不足に転用できる残量
+- 最大不足時間帯や参照された割当前数などのサマリーカード
+
+`/schedule-editor` のヘッダーからも新ビューへのショートカットを追加しています。
 
 ## スタック / Stack
 

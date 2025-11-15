@@ -41,6 +41,8 @@ public class ScheduleGridBulkRequest {
         private LocalDate workDate;
         private LocalTime startTime;
         private LocalTime endTime;
+        private LocalTime breakStart;
+        private LocalTime breakEnd;
         private String shiftName;
         private Boolean isFree;
         private Boolean isOff;
@@ -76,6 +78,22 @@ public class ScheduleGridBulkRequest {
 
         public void setEndTime(LocalTime endTime) {
             this.endTime = endTime;
+        }
+
+        public LocalTime getBreakStart() {
+            return breakStart;
+        }
+
+        public void setBreakStart(LocalTime breakStart) {
+            this.breakStart = breakStart;
+        }
+
+        public LocalTime getBreakEnd() {
+            return breakEnd;
+        }
+
+        public void setBreakEnd(LocalTime breakEnd) {
+            this.breakEnd = breakEnd;
         }
 
         public String getShiftName() {
@@ -126,4 +144,3 @@ public class ScheduleGridBulkRequest {
         }
     }
 }
-
