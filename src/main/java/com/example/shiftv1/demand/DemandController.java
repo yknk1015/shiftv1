@@ -1,5 +1,6 @@
 package com.example.shiftv1.demand;
 
+import com.example.shiftv1.breaks.BreakRules;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.holiday.HolidayRepository;
 import com.example.shiftv1.skill.Skill;
@@ -20,13 +21,16 @@ public class DemandController {
     private final DemandIntervalRepository repository;
     private final SkillRepository skillRepository;
     private final HolidayRepository holidayRepository;
+    private final DemandAggregationService aggregationService;
 
     public DemandController(DemandIntervalRepository repository,
                             SkillRepository skillRepository,
-                            HolidayRepository holidayRepository) {
+                            HolidayRepository holidayRepository,
+                            DemandAggregationService aggregationService) {
         this.repository = repository;
         this.skillRepository = skillRepository;
         this.holidayRepository = holidayRepository;
+        this.aggregationService = aggregationService;
     }
 
     @GetMapping
@@ -45,7 +49,7 @@ public class DemandController {
         } else {
             data = repository.findAllByOrderBySortOrderAscIdAsc();
         }
-        return ResponseEntity.ok(ApiResponse.success("���v�C���^�[�o���ꗗ���擾���܂���", data));
+        return ResponseEntity.ok(ApiResponse.success("需要インターバル一覧を取得しました", data));
     }
 
     @GetMapping("/effective")
@@ -57,7 +61,7 @@ public class DemandController {
             isHoliday = false;
         }
         List<DemandInterval> data = repository.findEffectiveForDate(date, date.getDayOfWeek(), isHoliday);
-        return ResponseEntity.ok(ApiResponse.success("�����̎��v�C���^�[�o�����擾���܂���", data));
+        return ResponseEntity.ok(ApiResponse.success("当日の有効な需要インターバルを取得しました", data));
     }
 
     @GetMapping("/aggregate")
@@ -93,87 +97,8 @@ public class DemandController {
         }
 
         final int G = Math.max(1, granularity);
-        final int slots = (int) Math.ceil(24 * 60.0 / G);
-
-        java.util.Map<Long, int[]> monthlyBySkill = new java.util.HashMap<>();
-        java.util.Set<Long> skillIds = new java.util.HashSet<>();
-        java.util.Set<Long> filterSkills = new java.util.HashSet<>();
-        if (skillIdsCsv != null && !skillIdsCsv.isBlank()) {
-            for (String tok : skillIdsCsv.split(",")) {
-                try { filterSkills.add(Long.parseLong(tok.trim())); } catch (Exception ignore) {}
-            }
-        }
-
-        for (java.time.LocalDate day = start; !day.isAfter(end); day = day.plusDays(1)) {
-            boolean isHoliday = isHoliday(day);
-            java.util.List<DemandInterval> intervals = repository.findEffectiveForDate(day, day.getDayOfWeek(), isHoliday);
-            if (intervals.isEmpty()) continue;
-
-            java.util.Map<Long, int[]> weekly = new java.util.HashMap<>();
-            java.util.Map<Long, int[]> dateSpec = new java.util.HashMap<>();
-
-            for (DemandInterval di : intervals) {
-                if (di.getSkill() == null) continue; // safety
-                Long sid = di.getSkill().getId();
-                if (sid == null) continue;
-                if (!filterSkills.isEmpty() && !filterSkills.contains(sid)) continue;
-                int sMin = di.getStartTime().getHour() * 60 + di.getStartTime().getMinute();
-                int eMin = di.getEndTime().getHour() * 60 + di.getEndTime().getMinute();
-                if (eMin <= 0 || sMin >= 24*60) continue;
-                int sIdx = Math.max(0, (int)Math.floor(sMin / (double)G));
-                int eIdx = Math.min(slots, (int)Math.ceil(eMin / (double)G));
-                boolean dateSpecific = di.getDate() != null;
-                int[] arr = (dateSpecific ? dateSpec : weekly).computeIfAbsent(sid, k -> new int[slots]);
-                int add = Math.max(0, di.getRequiredSeats());
-                for (int i = sIdx; i < eIdx; i++) arr[i] += add;
-                skillIds.add(sid);
-            }
-
-            // combine date-specific overrides weekly for the day, then accumulate to monthly
-            for (Long sid : skillIds) {
-                int[] wArr = weekly.get(sid);
-                int[] dArr = dateSpec.get(sid);
-                if (wArr == null && dArr == null) continue;
-                int[] eff = new int[slots];
-                for (int i = 0; i < slots; i++) {
-                    int w = (wArr == null ? 0 : wArr[i]);
-                    int d = (dArr == null ? 0 : dArr[i]);
-                    eff[i] = (d > 0 ? d : w);
-                }
-                int[] monthArr = monthlyBySkill.computeIfAbsent(sid, k -> new int[slots]);
-                for (int i = 0; i < slots; i++) monthArr[i] += eff[i];
-            }
-        }
-
-        java.util.List<Long> orderedSkillIds = monthlyBySkill.keySet().stream().sorted().toList();
-        java.util.List<java.util.Map<String, Object>> skills = new java.util.ArrayList<>();
-        for (Long sid : orderedSkillIds) {
-            java.util.Map<String, Object> mobj = new java.util.HashMap<>();
-            mobj.put("id", sid);
-            try {
-                var s = skillRepository.findById(sid).orElse(null);
-                if (s != null) { mobj.put("code", s.getCode()); mobj.put("name", s.getName()); }
-            } catch (Exception ignore) {}
-            skills.add(mobj);
-        }
-
-        String[] slotsLabels = new String[slots];
-        for (int i=0;i<slots;i++) {
-            int ms = i * G;
-            int me = Math.min(24*60, (i+1)*G);
-            java.time.LocalTime ts = java.time.LocalTime.of(ms/60, ms%60);
-            java.time.LocalTime te = java.time.LocalTime.of((me==24*60?23:me/60), (me==24*60?59:me%60));
-            slotsLabels[i] = String.format("%02d:%02d-%02d:%02d", ts.getHour(), ts.getMinute(), te.getHour(), te.getMinute());
-        }
-
-        int[] totalsPerSlot = new int[slots];
-        java.util.Map<Long, Integer> totalsPerSkill = new java.util.HashMap<>();
-        for (var e : monthlyBySkill.entrySet()) {
-            Long sid = e.getKey();
-            int sum = 0;
-            for (int i=0;i<slots;i++){ totalsPerSlot[i]+=e.getValue()[i]; sum += e.getValue()[i]; }
-            totalsPerSkill.put(sid, sum);
-        }
+        java.util.Set<Long> filterSkills = parseSkillIds(skillIdsCsv);
+        var aggResult = aggregationService.aggregate(start, end, G, filterSkills);
 
         java.util.Map<String, Object> body = new java.util.HashMap<>();
         body.put("period", p);
@@ -182,11 +107,11 @@ public class DemandController {
         body.put("startDate", start.toString());
         body.put("endDate", end.toString());
         body.put("granularity", G);
-        body.put("slots", slotsLabels);
-        body.put("skills", skills);
-        body.put("matrix", monthlyBySkill);
-        body.put("totalsPerSlot", totalsPerSlot);
-        body.put("totalsPerSkill", totalsPerSkill);
+        body.put("slots", aggResult.slotLabels());
+        body.put("skills", aggResult.skills());
+        body.put("matrix", aggResult.matrix());
+        body.put("totalsPerSlot", aggResult.totalsPerSlot());
+        body.put("totalsPerSkill", aggResult.totalsPerSkill());
         return ResponseEntity.ok(ApiResponse.success("集計しました", body));
     }
 
@@ -210,20 +135,35 @@ public class DemandController {
         if (dir.isEmpty()) {
             return ResponseEntity.badRequest().body(ApiResponse.failure("出力先ディレクトリを指定してください"));
         }
-        java.util.Set<Long> filterSkills = new java.util.HashSet<>();
-        if (req.skillIds()!=null) filterSkills.addAll(req.skillIds());
+        java.util.Set<Long> filterSkills = req.skillIds() == null
+                ? java.util.Collections.emptySet()
+                : new java.util.HashSet<>(req.skillIds());
 
-        // reuse aggregate computation via internal call
-        var resp = aggregate(p, req.date(), req.year(), req.month(), G,
-                filterSkills.isEmpty()? null : filterSkills.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(",")));
-        if (resp.getStatusCode().isError() || resp.getBody()==null || !Boolean.TRUE.equals(resp.getBody().success())) {
-            return ResponseEntity.status(resp.getStatusCode()).body(ApiResponse.failure("集計に失敗しました"));
+        java.time.LocalDate today = java.time.LocalDate.now();
+        java.time.LocalDate start;
+        java.time.LocalDate end;
+        if ("day".equals(p)) {
+            java.time.LocalDate d = (req.date()==null? today : req.date());
+            start = d; end = d;
+        } else if ("week".equals(p)) {
+            java.time.LocalDate d = (req.date()==null? today : req.date());
+            java.time.DayOfWeek MON = java.time.DayOfWeek.MONDAY;
+            start = d.with(java.time.temporal.TemporalAdjusters.previousOrSame(MON));
+            end = start.plusDays(6);
+        } else {
+            int yy = (req.year()==null? today.getYear() : req.year());
+            int mm = (req.month()==null? today.getMonthValue() : req.month());
+            java.time.YearMonth ym = java.time.YearMonth.of(yy, mm);
+            start = ym.atDay(1);
+            end = ym.atEndOfMonth();
         }
-        var data = (java.util.Map<String, Object>) resp.getBody().data();
-        java.util.List<String> slots = (java.util.List<String>) data.get("slots");
-        java.util.List<java.util.Map<String,Object>> skills = (java.util.List<java.util.Map<String,Object>>) data.get("skills");
-        java.util.Map<?,?> matrix = (java.util.Map<?,?>) data.get("matrix");
-        int[] totalsPerSlot = (int[]) data.get("totalsPerSlot");
+
+        var agg = aggregationService.aggregate(start, end, G, filterSkills);
+        java.util.List<String> slots = java.util.Arrays.asList(agg.slotLabels());
+        java.util.List<DemandAggregationService.SkillSummary> skills = agg.skills();
+        java.util.Map<Long, int[]> matrix = agg.matrix();
+        int[] totalsPerSlot = agg.totalsPerSlot();
+        int slotCount = agg.slotCount();
 
         java.io.File outDir = new java.io.File(dir);
         if (!outDir.exists() && !outDir.mkdirs()) {
@@ -237,12 +177,14 @@ public class DemandController {
             pw.println(",合計");
             // rows
             for (var s : skills) {
-                Long sid = (Long) s.get("id");
-                String name = (String) (s.get("name")!=null? s.get("name") : s.get("code"));
-                pw.print(name==null? ("#"+sid) : name.replace(","," "));
+                Long sid = s.id();
+                String label = s.name()!=null && !s.name().isBlank()
+                        ? s.name()
+                        : (s.code()!=null && !s.code().isBlank() ? s.code() : ("#"+sid));
+                pw.print(label.replace(",", " "));
                 int sum = 0;
-                int[] arr = (int[]) ((java.util.Map<?,?>)matrix).get(sid);
-                if (arr == null) { arr = new int[slots.size()]; }
+                int[] arr = matrix.get(sid);
+                if (arr == null) { arr = new int[slotCount]; }
                 for (int v : arr) { pw.print(","); pw.print(v); sum += v; }
                 pw.print(","); pw.println(sum);
             }
@@ -313,6 +255,10 @@ public class DemandController {
                 copy.setHolidayOnly(false);
                 copy.setStartTime(template.getStartTime());
                 copy.setEndTime(template.getEndTime());
+                copy.setBreakMinutes(BreakRules.normalizeMinutes(
+                        template.getBreakMinutes(),
+                        template.getStartTime(),
+                        template.getEndTime()));
                 copy.setRequiredSeats(template.getRequiredSeats());
                 copy.setSkill(template.getSkill());
                 copy.setActive(template.getActive() != null ? template.getActive() : true);
@@ -358,6 +304,7 @@ public class DemandController {
         d.setStartTime(req.startTime());
         d.setEndTime(req.endTime());
         d.setRequiredSeats(req.requiredSeats());
+        d.setBreakMinutes(BreakRules.normalizeMinutes(req.breakMinutes(), req.startTime(), req.endTime()));
         d.setActive(req.active() != null ? req.active() : true);
         Integer maxOrder = repository.findMaxSortOrder();
         d.setSortOrder((maxOrder == null ? 0 : maxOrder) + 1);
@@ -400,6 +347,7 @@ public class DemandController {
         d.setStartTime(req.startTime());
         d.setEndTime(req.endTime());
         d.setRequiredSeats(req.requiredSeats());
+        d.setBreakMinutes(BreakRules.normalizeMinutes(req.breakMinutes(), req.startTime(), req.endTime()));
         d.setActive(req.active() != null ? req.active() : d.getActive());
 
         Skill s = skillRepository.findById(req.skillId()).orElseThrow(() -> new IllegalArgumentException("スキルが見つかりません"));
@@ -412,10 +360,10 @@ public class DemandController {
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         if (!repository.existsById(id)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("���v�C���^�[�o����������܂���"));
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(ApiResponse.failure("需要インターバルが見つかりません"));
         }
         repository.deleteById(id);
-        return ResponseEntity.ok(ApiResponse.success("���v�C���^�[�o�����폜���܂���", null));
+        return ResponseEntity.ok(ApiResponse.success("需要インターバルを削除しました", null));
     }
 
     @PostMapping("/swap")
@@ -425,7 +373,7 @@ public class DemandController {
         Optional<DemandInterval> ob = repository.findById(idB);
         if (oa.isEmpty() || ob.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.failure("����܂��͗����̎��v��������܂���"));
+                    .body(ApiResponse.failure("指定された需要が見つかりません"));
         }
         DemandInterval a = oa.get();
         DemandInterval b = ob.get();
@@ -440,7 +388,7 @@ public class DemandController {
         b.setSortOrder(ao);
         repository.save(a);
         repository.save(b);
-        return ResponseEntity.ok(ApiResponse.success("���я������ւ��܂���", java.util.Map.of(
+        return ResponseEntity.ok(ApiResponse.success("並び順を入れ替えました", java.util.Map.of(
                 "a", java.util.Map.of("id", a.getId(), "sortOrder", a.getSortOrder()),
                 "b", java.util.Map.of("id", b.getId(), "sortOrder", b.getSortOrder())
         )));
@@ -476,6 +424,12 @@ public class DemandController {
         d.setDayOfWeek(overrides!=null && overrides.dayOfWeek()!=null ? overrides.dayOfWeek() : src.getDayOfWeek());
         d.setStartTime(overrides!=null && overrides.startTime()!=null ? overrides.startTime() : src.getStartTime());
         d.setEndTime(overrides!=null && overrides.endTime()!=null ? overrides.endTime() : src.getEndTime());
+        java.time.LocalTime targetStart = d.getStartTime();
+        java.time.LocalTime targetEnd = d.getEndTime();
+        Integer templateBreak = overrides != null && overrides.breakMinutes() != null
+                ? overrides.breakMinutes()
+                : src.getBreakMinutes();
+        d.setBreakMinutes(BreakRules.normalizeMinutes(templateBreak, targetStart, targetEnd));
         d.setRequiredSeats(overrides!=null && overrides.requiredSeats()!=null ? overrides.requiredSeats() : src.getRequiredSeats());
         d.setActive(overrides!=null && overrides.active()!=null ? overrides.active() : (src.getActive()!=null? src.getActive(): true));
         Boolean holidayFlag = overrides!=null && overrides.holidayOnly()!=null ? overrides.holidayOnly() : src.getHolidayOnly();
@@ -501,7 +455,7 @@ public class DemandController {
         Optional<DemandInterval> od = repository.findById(id);
         if (od.isEmpty()) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                    .body(ApiResponse.failure("���v�C���^�[�o����������܂���"));
+                    .body(ApiResponse.failure("需要インターバルが見つかりません"));
         }
         DemandInterval current = od.get();
         Integer order = current.getSortOrder();
@@ -509,7 +463,7 @@ public class DemandController {
             Integer max = repository.findMaxSortOrder();
             current.setSortOrder((max == null ? 0 : max) + 1);
             repository.save(current);
-            return ResponseEntity.ok(ApiResponse.success("���������������܂���", current));
+            return ResponseEntity.ok(ApiResponse.success("並び順を更新しました", current));
         }
         DemandInterval neighbor = null;
         if ("up".equalsIgnoreCase(direction)) {
@@ -517,10 +471,10 @@ public class DemandController {
         } else if ("down".equalsIgnoreCase(direction)) {
             neighbor = repository.findFirstBySortOrderGreaterThanOrderBySortOrderAsc(order);
         } else {
-            return ResponseEntity.badRequest().body(ApiResponse.failure("direction �� up �� down ���w�肵�Ă�������"));
+            return ResponseEntity.badRequest().body(ApiResponse.failure("direction には up または down を指定してください"));
         }
         if (neighbor == null) {
-            return ResponseEntity.ok(ApiResponse.success("����ȏ�ړ��ł��܂���", current));
+            return ResponseEntity.ok(ApiResponse.success("これ以上移動できません", current));
         }
         Integer neighborOrder = neighbor.getSortOrder();
         // swap orders
@@ -528,7 +482,7 @@ public class DemandController {
         neighbor.setSortOrder(order);
         repository.save(neighbor);
         DemandInterval saved = repository.save(current);
-        return ResponseEntity.ok(ApiResponse.success("�������X�V���܂���", saved));
+        return ResponseEntity.ok(ApiResponse.success("並び順を更新しました", saved));
     }
 
     public record DemandRequest(
@@ -537,6 +491,7 @@ public class DemandController {
             java.time.LocalTime startTime,
             java.time.LocalTime endTime,
             Integer requiredSeats,
+            Integer breakMinutes,
             Long skillId,
             Boolean active,
             Boolean holidayOnly
@@ -548,6 +503,7 @@ public class DemandController {
             java.time.LocalTime startTime,
             java.time.LocalTime endTime,
             Integer requiredSeats,
+            Integer breakMinutes,
             Long skillId,
             Boolean active,
             Boolean holidayOnly
@@ -575,7 +531,24 @@ public class DemandController {
             d.setSortOrder(ord++);
             repository.save(d);
         }
-        return ResponseEntity.ok(ApiResponse.success("���ڂ��܂���", null));
+        return ResponseEntity.ok(ApiResponse.success("並び替えました", null));
+    }
+
+    private java.util.Set<Long> parseSkillIds(String csv) {
+        java.util.Set<Long> ids = new java.util.HashSet<>();
+        if (csv == null || csv.isBlank()) {
+            return ids;
+        }
+        for (String tok : csv.split(",")) {
+            if (tok == null || tok.isBlank()) {
+                continue;
+            }
+            try {
+                ids.add(Long.parseLong(tok.trim()));
+            } catch (NumberFormatException ignore) {
+            }
+        }
+        return ids;
     }
 
     private boolean isHoliday(LocalDate date) {

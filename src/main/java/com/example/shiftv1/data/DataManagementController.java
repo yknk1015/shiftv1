@@ -5,6 +5,7 @@ import com.example.shiftv1.employee.Employee;
 import com.example.shiftv1.employee.EmployeeRepository;
 import com.example.shiftv1.schedule.ShiftAssignment;
 import com.example.shiftv1.schedule.ShiftAssignmentRepository;
+import com.example.shiftv1.schedule.ScheduleCsvExporter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
@@ -12,14 +13,18 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriUtils;
 
 import java.io.ByteArrayOutputStream;
 import java.io.PrintWriter;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.io.OutputStreamWriter;
+import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/data")
@@ -29,11 +34,14 @@ public class DataManagementController {
     
     private final EmployeeRepository employeeRepository;
     private final ShiftAssignmentRepository assignmentRepository;
+    private final ScheduleCsvExporter scheduleCsvExporter;
 
-    public DataManagementController(EmployeeRepository employeeRepository, 
-                                   ShiftAssignmentRepository assignmentRepository) {
+    public DataManagementController(EmployeeRepository employeeRepository,
+                                   ShiftAssignmentRepository assignmentRepository,
+                                   ScheduleCsvExporter scheduleCsvExporter) {
         this.employeeRepository = employeeRepository;
         this.assignmentRepository = assignmentRepository;
+        this.scheduleCsvExporter = scheduleCsvExporter;
     }
 
     @GetMapping("/export/employees/csv")
@@ -44,29 +52,30 @@ public class DataManagementController {
             List<Employee> employees = employeeRepository.findAll();
             
             ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PrintWriter writer = new PrintWriter(baos);
-            
-            // CSVヘッダー
-            writer.println("ID,名前,役職,作成日");
-            
-            // データ行
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-            for (Employee employee : employees) {
-                writer.printf("%d,%s,%s,%s%n",
-                    employee.getId(),
-                    employee.getName(),
-                    employee.getRole(),
-                    employee.getCreatedAt() != null ? employee.getCreatedAt().format(formatter) : ""
-                );
-            }
-            
-            writer.flush();
-            byte[] csvData = baos.toByteArray();
-            writer.close();
+            try (OutputStreamWriter osw = new OutputStreamWriter(baos, StandardCharsets.UTF_8);
+                 PrintWriter writer = new PrintWriter(osw)) {
+                writer.write('\uFEFF');
+                writer.println("ID,名前,役職,作成日");
 
+                DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                for (Employee employee : employees) {
+                    writer.printf("%d,%s,%s,%s%n",
+                            employee.getId(),
+                            safeString(employee.getName()),
+                            safeString(employee.getRole()),
+                            employee.getCreatedAt() != null ? employee.getCreatedAt().format(formatter) : ""
+                    );
+                }
+                writer.flush();
+            }
+
+            byte[] csvData = baos.toByteArray();
             HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            headers.setContentDispositionFormData("attachment", "employees.csv");
+            headers.setContentType(MediaType.parseMediaType("text/csv; charset=UTF-8"));
+            String filename = "employees.csv";
+            String encoded = UriUtils.encode(filename, StandardCharsets.UTF_8);
+            headers.add(HttpHeaders.CONTENT_DISPOSITION,
+                    "attachment; filename=\"" + filename + "\"; filename*=UTF-8''" + encoded);
             headers.setContentLength(csvData.length);
 
             logger.info("従業員データのCSVエクスポートが完了しました: {} 件", employees.size());
@@ -98,42 +107,29 @@ public class DataManagementController {
 
             List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(start, end);
             
-            ByteArrayOutputStream baos = new ByteArrayOutputStream();
-            PrintWriter writer = new PrintWriter(baos);
-            
-            // CSVヘッダー
-            writer.println("日付,従業員名,シフト名,勤務開始時間,勤務終了時間");
-            
-            // データ行
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-            for (ShiftAssignment assignment : assignments) {
-                writer.printf("%s,%s,%s,%s,%s%n",
-                    assignment.getWorkDate().format(formatter),
-                    assignment.getEmployee().getName(),
-                    assignment.getShiftName(),
-                    assignment.getStartTime() != null ? assignment.getStartTime().toString() : "",
-                    assignment.getEndTime() != null ? assignment.getEndTime().toString() : ""
-                );
-            }
-            
-            writer.flush();
-            byte[] csvData = baos.toByteArray();
-            writer.close();
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_OCTET_STREAM);
-            String filename = String.format("schedule_%d-%02d.csv", 
-                start.getYear(), start.getMonthValue());
-            headers.setContentDispositionFormData("attachment", filename);
-            headers.setContentLength(csvData.length);
+            YearMonth targetYm = YearMonth.of(start.getYear(), start.getMonthValue());
+            ScheduleCsvExporter.CsvFile csvFile = scheduleCsvExporter.export(assignments, targetYm);
 
             logger.info("シフトデータのCSVエクスポートが完了しました: {} 件", assignments.size());
-            return new ResponseEntity<>(csvData, headers, HttpStatus.OK);
+            return buildCsvResponse(csvFile);
 
         } catch (Exception e) {
             logger.error("シフトデータのCSVエクスポートでエラーが発生しました", e);
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
+    }
+
+    private ResponseEntity<byte[]> buildCsvResponse(ScheduleCsvExporter.CsvFile csvFile) {
+        String encoded = UriUtils.encode(csvFile.filename(), StandardCharsets.UTF_8);
+        String disposition = "attachment; filename=\"" + csvFile.filename() + "\"; filename*=UTF-8''" + encoded;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csvFile.data());
+    }
+
+    private String safeString(String value) {
+        return value == null ? "" : value;
     }
 
     @GetMapping("/backup/info")

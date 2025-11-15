@@ -19,6 +19,16 @@
             border-radius: 10px;
             box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: #2563eb;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+        .back-link:hover { text-decoration: underline; }
         .header {
             display: flex;
             justify-content: space-between;
@@ -178,6 +188,7 @@
 </head>
 <body>
     <div class="container">
+        <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
         <div class="header">
             <h1>シフトカレンダー</h1>
             <div class="navigation">
@@ -212,7 +223,8 @@
         </div>
     </div>
 
-    <script>
+  <script src="/js/app.js"></script>
+  <script>
         let currentDate = new Date();
         let scheduleData = {};
 

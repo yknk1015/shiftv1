@@ -60,6 +60,9 @@ public class DemandInterval {
     @Column(name = "updated_at")
     private LocalDateTime updatedAt;
 
+    @Column(name = "break_minutes")
+    private Integer breakMinutes;
+
     protected DemandInterval() {}
 
     public DemandInterval(LocalTime startTime, LocalTime endTime, Integer requiredSeats) {
@@ -100,4 +103,6 @@ public class DemandInterval {
     public void setSortOrder(Integer sortOrder) { this.sortOrder = sortOrder; }
     public LocalDateTime getCreatedAt() { return createdAt; }
     public LocalDateTime getUpdatedAt() { return updatedAt; }
+    public Integer getBreakMinutes() { return breakMinutes; }
+    public void setBreakMinutes(Integer breakMinutes) { this.breakMinutes = breakMinutes; }
 }

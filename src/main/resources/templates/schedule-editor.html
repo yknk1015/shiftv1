@@ -8,6 +8,9 @@
         :root {
             color-scheme: light;
         }
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
         body {
             margin: 0;
             font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
@@ -17,6 +20,53 @@
             max-width: 1600px;
             margin: 0 auto;
             padding: 24px;
+        }
+        .back-link {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-weight: 600;
+            color: #2563eb;
+            text-decoration: none;
+            margin-bottom: 12px;
+        }
+        .back-link:hover { text-decoration: underline; }
+        .workflow-banner {
+            background: #f8fafc;
+            border: 1px solid #dbeafe;
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+        .workflow-banner h3 {
+            margin: 0 0 6px;
+            font-size: 18px;
+            color: #1f2933;
+        }
+        .workflow-banner p {
+            margin: 0 0 10px;
+            color: #475569;
+            font-size: 14px;
+        }
+        .workflow-banner ul {
+            margin: 0 0 10px 18px;
+            color: #475569;
+            font-size: 14px;
+        }
+        .banner-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .banner-actions a {
+            padding: 8px 14px;
+            border-radius: 8px;
+            border: 1px solid #c7d2fe;
+            color: #2563eb;
+            text-decoration: none;
+            background: #fff;
+            font-weight: 600;
+            font-size: 13px;
         }
         header {
             display: flex;
@@ -64,6 +114,16 @@
         .btn-secondary {
             background-color: #e4e7ec;
             color: #1f2933;
+        }
+        .btn-secondary.ghost {
+            background-color: #fff;
+            color: #2563eb;
+            border: 1px dashed #93c5fd;
+        }
+        .header-links {
+            display: flex;
+            gap: 8px;
+            align-items: center;
         }
         .btn-danger {
             background-color: #dc2626;
@@ -175,6 +235,7 @@
         .chip-row {
             display: flex;
             gap: 8px;
+            flex-wrap: wrap;
         }
         .chip-row label {
             display: flex;
@@ -182,6 +243,42 @@
             gap: 4px;
             font-size: 13px;
             color: #334155;
+        }
+        .break-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-bottom: 8px;
+        }
+        .break-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        .break-row select {
+            width: 120px;
+            padding: 6px 8px;
+        }
+        .break-row input[type="time"] {
+            width: 120px;
+        }
+        .chip-row--flags {
+            flex-wrap: nowrap;
+            width: 100%;
+            justify-content: space-between;
+        }
+        .chip-row--flags label {
+            flex: 1 1 0;
+            min-width: 0;
+            justify-content: center;
+        }
+        .chip-row--split {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+        }
+        .chip-row--break button {
+            grid-column: 1 / -1;
+            width: 100%;
         }
         .status-bar {
             margin-top: 12px;
@@ -217,17 +314,37 @@
     </style>
 </head>
 <body>
-<div class="page">
-    <header>
-        <h1>シフトグリッド最終調整</h1>
-        <a href="/dashboard"><button class="secondary">ダッシュボードへ戻る</button></a>
-        <div>
-            <button class="btn btn-secondary" id="discardBtn">変更を破棄</button>
-            <button class="btn btn-primary" id="saveBtn">保存</button>
-        </div>
-    </header>
+    <div class="page">
+        <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
+        <header>
+            <div>
+                <h1>シフトグリッド調整</h1>
+                <p style="margin:4px 0 0;color:#4c566a;">CSV やカレンダーへ出力する前に、担当者単位の微調整を行います。</p>
+            </div>
+            <div class="header-links">
+                <button class="btn btn-secondary ghost" onclick="document.getElementById('gridTable').scrollIntoView({behavior:'smooth'});">表ビューへ移動</button>
+                <a class="btn btn-secondary" href="/demand">需要管理</a>
+            </div>
+            <div class="header-links">
+                <button class="btn btn-secondary" id="discardBtn">変更を破棄</button>
+                <button class="btn btn-primary" id="saveBtn">保存</button>
+            </div>
+        </header>
 
-    <section class="controls">
+        <div class="workflow-banner">
+            <h3>公開までの流れ</h3>
+            <ul>
+                <li>ダッシュボードでシフトを生成 → この画面で微調整 → ダッシュボードの CSV / カレンダーで従業員へ共有</li>
+                <li>確定後はダッシュボードの「CSVダウンロード」ボタンから同じ期間のファイルを出力してください。</li>
+            </ul>
+            <div class="banner-actions">
+                <a href="/dashboard#schedule-card">生成カードへ</a>
+                <a href="/dashboard#data-card">CSVダウンロード</a>
+                <a href="/calendar">カレンダー表示</a>
+            </div>
+        </div>
+
+<section class="controls">
         <div>
             <label for="startDate">開始日</label>
             <input type="date" id="startDate">
@@ -273,7 +390,7 @@
                 <label for="shiftNameInput">シフト名</label>
                 <input type="text" id="shiftNameInput" placeholder="例: Manual / Demand-A">
             </div>
-            <div class="form-group chip-row">
+            <div class="form-group chip-row chip-row--split">
                 <div>
                     <label for="startTimeInput">開始</label>
                     <input type="time" id="startTimeInput" step="900">
@@ -283,7 +400,16 @@
                     <input type="time" id="endTimeInput" step="900">
                 </div>
             </div>
-            <div class="form-group chip-row">
+            <div class="form-group">
+                <label>休憩</label>
+                <div id="breakList" class="break-list"></div>
+                <div class="chip-row">
+                    <button class="btn btn-secondary" id="breakAddBtn" type="button">休憩を追加</button>
+                    <button class="btn btn-secondary ghost" id="breakSuggestBtn" type="button">推奨を反映</button>
+                </div>
+                <div class="status-bar" id="breakHint">例: 15 / 10 など自由に入力できます</div>
+            </div>
+            <div class="form-group chip-row chip-row--flags">
                 <label><input type="checkbox" id="flagFree"> FREE</label>
                 <label><input type="checkbox" id="flagOff"> 休日</label>
                 <label><input type="checkbox" id="flagLeave"> 有給</label>
@@ -300,8 +426,9 @@
     </div>
 </div>
 
+<script src="/js/app.js"></script>
 <script>
-(() => {
+(async () => {
     const state = {
         employees: [],
         days: [],
@@ -310,7 +437,14 @@
         clipboard: null,
         selectedAssignmentId: null,
         activeCellKey: null,
-        tempCounter: 0
+        tempCounter: 0,
+        formBreaks: [],
+        breakSettings: {
+            shortBreakEnabled: false,
+            shortBreakMinutes: 15,
+            minShiftMinutes: 180,
+            applyToShortShifts: true
+        }
     };
 
     const dom = {
@@ -326,6 +460,10 @@
         shiftNameInput: document.getElementById('shiftNameInput'),
         startTimeInput: document.getElementById('startTimeInput'),
         endTimeInput: document.getElementById('endTimeInput'),
+        breakList: document.getElementById('breakList'),
+        breakHint: document.getElementById('breakHint'),
+        breakAddBtn: document.getElementById('breakAddBtn'),
+        breakSuggestBtn: document.getElementById('breakSuggestBtn'),
         flagFree: document.getElementById('flagFree'),
         flagOff: document.getElementById('flagOff'),
         flagLeave: document.getElementById('flagLeave'),
@@ -338,7 +476,257 @@
         metaInfo: document.getElementById('metaInfo')
     };
 
+    renderBreakList();
+
     const weekdays = ['日', '月', '火', '水', '木', '金', '土'];
+    const PLACEHOLDER_LIMITS = {
+        free: { start: '00:00', end: '00:05' },
+        off: { start: '00:00', end: '00:05' },
+        leave: { start: '09:00', end: '18:00' },
+        default: { start: '09:00', end: '18:00' }
+    };
+
+    function timeToMinutes(str) {
+        if (!str || str.length < 4) return null;
+        const [h, m] = str.split(':').map(Number);
+        if (Number.isNaN(h) || Number.isNaN(m)) return null;
+        return (h * 60) + m;
+    }
+
+    function minutesToTime(mins) {
+        const clamped = Math.max(0, mins);
+        const h = String(Math.floor(clamped / 60)).padStart(2, '0');
+        const m = String(clamped % 60).padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function recommendedLunchMinutes(startStr, endStr) {
+        const start = timeToMinutes(startStr);
+        const end = timeToMinutes(endStr);
+        if (start == null || end == null || end <= start) return 0;
+        const duration = end - start;
+        if (duration >= 480) return 60;
+        if (duration >= 360) return 45;
+        return 0;
+    }
+
+    function suggestBreakSet() {
+        const startStr = dom.startTimeInput.value;
+        const endStr = dom.endTimeInput.value;
+        const start = timeToMinutes(startStr);
+        const end = timeToMinutes(endStr);
+        if (start == null || end == null || end <= start) return [];
+        const duration = end - start;
+        const result = [];
+        const lunchMinutes = recommendedLunchMinutes(startStr, endStr);
+        if (lunchMinutes > 0) {
+            const slack = Math.max(0, duration - lunchMinutes);
+            const offset = Math.floor(slack / 2);
+            const lunchStart = minutesToTime(start + offset);
+            const lunchEnd = minutesToTime(start + offset + lunchMinutes);
+            result.push({
+                type: 'LUNCH',
+                start: lunchStart,
+                end: lunchEnd,
+                autoGenerated: true
+            });
+        }
+        if (state.breakSettings.shortBreakEnabled) {
+            const shortMinutes = Math.max(5, state.breakSettings.shortBreakMinutes || 15);
+            const minShift = Math.max(60, state.breakSettings.minShiftMinutes || 180);
+            if (duration >= minShift) {
+                let shortStart;
+                if (result.length > 0) {
+                    const lunchEnd = result[0].end;
+                    const remaining = timeToMinutes(endStr) - timeToMinutes(lunchEnd);
+                    const offset = Math.max(0, Math.floor((remaining - shortMinutes) / 2));
+                    shortStart = minutesToTime(timeToMinutes(lunchEnd) + offset);
+                } else if (state.breakSettings.applyToShortShifts) {
+                    const offset = Math.max(0, Math.floor((duration - shortMinutes) / 2));
+                    shortStart = minutesToTime(start + offset);
+                }
+                if (shortStart) {
+                    const shortEnd = minutesToTime(timeToMinutes(shortStart) + shortMinutes);
+                    result.push({
+                        type: 'SHORT',
+                        start: shortStart,
+                        end: shortEnd,
+                        autoGenerated: true
+                    });
+                }
+            }
+        }
+        return result;
+    }
+    function effectiveTimeValue(input) {
+        if (!input) return null;
+        const value = input.disabled ? (input.dataset.savedValue || '') : input.value;
+        return value || null;
+    }
+
+    function renderBreakList() {
+        if (!dom.breakList) return;
+        const items = state.formBreaks;
+        if (!items.length) {
+            dom.breakList.innerHTML = '<p class="muted">休憩は未設定です。</p>';
+            return;
+        }
+        dom.breakList.innerHTML = items.map((br, idx) => {
+            return `<div class="break-row" data-break-index="${idx}">
+                <select data-break-field="type">
+                    <option value="LUNCH"${br.type === 'LUNCH' ? ' selected' : ''}>昼休憩</option>
+                    <option value="SHORT"${br.type === 'SHORT' ? ' selected' : ''}>小休憩</option>
+                </select>
+                <input type="time" data-break-field="start" value="${br.start || ''}">
+                <span>〜</span>
+                <input type="time" data-break-field="end" value="${br.end || ''}">
+                <button type="button" class="btn btn-secondary" data-break-remove="${idx}">削除</button>
+            </div>`;
+        }).join('');
+        dom.breakList.querySelectorAll('[data-break-field]').forEach(input => {
+            input.addEventListener('input', handleBreakFieldChange);
+        });
+        dom.breakList.querySelectorAll('[data-break-remove]').forEach(btn => {
+            btn.addEventListener('click', () => removeBreakRow(Number(btn.dataset.breakRemove)));
+        });
+        updateBreakHint();
+    }
+
+    function handleBreakFieldChange(event) {
+        const wrapper = event.currentTarget.closest('[data-break-index]');
+        if (!wrapper) return;
+        const index = Number(wrapper.dataset.breakIndex);
+        const field = event.currentTarget.dataset.breakField;
+        const value = event.currentTarget.value;
+        if (!Number.isFinite(index) || index < 0 || index >= state.formBreaks.length) return;
+        const target = state.formBreaks[index];
+        target[field] = value;
+    }
+
+    function addBreakRow(type = 'SHORT') {
+        state.formBreaks.push({
+            id: null,
+            type,
+            start: '',
+            end: '',
+            autoGenerated: false
+        });
+        renderBreakList();
+        updateBreakHint();
+    }
+
+    function removeBreakRow(index) {
+        state.formBreaks.splice(index, 1);
+        renderBreakList();
+        updateBreakHint();
+    }
+
+    function updateBreakHint() {
+        if (!dom.breakHint) return;
+        if (!state.formBreaks.length) {
+            dom.breakHint.textContent = '例: 15 / 10 など自由に入力できます';
+            return;
+        }
+        const total = state.formBreaks.map(br => {
+            const start = timeToMinutes(br.start);
+            const end = timeToMinutes(br.end);
+            if (start == null || end == null || end <= start) return 0;
+            return end - start;
+        }).reduce((sum, v) => sum + v, 0);
+        dom.breakHint.textContent = `設定中: ${state.formBreaks.length}件 / 合計 ${total}分`;
+    }
+
+    function hydrateBreaks(assign) {
+        if (assign && Array.isArray(assign.breaks) && assign.breaks.length) {
+            return assign.breaks.map(br => ({
+                id: br.id || null,
+                type: br.type || 'LUNCH',
+                start: br.start || '',
+                end: br.end || '',
+                autoGenerated: !!br.autoGenerated
+            }));
+        }
+        if (assign && assign.breakStart && assign.breakEnd) {
+            return [{
+                id: null,
+                type: 'LUNCH',
+                start: assign.breakStart,
+                end: assign.breakEnd,
+                autoGenerated: false
+            }];
+        }
+        return [];
+    }
+
+    async function fetchBreakSettings() {
+        try {
+            const res = await fetch('/api/config/break-settings');
+            if (!res.ok) return;
+            const data = await res.json();
+            state.breakSettings.shortBreakEnabled = !!data.shortBreakEnabled;
+            state.breakSettings.shortBreakMinutes = data.shortBreakMinutes ?? 15;
+            state.breakSettings.minShiftMinutes = data.minShiftMinutes ?? 180;
+            state.breakSettings.applyToShortShifts = data.applyToShortShifts ?? true;
+        } catch (err) {
+            console.warn('Failed to load break settings', err);
+        }
+    }
+    function currentPlaceholderType() {
+        if (dom.flagLeave.checked) return 'leave';
+        if (dom.flagOff.checked) return 'off';
+        if (dom.flagFree.checked) return 'free';
+        return null;
+    }
+
+    function maskShiftInputs(type) {
+        const limits = PLACEHOLDER_LIMITS[type] || PLACEHOLDER_LIMITS.default;
+        if (!dom.startTimeInput.dataset.savedValue) {
+            dom.startTimeInput.dataset.savedValue = dom.startTimeInput.value || limits.start;
+        }
+        if (!dom.endTimeInput.dataset.savedValue) {
+            dom.endTimeInput.dataset.savedValue = dom.endTimeInput.value || limits.end;
+        }
+        dom.startTimeInput.value = '';
+        dom.endTimeInput.value = '';
+        dom.startTimeInput.disabled = true;
+        dom.endTimeInput.disabled = true;
+
+        state.formBreaks = [];
+        renderBreakList();
+        dom.breakSuggestBtn.disabled = true;
+    }
+
+    function unmaskShiftInputs() {
+        if (dom.startTimeInput.dataset.savedValue !== undefined) {
+            dom.startTimeInput.value = dom.startTimeInput.dataset.savedValue;
+            delete dom.startTimeInput.dataset.savedValue;
+        }
+        if (dom.endTimeInput.dataset.savedValue !== undefined) {
+            dom.endTimeInput.value = dom.endTimeInput.dataset.savedValue;
+            delete dom.endTimeInput.dataset.savedValue;
+        }
+        dom.startTimeInput.disabled = false;
+        dom.endTimeInput.disabled = false;
+
+        dom.breakSuggestBtn.disabled = false;
+    }
+
+    function syncPlaceholderUI(source) {
+        if (source && source.checked) {
+            [dom.flagFree, dom.flagOff, dom.flagLeave].forEach(flag => {
+                if (flag !== source) flag.checked = false;
+            });
+        }
+        const type = currentPlaceholderType();
+        if (type === 'leave') {
+            dom.shiftNameInput.value = '有休';
+        }
+        if (type) {
+            maskShiftInputs(type);
+        } else {
+            unmaskShiftInputs();
+        }
+    }
 
     function initDates() {
         const today = new Date();
@@ -374,6 +762,16 @@
 
     dom.viewMode.addEventListener('change', adjustEndByMode);
     dom.startDate.addEventListener('change', adjustEndByMode);
+    dom.startTimeInput.addEventListener('change', updateBreakHint);
+    dom.endTimeInput.addEventListener('change', updateBreakHint);
+    dom.breakAddBtn.addEventListener('click', () => addBreakRow());
+    dom.breakSuggestBtn.addEventListener('click', () => {
+        state.formBreaks = suggestBreakSet().map(br => ({ ...br, id: null }));
+        renderBreakList();
+    });
+    dom.flagFree.addEventListener('change', () => syncPlaceholderUI(dom.flagFree));
+    dom.flagOff.addEventListener('change', () => syncPlaceholderUI(dom.flagOff));
+    dom.flagLeave.addEventListener('change', () => syncPlaceholderUI(dom.flagLeave));
 
     dom.loadBtn.addEventListener('click', () => loadGrid());
     dom.discardBtn.addEventListener('click', () => {
@@ -536,16 +934,32 @@
     }
 
     function buildCardLabel(assign) {
-        if (assign.isFree) return 'FREE';
-        if (assign.isOff) return assign.isLeave ? '有給' : '休日';
-        const times = assign.startTime && assign.endTime ? `${assign.startTime} - ${assign.endTime}` : '';
-        return `${assign.shiftName || 'Manual'} ${times}`.trim();
+        const fmt = (time) => (time ? time.slice(0, 5) : '');
+        if (assign.isLeave) {
+            return '有給';
+        }
+        if (assign.isOff) {
+            return '休日';
+        }
+        if (assign.isFree) {
+            return 'FREE';
+        }
+        const name = assign.shiftName && assign.shiftName.trim() ? assign.shiftName.trim() : 'Manual';
+        const start = fmt(assign.startTime);
+        const end = fmt(assign.endTime);
+        const times = (start && end) ? `${start} - ${end}` : '';
+        if (!times) {
+            return name;
+        }
+        return `${name} ${times}`.trim();
     }
 
     function selectCell(cell) {
         state.activeCellKey = `${cell.dataset.employeeId}:${cell.dataset.date}`;
         dom.workDateInput.value = cell.dataset.date;
         dom.employeeSelect.value = cell.dataset.employeeId;
+        state.formBreaks = [];
+        renderBreakList();
         highlightSelection();
     }
 
@@ -558,9 +972,12 @@
         dom.shiftNameInput.value = assign.shiftName || '';
         dom.startTimeInput.value = assign.startTime || '';
         dom.endTimeInput.value = assign.endTime || '';
+        state.formBreaks = hydrateBreaks(assign);
+        renderBreakList();
         dom.flagFree.checked = !!assign.isFree;
         dom.flagOff.checked = !!assign.isOff;
         dom.flagLeave.checked = !!assign.isLeave;
+        syncPlaceholderUI();
         dom.selectionInfo.textContent = `選択中: ${assign.employeeName || ''} (${assign.workDate})`;
         highlightSelection();
     }
@@ -576,23 +993,57 @@
     }
 
     function collectFormValues() {
-        return {
+        const placeholderType = currentPlaceholderType();
+        const startTime = effectiveTimeValue(dom.startTimeInput) || (placeholderType ? (PLACEHOLDER_LIMITS[placeholderType]?.start || PLACEHOLDER_LIMITS.default.start) : null);
+        const endTime = effectiveTimeValue(dom.endTimeInput) || (placeholderType ? (PLACEHOLDER_LIMITS[placeholderType]?.end || PLACEHOLDER_LIMITS.default.end) : null);
+        const payload = {
             employeeId: Number(dom.employeeSelect.value),
             workDate: dom.workDateInput.value,
             shiftName: dom.shiftNameInput.value.trim(),
-            startTime: dom.startTimeInput.value || null,
-            endTime: dom.endTimeInput.value || null,
+            startTime,
+            endTime,
+            breakStart: null,
+            breakEnd: null,
+            breaks: placeholderType ? [] : state.formBreaks
+                .filter(br => br.start && br.end)
+                .map(br => ({
+                    id: br.id || null,
+                    type: br.type || 'SHORT',
+                    start: br.start,
+                    end: br.end,
+                    autoGenerated: !!br.autoGenerated
+                })),
             isFree: dom.flagFree.checked,
             isOff: dom.flagOff.checked,
             isLeave: dom.flagLeave.checked
         };
+        const lunch = payload.breaks.find(br => br.type === 'LUNCH');
+        if (lunch) {
+            payload.breakStart = lunch.start;
+            payload.breakEnd = lunch.end;
+        }
+        return payload;
     }
 
     function validateForm(payload) {
+        const placeholderActive = Boolean(currentPlaceholderType());
         if (!payload.employeeId) throw new Error('従業員を選択してください');
         if (!payload.workDate) throw new Error('日付を入力してください');
         if (!payload.startTime || !payload.endTime) throw new Error('開始・終了時刻を入力してください');
-        if (payload.startTime >= payload.endTime) throw new Error('終了時刻は開始より後にしてください');
+        if (!placeholderActive && payload.startTime >= payload.endTime) throw new Error('終了時刻は開始より後にしてください');
+        if (!placeholderActive) {
+            payload.breaks.forEach(br => {
+                if (!br.start || !br.end) throw new Error('休憩の開始・終了を入力してください');
+                if (br.start >= br.end) throw new Error('休憩終了は開始より後にしてください');
+                if (br.start < payload.startTime || br.end > payload.endTime) {
+                    throw new Error('休憩は勤務時間内に設定してください');
+                }
+            });
+        } else {
+            payload.breaks = [];
+            payload.breakStart = null;
+            payload.breakEnd = null;
+        }
     }
 
     function handleCreate() {
@@ -608,7 +1059,8 @@
                 clientId,
                 employeeName: employee ? employee.name : '',
                 isTemp: true,
-                dirty: true
+                dirty: true,
+                breaks: payload.breaks || []
             };
             state.assignments.set(clientId, assign);
             state.activeCellKey = `${payload.employeeId}:${payload.workDate}`;
@@ -653,6 +1105,9 @@
             workDate: payload.workDate,
             startTime: payload.startTime,
             endTime: payload.endTime,
+            breakStart: payload.breakStart,
+            breakEnd: payload.breakEnd,
+            breaks: payload.breaks,
             shiftName: payload.shiftName,
             isFree: payload.isFree,
             isOff: payload.isOff,
@@ -696,6 +1151,9 @@
             shiftName: assign.shiftName || '',
             startTime: assign.startTime,
             endTime: assign.endTime,
+            breakStart: assign.breakStart || null,
+            breakEnd: assign.breakEnd || null,
+            breaks: Array.isArray(assign.breaks) ? assign.breaks.map(b => ({ ...b })) : [],
             isFree: assign.isFree,
             isOff: assign.isOff,
             isLeave: assign.isLeave
@@ -756,7 +1214,11 @@
     document.addEventListener('keydown', evt => {
         if (!evt.ctrlKey) return;
         if (evt.key === 'c' && state.selectedAssignmentId) {
-            state.clipboard = { ...state.assignments.get(state.selectedAssignmentId) };
+            const source = state.assignments.get(state.selectedAssignmentId);
+            state.clipboard = {
+                ...source,
+                breaks: Array.isArray(source.breaks) ? source.breaks.map(b => ({ ...b })) : []
+            };
             setMessage('コピーしました', 'success');
         }
         if (evt.key === 'v' && state.clipboard && dom.employeeSelect.value && dom.workDateInput.value) {
@@ -766,6 +1228,9 @@
                 shiftName: state.clipboard.shiftName,
                 startTime: state.clipboard.startTime,
                 endTime: state.clipboard.endTime,
+                breakStart: state.clipboard.breakStart || null,
+                breakEnd: state.clipboard.breakEnd || null,
+                breaks: Array.isArray(state.clipboard.breaks) ? state.clipboard.breaks.map(b => ({ ...b, id: null })) : [],
                 isFree: state.clipboard.isFree,
                 isOff: state.clipboard.isOff,
                 isLeave: state.clipboard.isLeave
@@ -780,9 +1245,11 @@
 
     initDates();
     adjustEndByMode();
+    syncPlaceholderUI();
+    await fetchBreakSettings();
+    updateBreakHint();
     loadGrid();
 })();
 </script>
 </body>
 </html>
-

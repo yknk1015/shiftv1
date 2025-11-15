@@ -35,6 +35,7 @@ public class PairingSettingsController {
             s.setMorningWindow(req.getMorningWindow());
             s.setAfternoonWindow(req.getAfternoonWindow());
             s.setStandaloneWindows(req.getStandaloneWindows());
+            s.setSkillPairings(req.getSkillPairings());
             PairingSettings saved = repo.save(s);
             return ResponseEntity.ok(saved);
         } catch (Exception e) {
@@ -43,4 +44,3 @@ public class PairingSettingsController {
         }
     }
 }
-

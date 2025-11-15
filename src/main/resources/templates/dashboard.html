@@ -15,6 +15,7 @@
             --text-muted: #64748b;
             --accent: #2563eb;
             --accent-dark: #1d4ed8;
+            --accent-soft: #dbeafe;
             --success-bg: #dcfce7;
             --success-text: #14532d;
             --error-bg: #fee2e2;
@@ -83,6 +84,31 @@
             margin-bottom: 20px;
         }
 
+        .quick-links-card .link-groups {
+            display: grid;
+            gap: 20px;
+        }
+
+        @media (min-width: 768px) {
+            .quick-links-card .link-groups {
+                grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            }
+        }
+
+        .link-group {
+            border: 1px solid rgba(148, 163, 184, 0.3);
+            border-radius: 14px;
+            padding: 16px;
+            background: linear-gradient(145deg, #f8fafc, #fff);
+        }
+
+        .link-group h3 {
+            margin: 0 0 12px;
+            font-size: 15px;
+            color: var(--text-secondary);
+            letter-spacing: 0.05em;
+        }
+
         .quick-links-card .quick-links {
             display: flex;
             flex-wrap: wrap;
@@ -95,19 +121,73 @@
             border: 1px solid var(--border);
         }
 
-        .period-card {
-            margin-bottom: 24px;
-        }
-
-        .period-toolbar {
+        .schedule-toolbar {
             display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
             justify-content: space-between;
             align-items: center;
-            margin-top: 12px;
+            padding: 16px;
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 12px;
+            background: #f8fafc;
+        }
+
+        .workflow-card {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        .workflow-steps {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+        }
+
+        .workflow-step {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 16px;
+            display: flex;
+            gap: 12px;
+            align-items: flex-start;
+            background: #f8fafc;
+        }
+
+        .workflow-step .number {
+            width: 32px;
+            height: 32px;
+            border-radius: 999px;
+            background: var(--accent);
+            color: #fff;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+        }
+
+        .workflow-step h4 {
+            margin: 0 0 4px;
+            font-size: 16px;
+        }
+
+        .workflow-step p {
+            margin: 0 0 10px;
+            color: var(--text-secondary);
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .workflow-step .actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
         }
 
         .period-picker {
             display: flex;
+            flex-wrap: wrap;
             align-items: center;
             gap: 12px;
         }
@@ -128,18 +208,18 @@
 
         .period-inputs input,
         .period-inputs select {
-            font-size: 16px;
+            font-size: 15px;
             padding: 6px 10px;
             border-radius: 8px;
             border: 1px solid var(--border);
             background: #fff;
             color: var(--text-primary);
-            min-width: 90px;
+            min-width: 88px;
         }
 
         .period-label {
             display: flex;
-            align-items: baseline;
+            align-items: center;
             gap: 8px;
             font-size: 15px;
             color: var(--text-secondary);
@@ -148,6 +228,149 @@
         .period-label strong {
             font-size: 18px;
             color: var(--text-primary);
+        }
+
+        .schedule-actions {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 8px;
+            justify-content: flex-end;
+        }
+
+        .status-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            font-size: 13px;
+            border-radius: 999px;
+            background: rgba(37, 99, 235, 0.12);
+            color: var(--accent-dark);
+            font-weight: 600;
+        }
+
+        .status-chip::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: currentColor;
+        }
+        .status-chip.idle { background: rgba(15, 118, 110, 0.12); color: #0f766e; }
+        .status-chip.processing { background: #fef3c7; color: #b45309; }
+        .status-chip.success { background: var(--success-bg); color: var(--success-text); }
+        .status-chip.error { background: var(--error-bg); color: var(--error-text); }
+
+        .schedule-filters {
+            margin-top: 20px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: flex-end;
+        }
+
+        .schedule-filters label {
+            display: flex;
+            flex-direction: column;
+            font-size: 12px;
+            color: var(--text-muted);
+            gap: 4px;
+        }
+
+        .schedule-filters input,
+        .schedule-filters select {
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            padding: 6px 10px;
+            font-size: 14px;
+            min-width: 160px;
+        }
+
+        .schedule-view-toggle {
+            margin: 12px 0 8px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--text-secondary);
+            font-size: 14px;
+        }
+
+        .view-buttons {
+            display: inline-flex;
+            gap: 8px;
+        }
+
+        .chip-button {
+            border-radius: 999px;
+            border: 1px solid var(--border);
+            padding: 6px 14px;
+            font-size: 13px;
+            cursor: pointer;
+            background: #fff;
+            color: var(--text-secondary);
+        }
+
+        .chip-button.active {
+            background: var(--accent-soft);
+            border-color: var(--accent-dark);
+            color: var(--accent-dark);
+        }
+
+        .schedule-cards {
+            display: grid;
+            gap: 12px;
+            margin-top: 12px;
+        }
+
+        .schedule-card-item {
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 12px 14px;
+            background: #fff;
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .schedule-card-item .meta {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .schedule-card-item .meta strong {
+            font-size: 16px;
+        }
+
+        .schedule-card-item .tags {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px;
+        }
+
+        .tag {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 12px;
+            background: #f1f5f9;
+            color: var(--text-secondary);
+        }
+
+        .shortage-panel {
+            border-radius: 12px;
+            border: 1px solid var(--error-bg);
+            background: #fff5f5;
+            padding: 16px;
+            margin-bottom: 20px;
+        }
+
+        .shortage-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 8px;
         }
 
         .grid {
@@ -419,14 +642,72 @@
 
         
 
-        .stat-grid {
+        .stat-hero {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
             gap: 12px;
+            margin-bottom: 16px;
         }
 
-        .stat-grid.small {
-            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+        .stat-hero-card {
+            border: 1px solid rgba(148, 163, 184, 0.35);
+            border-radius: 14px;
+            padding: 16px 18px;
+            background: linear-gradient(135deg, #f8fafc, #ffffff);
+            box-shadow: inset 0 0 0 1px rgba(255,255,255,0.4);
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .kpi-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .kpi-value {
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .trend-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            border-radius: 999px;
+            padding: 4px 10px;
+            font-size: 12px;
+            color: #075985;
+            background: #dbeafe;
+            width: fit-content;
+        }
+
+        .trend-pill.alt {
+            background: #fef3c7;
+            color: #92400e;
+        }
+
+        .stat-mini-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .stat-mini-card {
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 12px;
+            background: #fff;
+            box-shadow: 0 4px 12px rgba(15, 23, 42, 0.05);
+        }
+
+        .stat-subsection-group {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+            gap: 16px;
         }
 
         .stat-label {
@@ -488,6 +769,57 @@
             display: flex;
             justify-content: space-between;
             gap: 12px;
+        }
+
+        .data-hero {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+
+        .data-kpi {
+            border: 1px solid rgba(203, 213, 225, 0.8);
+            border-radius: 12px;
+            padding: 14px;
+            background: #f8fafc;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .data-meta {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 0;
+            border-top: 1px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            margin-bottom: 12px;
+        }
+
+        .data-meta .meta-date {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .data-list {
+            list-style: none;
+            margin: 0;
+            padding-left: 0;
+        }
+
+        .data-list li {
+            padding: 6px 0;
+            display: flex;
+            justify-content: space-between;
+            border-bottom: 1px dashed #e2e8f0;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .data-list li:last-child {
+            border-bottom: none;
         }
 
         .form-grid {
@@ -616,72 +948,120 @@
             <div class="section-header compact">
                 <div>
                     <h2>クイックアクセス</h2>
-                    <p class="section-subtitle">需要・勤怠・設定系ページへのショートカットです。</p>
+                    <p class="section-subtitle">要素別のカテゴリで分けたショートカットです。主要動線は青色ボタンでハイライトします。</p>
                 </div>
                 <button class="button ghost" id="download-csv">CSVダウンロード</button>
             </div>
-            <div class="quick-links">
-                <button class="button ghost" onclick="location.href='/warnings'">Warnings</button>
-                <button class="button ghost" onclick="location.href='/pairing-settings'">Pairing</button>
-                <button class="button ghost" onclick="location.href='/monthly-demand'">Monthly Demand</button>
-                <button class="button ghost" onclick="location.href='/demand'">Demand</button>
-                <button class="button ghost" onclick="location.href='/demand-analytics'">Demand Analytics</button>
-                <button class="button ghost" onclick="location.href='/leave'">Leave</button>
-                <button class="button ghost" onclick="location.href='/calendar'">Calendar</button>
-                <button class="button ghost" onclick="location.href='/skill-management'">Skill Management</button>
-                <button class="button ghost" onclick="location.href='/employee-master'">Employee Master</button>
-                <button class="button ghost" onclick="location.href='/holidays'">Holidays</button>
-                <button class="button ghost" onclick="location.href='/rules-management'">Rules</button>
-                <button class="button ghost" onclick="location.href='/admin-debug'">Admin Debug</button>
-            </div>
-        </section>
-
-                <section class="card period-card">
-            <div class="section-header compact">
-                <div>
-                    <h2>表示期間</h2>
-                    <p class="section-subtitle">プレビュー対象の年月と粒度を選択します。</p>
-                </div>
-                <div class="period-label">
-                    <span>対象:</span>
-                    <strong id="schedule-period"></strong>
-                </div>
-            </div>
-            <div class="period-toolbar">
-                <div class="period-picker">
-                    <button class="button ghost" id="prev-month">前月</button>
-                    <div class="period-inputs">
-                        <label>
-                            <span>年</span>
-                            <input type="number" id="year-input" min="2000" max="2100">
-                        </label>
-                        <label>
-                            <span>月</span>
-                            <select id="month-input"></select>
-                        </label>
-                        <label>
-                            <span>粒度</span>
-                            <select id="granularity-select">
-                                <option value="60" selected>60分</option>
-                                <option value="30">30分</option>
-                                <option value="15">15分</option>
-                            </select>
-                        </label>
+            <div class="link-groups">
+                <div class="link-group">
+                    <h3>生成 / 可視化</h3>
+                    <div class="quick-links">
+                        <button class="button" onclick="location.href='/demand'">需要入力 (Demand)</button>
+                        <button class="button" onclick="location.href='/demand-analytics'">需要分析 (Analytics)</button>
+                        <button class="button ghost" onclick="location.href='/demand-supply'">需要/供給ヒートマップ</button>
+                        <button class="button ghost" onclick="location.href='/timeline'">タイムライン</button>
                     </div>
-                    <button class="button ghost" id="next-month">翌月</button>
+                </div>
+                <div class="link-group">
+                    <h3>シフト編集 / 振替</h3>
+                    <div class="quick-links">
+                        <button class="button ghost" onclick="location.href='/schedule-editor'">シフトグリッド (Schedule Editor)</button>
+                        <button class="button ghost" onclick="location.href='/calendar'">カレンダー</button>
+                        <button class="button ghost" onclick="location.href='/rules-management#breaks'">休憩ルール</button>
+                        <button class="button ghost" onclick="location.href='/holidays'">祝日設定</button>
+                    </div>
+                </div>
+                <div class="link-group">
+                    <h3>マスタ / 設定・デバッグ</h3>
+                    <div class="quick-links">
+                        <button class="button ghost" onclick="location.href='/skill-management'">スキル管理</button>
+                        <button class="button ghost" onclick="location.href='/employee-master'">従業員マスタ</button>
+                        <button class="button ghost" onclick="location.href='/setup'">初期設定</button>
+                        <button class="button ghost" onclick="location.href='/rules-management'">ルール管理</button>
+                        <button class="button ghost" onclick="location.href='/admin-debug'">管理者デバッグ</button>
+                    </div>
                 </div>
             </div>
         </section>
-
 
         <div class="grid">
+            <section class="card span-2 workflow-card">
+                <div class="section-header">
+                    <div>
+                        <h2>シフト公開フロー</h2>
+                        <p class="section-subtitle">生成 → グリッド編集 → 従業員への共有という一連の流れを整理しています。</p>
+                    </div>
+                </div>
+                <div class="workflow-steps">
+                    <div class="workflow-step">
+                        <div class="number">1</div>
+                        <div>
+                            <h4>シフト生成</h4>
+                            <p>対象月・粒度を選び「シフトを生成」を実行します。生成状況は統計サマリーで確認できます。</p>
+                            <div class="actions">
+                                <button type="button" class="button secondary" id="workflow-scroll-generate">シフトカードへ移動</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="number">2</div>
+                        <div>
+                            <h4>シフトグリッド編集</h4>
+                            <p>担当者単位で細かな調整が必要な場合はグリッド編集画面で整形します。表ビュー／日別カードを切り替え可能です。</p>
+                            <div class="actions">
+                                <a class="button ghost" href="/schedule-editor">グリッド編集へ</a>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="workflow-step">
+                        <div class="number">3</div>
+                        <div>
+                            <h4>従業員へ共有</h4>
+                            <p>確定したシフトは CSV ダウンロードやカレンダー表示で出力し、従業員に展開します。</p>
+                            <div class="actions">
+                                <button type="button" class="button ghost" id="workflow-export">CSVをダウンロード</button>
+                                <a class="button ghost subtle" href="/calendar">カレンダーを見る</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
             <section class="card span-2" id="schedule-card">
                 <div class="section-header">
                     <div>
                         <h2>シフト生成</h2>
                         <p class="section-subtitle">対象月のシフトを自動生成し、担当者を一覧で確認できます。</p>
                     </div>
-                    <div class="section-actions">
+                </div>
+                <div class="schedule-toolbar">
+                    <div class="period-picker">
+                        <button class="button ghost" id="prev-month">前月</button>
+                        <div class="period-inputs">
+                            <label>
+                                <span>年</span>
+                                <input type="number" id="year-input" min="2000" max="2100">
+                            </label>
+                            <label>
+                                <span>月</span>
+                                <select id="month-input"></select>
+                            </label>
+                            <label>
+                                <span>粒度</span>
+                                <select id="granularity-select">
+                                    <option value="60" selected>60分</option>
+                                    <option value="30">30分</option>
+                                    <option value="15">15分</option>
+                                </select>
+                            </label>
+                        </div>
+                        <button class="button ghost" id="next-month">翌月</button>
+                    </div>
+                    <div class="schedule-actions">
+                        <div class="period-label">
+                            <span>対象:</span>
+                            <strong id="schedule-period"></strong>
+                        </div>
+                        <span class="status-chip" id="schedule-status-chip">待機中</span>
                         <button class="button secondary" id="refresh-schedule">最新シフト取得</button>
                         <button class="button" id="reset-schedule">シフト初期化</button>
                         <button class="button primary" id="generate-schedule">シフトを生成</button>
@@ -689,7 +1069,27 @@
                 </div>
 
                 <div id="schedule-message" class="message"></div>
-                <div id="shortage-details" class="message" style="display:none;"></div>
+                <div id="shortage-panel" class="shortage-panel" style="display:none;">
+                    <div class="shortage-header">
+                        <strong>割当不足 / FREEフォロー状況</strong>
+                        <button class="button subtle ghost" id="hide-shortage">閉じる</button>
+                    </div>
+                    <div class="table-container small">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>日付</th>
+                                    <th>シフト</th>
+                                    <th>割当</th>
+                                    <th>必要席数</th>
+                                </tr>
+                            </thead>
+                            <tbody id="shortage-body">
+                                <tr><td colspan="4" class="muted">不足データはありません</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
 
                 <div class="info-grid">
                     <div class="info-card">
@@ -706,99 +1106,141 @@
                     </div>
                 </div>
 
+                <div class="schedule-filters">
+                    <label>
+                        <span>担当者</span>
+                        <input type="text" id="filter-employee" placeholder="例: 佐藤">
+                    </label>
+                    <label>
+                        <span>シフト</span>
+                        <select id="filter-shift">
+                            <option value="">すべて</option>
+                        </select>
+                    </label>
+                    <label>
+                        <span>日付</span>
+                        <input type="date" id="filter-date">
+                    </label>
+                    <button type="button" class="button ghost subtle" id="clear-filters">フィルターをリセット</button>
+                </div>
+
+                <div class="schedule-view-toggle">
+                    <span>ビュー切替:</span>
+                    <div class="view-buttons">
+                        <button type="button" class="chip-button active" data-view="table" id="view-table">表ビュー</button>
+                        <button type="button" class="chip-button" data-view="cards" id="view-cards">日別カード</button>
+                    </div>
+                </div>
+
                 <div id="schedule-loading" class="loading" style="display: none;">シフトを読み込み中です...</div>
                 <div id="schedule-empty" class="empty-state" style="display: none;">まだシフトが登録されていません。まずは「シフトを生成」を押してください。</div>
 
-                <div class="table-container">
-                    <table id="schedule-table">
-                        <thead>
-                            <tr>
-                                <th>日付</th>
-                                <th>曜日</th>
-                                <th>シフト</th>
-                                <th>時間</th>
-                                <th>担当者</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
-                </div>
+                    <div class="table-container" id="schedule-table-view">
+                        <table id="schedule-table">
+                            <thead>
+                                <tr>
+                                    <th>日付</th>
+                                    <th>曜日</th>
+                                    <th>シフト</th>
+                                    <th>時間</th>
+                                    <th>担当者</th>
+                                </tr>
+                            </thead>
+                            <tbody></tbody>
+                        </table>
+                    </div>
+                    <div class="schedule-cards" id="schedule-card-view" style="display:none;"></div>
             </section>
 
             <section class="card" id="stats-card">
                 <div class="section-header compact">
-                    <h2>統計サマリー</h2>
-                    <button class="button ghost" id="refresh-stats">更新</button>
-                    <div style="margin-top:8px">
-                      <div class="table-wrapper" id="free-daily-card">
-                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                          <h3 style="margin:0; font-size:16px;">日別FREE人数</h3>
-                          <button class="button ghost" id="refresh-free">更新</button>
-                        </div>
-                        <table style="margin-top:6px;">
-                          <thead><tr><th>日付</th><th>FREE人数</th></tr></thead>
-                          <tbody id="free-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
-                        </table>
-                      </div>
-                      <div class="table-wrapper" id="off-daily-card" style="margin-top:8px;">
-                        <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;">
-                          <h3 style="margin:0; font-size:16px;">日別休日人数</h3>
-                          <button class="button ghost" id="refresh-off">更新</button>
-                        </div>
-                        <table style="margin-top:6px;">
-                          <thead><tr><th>日付</th><th>休日人数</th></tr></thead>
-                          <tbody id="off-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
-                        </table>
-                      </div>
-                      <div class="table-wrapper" id="monthly-stats2" style="margin-top:12px;"></div>
+                    <div>
+                        <h2>統計サマリー</h2>
+                        <p class="section-subtitle">今月のシフト状況と日次のFREE/休日を確認できます。</p>
                     </div>
+                    <button class="button ghost" id="refresh-stats">更新</button>
                 </div>
                 <div id="stats-message" class="message"></div>
-                <div class="stat-grid">
-                    <div>
-                        <div class="stat-label">総シフト数</div>
-                        <div class="stat-value" id="stat-total-shifts">0</div>
+                <div class="stat-hero">
+                    <div class="stat-hero-card">
+                        <span class="kpi-label">総シフト数</span>
+                        <span class="kpi-value" id="stat-total-shifts">0</span>
+                        <span class="trend-pill">本月</span>
                     </div>
-                    <div>
-                        <div class="stat-label">稼働従業員</div>
-                        <div class="stat-value" id="stat-unique-employees">0</div>
+                    <div class="stat-hero-card">
+                        <span class="kpi-label">稼働従業員</span>
+                        <span class="kpi-value" id="stat-unique-employees">0</span>
+                        <span class="trend-pill alt">ユニーク</span>
                     </div>
                 </div>
-                
-                <div class="stat-subsection">
-                    <h3>シフト種別内訳</h3>
-                    <ul id="shift-type-list"></ul>
+                <div class="stat-mini-grid">
+                    <div class="stat-mini-card" id="free-daily-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <strong>日別FREE人数</strong>
+                            <button class="button ghost" id="refresh-free">更新</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>日付</th><th>FREE人数</th></tr></thead>
+                            <tbody id="free-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="stat-mini-card" id="off-daily-card">
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                            <strong>日別休日人数</strong>
+                            <button class="button ghost" id="refresh-off">更新</button>
+                        </div>
+                        <table>
+                            <thead><tr><th>日付</th><th>休日人数</th></tr></thead>
+                            <tbody id="off-daily-body"><tr><td colspan="2" class="muted">読み込み中...</td></tr></tbody>
+                        </table>
+                    </div>
+                    <div class="stat-mini-card" id="monthly-stats2">
+                        <div class="muted">読み込み中...</div>
+                    </div>
                 </div>
-
-                <div class="stat-subsection">
-                    <h3>勤務数トップ</h3>
-                    <ol id="workload-list" class="ranking-list"></ol>
+                <div class="stat-subsection-group">
+                    <div class="stat-subsection">
+                        <h3>シフト種別内訳</h3>
+                        <ul id="shift-type-list"></ul>
+                    </div>
+                    <div class="stat-subsection">
+                        <h3>勤務数トップ</h3>
+                        <ol id="workload-list" class="ranking-list"></ol>
+                    </div>
                 </div>
             </section>
 
             <section class="card" id="data-card">
                 <div class="section-header compact">
-                    <h2>データ統計</h2>
+                    <div>
+                        <h2>データ統計</h2>
+                        <p class="section-subtitle">システム全体の母数と更新状況を俯瞰します。</p>
+                    </div>
                     <button class="button ghost" id="refresh-data-stats">更新</button>
                 </div>
                 <div id="data-message" class="message"></div>
-                <div class="info-grid">
-                    <div class="info-card">
-                        <div class="info-label">従業員数</div>
-                        <div class="info-value" id="data-total-employees">0</div>
+                <div class="data-hero">
+                    <div class="data-kpi">
+                        <span class="kpi-label">従業員数</span>
+                        <span class="kpi-value" id="data-total-employees">0</span>
+                        <span class="muted">アクティブ</span>
                     </div>
-                    <div class="info-card">
-                        <div class="info-label">割当総数</div>
-                        <div class="info-value" id="data-total-assignments">0</div>
+                    <div class="data-kpi">
+                        <span class="kpi-label">割当総数</span>
+                        <span class="kpi-value" id="data-total-assignments">0</span>
+                        <span class="muted">履歴件数</span>
                     </div>
-                    <div class="info-card">
-                        <div class="info-label">最終更新</div>
-                        <div class="info-value" id="data-last-updated">-</div>
+                </div>
+                <div class="data-meta">
+                    <div>
+                        <span class="kpi-label">最終更新</span>
+                        <div class="meta-date" id="data-last-updated">-</div>
                     </div>
+                    <div class="muted">（自動更新の際はステータスに反映されます）</div>
                 </div>
                 <div class="stat-subsection">
                     <h3>最近6か月の割当件数</h3>
-                    <ul id="data-monthly-stats"></ul>
+                    <ul id="data-monthly-stats" class="data-list"></ul>
                 </div>
             </section>
 
@@ -910,170 +1352,41 @@
             
         </div>
 
-        <div class="management-grid">
-            <section class="card" id="manual-edit-card">
-                <div class="section-header compact">
-                    <div>
-                        <h2>シフトの手動編集</h2>
-                        <p class="section-subtitle">直近の1日分のシフトを追加・編集できます。確定済みの枠は下部の一覧で確認できます。</p>
-                    </div>
-                    <div class="section-actions">
-                        <button class="button ghost" id="man-refresh" type="button">一覧を更新</button>
-                    </div>
-                </div>
-                <input type="hidden" id="man-id" />
-                <div class="form-row">
-                    <label>日付
-                        <input type="date" id="man-date" />
-                    </label>
-                    <label>勤務者
-                        <select id="man-employee" style="min-width:180px;"></select>
-                    </label>
-                    <label>開始
-                        <input type="time" id="man-start" value="09:00" />
-                    </label>
-                    <label>終了
-                        <input type="time" id="man-end" value="18:00" />
-                    </label>
-                    <label>シフト名
-                        <input type="text" id="man-name" placeholder="Manual" />
-                    </label>
-                </div>
-                <div class="form-row">
-                    <button class="button primary" id="man-create" type="button">作成</button>
-                    <button class="button" id="man-update" type="button">更新</button>
-                    <button class="button" id="day-fill-gaps" type="button">当日の空枠を埋める</button>
-                    <button class="button" id="month-fill-gaps" type="button">期間の空枠を埋める(試験)</button>
-                </div>
-                <div id="man-msg" class="message"></div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr><th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>勤務者</th><th>シフト名</th><th></th></tr>
-                        </thead>
-                        <tbody id="man-list"></tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section class="card" id="reservation-card">
-                <div class="section-header compact">
-                    <div>
-                        <h2>事前シフト予約</h2>
-                        <p class="section-subtitle">スケジュール作成時に考慮される予約枠を登録できます。自動生成の予約は候補枠に保存されます。</p>
-                    </div>
-                </div>
-                <div class="form-row">
-                    <label>日付
-                        <input type="date" id="res-date" />
-                    </label>
-                    <label>勤務者
-                        <select id="res-employee" style="min-width:180px;"></select>
-                    </label>
-                    <label>スキル
-                        <select id="res-skill" style="min-width:140px;">
-                            <option value="">未選択</option>
-                        </select>
-                    </label>
-                    <label>開始
-                        <input type="time" id="res-start" value="09:00" />
-                    </label>
-                    <label>終了
-                        <input type="time" id="res-end" value="18:00" />
-                    </label>
-                    <label>ラベル
-                        <input type="text" id="res-label" value="Reservation" />
-                    </label>
-                    <label>メモ
-                        <input type="text" id="res-note" placeholder="任意" />
-                    </label>
-                </div>
-                <div class="form-row">
-                    <button class="button" id="res-create" type="button">予約を登録</button>
-                    <button class="button ghost" id="res-refresh" type="button">最新表示</button>
-                    <button class="button ghost" id="res-clear" type="button">フォームをリセット</button>
-                </div>
-                <div class="form-row">
-                    <label>一括対象
-                        <input type="date" id="res-range-start" />
-                    </label>
-                    <span class="range-sep">〜</span>
-                    <label>
-                        <input type="date" id="res-range-end" />
-                    </label>
-                    <button class="button ghost" id="res-range-sync" type="button">当月に同期</button>
-                    <button class="button ghost" id="res-bulk-delete" type="button">期間の予約を削除</button>
-                </div>
-                <div id="reservation-message" class="message"></div>
-                <div class="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>日付</th>
-                                <th>時間</th>
-                                <th>勤務者</th>
-                                <th>スキル</th>
-                                <th>ラベル</th>
-                                <th>ステータス</th>
-                                <th>メモ</th>
-                                <th></th>
-                            </tr>
-                        </thead>
-                        <tbody id="res-list"></tbody>
-                    </table>
-                </div>
-                <div class="timeline-panel">
-                    <h3 style="margin:0 0 12px;">タイムライン（プレビュー）と一時需要</h3>
-                    <div class="form-row">
-                        <label>粒度
-                            <select id="t_gran">
-                                <option value="15">15分</option>
-                                <option value="30">30分</option>
-                                <option value="60" selected>60分</option>
-                            </select>
-                        </label>
-                        <label>スキル
-                            <select id="t_skill" style="min-width:140px;">
-                                <option value="">すべて</option>
-                            </select>
-                        </label>
-                        <button class="button ghost" type="button" id="t_refresh">プレビュー更新</button>
-                    </div>
-                    <div class="form-row">
-                        <strong style="font-size:14px;">一時需要の追加</strong>
-                        <label>開始<input type="time" id="b_start" value="12:00" /></label>
-                        <label>終了<input type="time" id="b_end" value="13:00" /></label>
-                        <label>座席<input type="number" id="b_seats" value="1" min="1" style="width:90px;" /></label>
-                        <label>スキル
-                            <select id="b_skill" style="min-width:140px;">
-                                <option value="">未指定</option>
-                            </select>
-                        </label>
-                        <button class="button" id="b_add" type="button">追加</button>
-                        <span id="b_msg" class="muted"></span>
-                    </div>
-                    <div class="muted" style="margin-top:6px;">※ 事前シフト予約の日付を基準にプレビューを表示します。</div>
-                    <div class="timeline-grid">
-                        <div id="t_times"></div>
-                        <div id="t_rows"></div>
-                    </div>
-                </div>
-            </section>
-        </div>
     </div>
     <script>
         const monthInput = document.getElementById('month-input');
         const yearInput = document.getElementById('year-input');
         const schedulePeriodLabel = document.getElementById('schedule-period');
         const scheduleTableBody = document.querySelector('#schedule-table tbody');
+        const scheduleTableView = document.getElementById('schedule-table-view');
+        const scheduleCardView = document.getElementById('schedule-card-view');
         const scheduleEmpty = document.getElementById('schedule-empty');
         const scheduleLoading = document.getElementById('schedule-loading');
+        const statusChip = document.getElementById('schedule-status-chip');
+        const filterEmployeeInput = document.getElementById('filter-employee');
+        const filterShiftSelect = document.getElementById('filter-shift');
+        const filterDateInput = document.getElementById('filter-date');
+        const clearFiltersButton = document.getElementById('clear-filters');
+        const viewTableBtn = document.getElementById('view-table');
+        const viewCardsBtn = document.getElementById('view-cards');
+        const shortagePanel = document.getElementById('shortage-panel');
+        const shortageBody = document.getElementById('shortage-body');
+        const hideShortageBtn = document.getElementById('hide-shortage');
+
+        let scheduleAssignments = [];
+        let scheduleViewMode = 'table';
+        const scheduleFilters = {
+            employee: '',
+            shift: '',
+            date: ''
+        };
 
         document.addEventListener('DOMContentLoaded', () => {
             setupMonthOptions();
             initializePeriod();
             bindEventListeners();
+            bindFilterControls();
+            setScheduleStatus('idle', '待機中');
             loadUserInfo();
             loadSchedule();
             loadStatistics();
@@ -1168,6 +1481,51 @@
             }
         }
 
+        function bindFilterControls() {
+            filterEmployeeInput?.addEventListener('input', (event) => {
+                scheduleFilters.employee = event.target.value.trim();
+                updateScheduleView();
+            });
+            filterShiftSelect?.addEventListener('change', (event) => {
+                scheduleFilters.shift = event.target.value;
+                updateScheduleView();
+            });
+            filterDateInput?.addEventListener('change', (event) => {
+                scheduleFilters.date = event.target.value;
+                updateScheduleView();
+            });
+            clearFiltersButton?.addEventListener('click', () => {
+                scheduleFilters.employee = '';
+                scheduleFilters.shift = '';
+                scheduleFilters.date = '';
+                if (filterEmployeeInput) filterEmployeeInput.value = '';
+                if (filterShiftSelect) filterShiftSelect.value = '';
+                if (filterDateInput) filterDateInput.value = '';
+                updateScheduleView();
+            });
+            hideShortageBtn?.addEventListener('click', () => {
+                if (shortagePanel) {
+                    shortagePanel.style.display = 'none';
+                }
+            });
+            viewTableBtn?.addEventListener('click', () => setScheduleView('table'));
+            viewCardsBtn?.addEventListener('click', () => setScheduleView('cards'));
+        }
+
+        function setScheduleView(view) {
+            if (view !== 'table' && view !== 'cards') {
+                return;
+            }
+            scheduleViewMode = view;
+            if (viewTableBtn) {
+                viewTableBtn.classList.toggle('active', view === 'table');
+            }
+            if (viewCardsBtn) {
+                viewCardsBtn.classList.toggle('active', view === 'cards');
+            }
+            updateScheduleView();
+        }
+
         function handlePeriodChange() {
             const { year, month } = getPeriod();
             setPeriod(year, month);
@@ -1200,9 +1558,8 @@
             const { year, month } = getPeriod();
             try { window.__schedGen = window.__schedGen || {}; window.__schedGen.generating = true; } catch(_){}
             setMessage('schedule-message', '生成を開始しました...', 'info');
-            const shortageBox = document.getElementById('shortage-details');
-            shortageBox.style.display = 'none';
-            shortageBox.textContent = '';
+            renderShortages([]);
+            setScheduleStatus('processing', '生成中...');
             setScheduleLoading(true);
             try {
                 const granSel = document.getElementById('granularity-select');
@@ -1210,11 +1567,7 @@
                 const response = await callApi(`/api/schedule/generate/demand/async?year=${year}&month=${month}&granularity=${gran}&mode=simple`, { method: 'POST' });
                 setMessage('schedule-message', response.message || 'シフトを生成しました。', 'success');
                 const shortages = (response.meta && response.meta.shortages) || [];
-                if (shortages.length > 0) {
-                    const lines = shortages.map(s => `${s.workDate} ${s.shiftName}: ${s.assigned}/${s.required}`);
-                    shortageBox.textContent = `割当不足の詳細: ${lines.join(' / ')}`;
-                    shortageBox.style.display = 'block';
-                }
+                renderShortages(shortages);
                 // Poll a few times because generation runs asynchronously
                 let attempts = 0; let updated = false;
                 while (attempts < 6) {
@@ -1222,20 +1575,24 @@
                     try {
                         const res = await callApi(`/api/schedule?year=${year}&month=${month}`);
                         const assignments = res.data || [];
-                        const has = renderSchedule(assignments);
+                        scheduleAssignments = assignments;
+                        populateShiftFilter(assignments);
+                        const has = updateScheduleView();
                         updateScheduleSummary(res.meta || {}, assignments);
-                        scheduleEmpty.style.display = has ? 'none' : 'block';
                         if (has) { updated = true; break; }
                     } catch (_) { }
                     await new Promise(r => setTimeout(r, 1500));
                 }
                 if (!updated) {
                     await loadSchedule();
+                } else {
+                    setScheduleStatus('success', '生成済み');
                 }
                 await loadStatistics();
                 await loadDataStats();
                 await window.refreshReservationList?.();
             } catch (error) {
+                setScheduleStatus('error', '生成に失敗');
                 setMessage('schedule-message', error.message || 'シフト生成に失敗しました。', 'error');
             } finally {
                 setScheduleLoading(false);
@@ -1249,14 +1606,18 @@
             }
             setMessage('schedule-message', '', 'info');
             setScheduleLoading(true);
+            setScheduleStatus('processing', '初期化中...');
             try {
                 await callApi(`/api/schedule/reset?year=${year}&month=${month}`, { method: 'DELETE' });
                 setMessage('schedule-message', 'シフトを初期化しました。', 'success');
+                renderShortages([]);
                 await loadSchedule();
                 await loadStatistics();
                 await loadDataStats();
                 await window.refreshReservationList?.();
+                setScheduleStatus('idle', '初期化済み');
             } catch (error) {
+                setScheduleStatus('error', '初期化に失敗');
                 setMessage('schedule-message', error.message || 'シフト初期化に失敗しました。', 'error');
             } finally {
                 setScheduleLoading(false);
@@ -1266,12 +1627,14 @@
         async function loadSchedule(showMessageOnSuccess = false) {
             const { year, month } = getPeriod();
             setScheduleLoading(true);
+            setScheduleStatus('processing', '読み込み中...');
             try {
                 const response = await callApi(`/api/schedule?year=${year}&month=${month}`);
                 const assignments = response.data || [];
-                const hasAssignments = renderSchedule(assignments);
+                scheduleAssignments = assignments;
+                populateShiftFilter(assignments);
+                const hasAssignments = updateScheduleView();
                 updateScheduleSummary(response.meta || {}, assignments);
-                scheduleEmpty.style.display = hasAssignments ? 'none' : 'block';
                 const gen = (window.__schedGen && window.__schedGen.generating) ? true : false;
                 if (!gen) {
                     if (showMessageOnSuccess) {
@@ -1280,11 +1643,17 @@
                         setMessage('schedule-message', '', 'info');
                     }
                 }
+                setScheduleStatus('success', hasAssignments ? '最新データ' : 'シフトなし');
             } catch (error) {
-                renderSchedule([]);
+                scheduleAssignments = [];
+                updateScheduleView();
                 updateScheduleSummary({}, []);
-                scheduleEmpty.style.display = 'block';
+                if (scheduleEmpty) {
+                    scheduleEmpty.style.display = 'block';
+                    scheduleEmpty.textContent = 'シフトの取得に失敗しました。';
+                }
                 setMessage('schedule-message', error.message || 'シフトの取得に失敗しました。', 'error');
+                setScheduleStatus('error', '取得に失敗');
             } finally {
                 setScheduleLoading(false);
             }
@@ -1348,6 +1717,78 @@
             scheduleLoading.style.display = isLoading ? 'block' : 'none';
         }
 
+        function setScheduleStatus(state, text) {
+            if (!statusChip) {
+                return;
+            }
+            statusChip.classList.remove('idle', 'processing', 'success', 'error');
+            const target = state || 'idle';
+            statusChip.classList.add(target);
+            statusChip.textContent = text || '';
+        }
+
+        function populateShiftFilter(assignments) {
+            if (!filterShiftSelect) {
+                return;
+            }
+            const current = scheduleFilters.shift;
+            const options = Array.from(new Set((assignments || [])
+                .map(item => item.shiftName)
+                .filter(Boolean))).sort((a, b) => a.localeCompare(b, 'ja'));
+            filterShiftSelect.innerHTML = '<option value="">すべて</option>' +
+                options.map(name => `<option value="${name}">${name}</option>`).join('');
+            if (current && options.includes(current)) {
+                filterShiftSelect.value = current;
+            } else {
+                scheduleFilters.shift = '';
+                filterShiftSelect.value = '';
+            }
+        }
+
+        function filterAssignments(assignments) {
+            return (assignments || []).filter(item => {
+                const employee = (item.employeeName || '').toLowerCase();
+                const shiftName = item.shiftName || '';
+                const workDate = item.workDate || '';
+                if (scheduleFilters.employee && !employee.includes(scheduleFilters.employee.toLowerCase())) {
+                    return false;
+                }
+                if (scheduleFilters.shift && shiftName !== scheduleFilters.shift) {
+                    return false;
+                }
+                if (scheduleFilters.date && workDate !== scheduleFilters.date) {
+                    return false;
+                }
+                return true;
+            });
+        }
+
+        function updateScheduleView() {
+            const filtered = filterAssignments(scheduleAssignments);
+            const hasAnyAssignments = scheduleAssignments.length > 0;
+            const hasFiltered = filtered.length > 0;
+            if (scheduleViewMode === 'cards') {
+                if (scheduleTableView) scheduleTableView.style.display = 'none';
+                if (scheduleCardView) scheduleCardView.style.display = hasFiltered ? 'grid' : 'none';
+                renderScheduleCards(filtered);
+            } else {
+                if (scheduleTableView) scheduleTableView.style.display = 'block';
+                if (scheduleCardView) scheduleCardView.style.display = 'none';
+                renderSchedule(filtered);
+            }
+            if (scheduleEmpty) {
+                if (hasFiltered) {
+                    scheduleEmpty.style.display = 'none';
+                } else {
+                    scheduleEmpty.style.display = 'block';
+                    scheduleEmpty.textContent = hasAnyAssignments
+                        ? 'フィルター条件に一致するシフトがありません。'
+                        : 'まだシフトが登録されていません。まずは「シフトを生成」を押してください。';
+                }
+            }
+            return hasFiltered;
+        }
+
         function renderSchedule(assignments) {
             scheduleTableBody.innerHTML = '';
             if (!assignments || assignments.length === 0) {
@@ -1394,6 +1835,49 @@
                 });
             });
             return true;
+        }
+
+        function renderScheduleCards(assignments) {
+            if (!scheduleCardView) {
+                return;
+            }
+            scheduleCardView.innerHTML = '';
+            if (!assignments || assignments.length === 0) {
+                return;
+            }
+            assignments.forEach((assignment) => {
+                const dateLabel = assignment.workDate
+                    ? `${formatDateLabel(assignment.workDate)} (${getDayLabel(assignment.workDate)})`
+                    : '日付未設定';
+                const employeeName = assignment.employeeName || '-';
+                const card = document.createElement('div');
+                card.className = 'schedule-card-item';
+                const meta = document.createElement('div');
+                meta.className = 'meta';
+                meta.innerHTML = `
+                    <strong>${dateLabel}</strong>
+                    <span>${employeeName}</span>
+                    <small>${formatTimeRange(assignment.startTime, assignment.endTime)}</small>
+                `;
+                const tags = document.createElement('div');
+                tags.className = 'tags';
+                const shiftTag = document.createElement('span');
+                shiftTag.className = 'tag';
+                shiftTag.textContent = assignment.shiftName || 'シフト未設定';
+                tags.appendChild(shiftTag);
+                card.appendChild(meta);
+                card.appendChild(tags);
+                const action = document.createElement('button');
+                action.type = 'button';
+                action.className = 'button ghost subtle';
+                action.textContent = 'エディタで詳細';
+                action.addEventListener('click', () => {
+                    const query = assignment.workDate ? `?date=${assignment.workDate}` : '';
+                    window.location.href = `/schedule-editor${query}`;
+                });
+                card.appendChild(action);
+                scheduleCardView.appendChild(card);
+            });
         }
 
         function updateScheduleSummary(meta, assignments) {
@@ -1870,6 +2354,23 @@
             return requestOptions;
         }
 
+        function renderShortages(rows) {
+            if (!shortagePanel || !shortageBody) {
+                return;
+            }
+            if (!rows || rows.length === 0) {
+                shortagePanel.style.display = 'none';
+                shortageBody.innerHTML = '<tr><td colspan="4" class="muted">不足データはありません</td></tr>';
+                return;
+            }
+            shortagePanel.style.display = 'block';
+            shortageBody.innerHTML = rows.map((row) => {
+                const assigned = row.assigned ?? '-';
+                const required = row.required ?? '-';
+                return `<tr><td>${row.workDate || '-'}</td><td>${row.shiftName || '-'}</td><td>${assigned}</td><td>${required}</td></tr>`;
+            }).join('');
+        }
+
         function setMessage(id, text, type = 'info') {
             const element = document.getElementById(id);
             if (!element) {
@@ -2045,84 +2546,7 @@
       }
     }
 </script>
-<script>
-// Manual editor logic (independent of main script)
-async function callApi2(url, options = {}, expectSuccess = true){
-  const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...options });
-  const ct = res.headers.get('content-type')||''; let data=null; if(ct.includes('json')){ try{ data=await res.json(); }catch(_){} }
-  if(!res.ok) throw new Error((data&&data.message)||('HTTP '+res.status));
-  if(expectSuccess && data && data.success===false) throw new Error(data.message||'failed');
-  return data;
-}
-async function loadEmployeesForManual(){
-  try{
-    const j=await callApi2('/api/employees');
-    const list=j.data||[];
-    const options='<option value="">選択してください</option>'+list.map(e=>`<option value="${e.id}">${e.name||( 'Emp#'+e.id )}</option>`).join('');
-    const sel=document.getElementById('man-employee');
-    if(sel) sel.innerHTML=options;
-    const resSel=document.getElementById('res-employee');
-    if(resSel) resSel.innerHTML=options;
-  }catch(_){ }
-}
-async function refreshManualList(){
-  const date=document.getElementById('man-date')?.value; const tbody=document.getElementById('man-list'); const msg=document.getElementById('man-msg'); if(!tbody) return; tbody.innerHTML=''; if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message info'; } return; }
-  try{ const y=Number(date.slice(0,4)); const m=Number(date.slice(5,7)); const res=await callApi2(`/api/schedule?year=${y}&month=${m}`); const rows=(res.data||[]).filter(a=>a.workDate===date);
-    if(!rows.length){ tbody.innerHTML='<tr><td colspan="7">データなし</td></tr>'; return; }
-    tbody.innerHTML = rows.map(r=>`<tr data-id="${r.id}"><td>${r.id}</td><td>${r.workDate}</td><td>${(r.startTime||'').slice(0,5)}</td><td>${(r.endTime||'').slice(0,5)}</td><td>${r.employeeName||''}</td><td>${r.shiftName||''}</td><td><button class="button" data-act="del" data-id="${r.id}">削除</button></td></tr>`).join('');
-    tbody.querySelectorAll('button[data-act="del"]').forEach(btn=>{ btn.addEventListener('click', async (e)=>{ const id=e.currentTarget.getAttribute('data-id'); if(!confirm(`ID=${id} を削除しますか?`)) return; try{ await callApi2(`/api/schedule/assignments/${id}`, { method:'DELETE' }); if(msg){ msg.textContent='削除しました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'削除に失敗しました'; msg.className='message error'; } } }); });
-  }catch(err){ if(msg){ msg.textContent=err.message||'取得に失敗しました'; msg.className='message error'; } }
-}
-async function createManual(){
-  const date=document.getElementById('man-date')?.value; const emp=document.getElementById('man-employee')?.value; const s=document.getElementById('man-start')?.value; const e=document.getElementById('man-end')?.value; const name=document.getElementById('man-name')?.value||'Manual'; const msg=document.getElementById('man-msg');
-  if(!date||!emp||!s||!e){ if(msg){ msg.textContent='必須項目を入力してください'; msg.className='message error'; } return; }
-  try{ await callApi2('/api/schedule/assignments', { method:'POST', body: JSON.stringify({ date, employeeId:Number(emp), startTime:s, endTime:e, shiftName:name }) }); if(msg){ msg.textContent='作成しました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'作成に失敗しました'; msg.className='message error'; } }
-}
-async function fillGapsForDay(){ const date=document.getElementById('man-date')?.value; const msg=document.getElementById('man-msg'); if(!date){ if(msg){ msg.textContent='日付を選択してください'; msg.className='message error'; } return; } try{ await callApi2(`/api/schedule/generate/demand/day?date=${date}&reset=false`, { method:'POST' }); if(msg){ msg.textContent='空きのみ埋めました'; msg.className='message success'; } await refreshManualList(); }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
-async function fillGapsForMonth(){ const granSel=document.getElementById('granularity-select'); const gran = granSel?Number(granSel.value):60; const y=Number(document.getElementById('year-input')?.value)||new Date().getFullYear(); const m=Number(document.getElementById('month-input')?.value)|| (new Date().getMonth()+1); const msg=document.getElementById('man-msg'); try{ await callApi2(`/api/schedule/generate/demand/async?year=${y}&month=${m}&granularity=${gran}&reset=false&mode=simple`, { method:'POST' }); if(msg){ msg.textContent='月全体の空きのみ埋めを開始しました'; msg.className='message success'; } }catch(err){ if(msg){ msg.textContent=err.message||'生成に失敗しました'; msg.className='message error'; } }}
-document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
-document.getElementById('man-create')?.addEventListener('click', createManual);
-document.getElementById('day-fill-gaps')?.addEventListener('click', fillGapsForDay);
-document.getElementById('month-fill-gaps')?.addEventListener('click', fillGapsForMonth);
-document.getElementById('man-date')?.addEventListener('change', refreshManualList);
-loadEmployeesForManual();
-</script>
-<script>
-// Enhance manual list with edit + update handler without touching original renderer
-function ensureManualEnhancer(){
-  const host = document.getElementById('man-list'); if(!host || host._enhanced) return; host._enhanced = true;
-  const mo = new MutationObserver(() => {
-    host.querySelectorAll('tr').forEach(tr => {
-      let last = tr.querySelector('td:last-child'); if(!last) return;
-      if (!last.querySelector('.btn-edit')) {
-        const id = tr.getAttribute('data-id'); if(!id) return;
-        const btn = document.createElement('button'); btn.className='button btn-edit'; btn.textContent='編集'; btn.addEventListener('click', ()=>{
-          const cells = tr.querySelectorAll('td');
-          const r = { id: id, workDate: cells[1]?.textContent?.trim(), startTime: cells[2]?.textContent?.trim()+':00', endTime: cells[3]?.textContent?.trim()+':00', employeeName: cells[4]?.textContent?.trim(), shiftName: cells[5]?.textContent?.trim() };
-          const idEl=document.getElementById('man-id'); if(idEl) idEl.value=r.id;
-          const d=document.getElementById('man-date'); if(d && r.workDate) d.value=r.workDate;
-          const s=document.getElementById('man-start'); if(s && r.startTime) s.value=r.startTime.slice(0,5);
-          const e=document.getElementById('man-end'); if(e && r.endTime) e.value=r.endTime.slice(0,5);
-          const n=document.getElementById('man-name'); if(n) n.value=r.shiftName||'';
-          const msg=document.getElementById('man-msg'); if(msg){ msg.textContent=`ID=${r.id} を編集中`; msg.className='message info'; }
-        });
-        last.prepend(btn);
-      }
-    });
-  });
-  mo.observe(host, { childList:true, subtree:false });
-}
-
-async function updateManual(){
-  const id=document.getElementById('man-id')?.value; const emp=document.getElementById('man-employee')?.value; const s=document.getElementById('man-start')?.value; const e=document.getElementById('man-end')?.value; const name=document.getElementById('man-name')?.value; const msg=document.getElementById('man-msg');
-  if(!id){ if(msg){ msg.textContent='編集対象を選択してください'; msg.className='message error'; } return; }
-  try { const body={}; if(emp) body.employeeId=Number(emp); if(s) body.startTime=s; if(e) body.endTime=e; if(name) body.shiftName=name; const res = await callApi2(`/api/schedule/assignments/${id}`, { method:'PUT', body: JSON.stringify(body) }); if(msg){ msg.textContent=res.message||'更新しました'; msg.className='message success'; } await refreshManualList(); }
-  catch(err){ if(msg){ msg.textContent=err.message||'更新に失敗しました'; msg.className='message error'; } }
-}
-
-ensureManualEnhancer();
-document.getElementById('man-update')?.addEventListener('click', updateManual);
-</script>
+  <script src="/js/app.js"></script>
   <script>
     // Override monthly stats render to a stable container
     function updateMonthlyStats(data){
@@ -2193,9 +2617,9 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
   </script>
   <script>
     (() => {
-      const statusMap = { PENDING: '待機', APPLIED: '反映済み', CANCELLED: 'キャンセル' };
-
-      function pad2(num) { return String(num).padStart(2, '0'); }
+      function pad2(num) {
+        return String(num).padStart(2, '0');
+      }
 
       function getSelectedYearMonth() {
         const now = new Date();
@@ -2205,366 +2629,6 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
           year: y ? (parseInt(y.value, 10) || now.getFullYear()) : now.getFullYear(),
           month: m ? (parseInt(m.value, 10) || (now.getMonth() + 1)) : (now.getMonth() + 1)
         };
-      }
-
-      function ensureManualHeader() {
-        const headerRow = document.querySelector('#manual-edit-card thead tr');
-        if (headerRow && headerRow.childElementCount < 8) {
-          headerRow.innerHTML = '<th>ID</th><th>日付</th><th>開始</th><th>終了</th><th>従業員</th><th>シフト名</th><th>種別</th><th>操作</th>';
-        }
-      }
-
-      async function convertFreeToLeave(id) {
-        const msg = document.getElementById('man-msg');
-        try {
-          await callApi2(`/api/schedule/assignments/${id}/convert-leave`, { method: 'POST' });
-          if (msg) { msg.textContent = 'FREE枠を有給に変更しました'; msg.className = 'message success'; }
-          await refreshManualList();
-        } catch (err) {
-          if (msg) { msg.textContent = err.message || '有給への変更に失敗しました'; msg.className = 'message error'; }
-        }
-      }
-
-      const originalRefreshManualList = refreshManualList;
-
-      const enhancedRefreshManualList = async function () {
-        ensureManualHeader();
-        const date = document.getElementById('man-date')?.value;
-        const tbody = document.getElementById('man-list');
-        const msg = document.getElementById('man-msg');
-        if (!tbody) return;
-        tbody.innerHTML = '';
-        if (!date) {
-          if (msg) { msg.textContent = '日付を選択してください'; msg.className = 'message info'; }
-          return;
-        }
-        try {
-          const y = Number(date.slice(0, 4));
-          const m = Number(date.slice(5, 7));
-          const res = await callApi2(`/api/schedule?year=${y}&month=${m}`);
-          const rows = (res.data || []).filter(a => a.workDate === date);
-          if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="8">データがありません</td></tr>';
-            return;
-          }
-          tbody.innerHTML = rows.map(r => {
-            const typeLabel = r.isLeave ? '有給' : (r.isOff ? 'OFF' : (r.isFree ? 'FREE' : ''));
-            const buttons = [`<button class="button" data-act="del" data-id="${r.id}">削除</button>`];
-            if (r.isFree) {
-              buttons.push(`<button class="button ghost" data-act="leave" data-id="${r.id}">FREE→有給</button>`);
-            }
-            return `<tr data-id="${r.id}">
-              <td>${r.id}</td>
-              <td>${r.workDate}</td>
-              <td>${(r.startTime || '').slice(0, 5)}</td>
-              <td>${(r.endTime || '').slice(0, 5)}</td>
-              <td>${r.employeeName || ''}</td>
-              <td>${r.shiftName || ''}</td>
-              <td>${typeLabel || ''}</td>
-              <td>${buttons.join(' ')}</td>
-            </tr>`;
-          }).join('');
-          tbody.querySelectorAll('button[data-act="del"]').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              const id = e.currentTarget.getAttribute('data-id');
-              if (!confirm(`ID=${id} を削除しますか?`)) return;
-              try {
-                await callApi2(`/api/schedule/assignments/${id}`, { method: 'DELETE' });
-                if (msg) { msg.textContent = '削除しました'; msg.className = 'message success'; }
-                await refreshManualList();
-              } catch (err) {
-                if (msg) { msg.textContent = err.message || '削除に失敗しました'; msg.className = 'message error'; }
-              }
-            });
-          });
-          tbody.querySelectorAll('button[data-act="leave"]').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-              const id = e.currentTarget.getAttribute('data-id');
-              if (!id) return;
-              await convertFreeToLeave(id);
-            });
-          });
-        } catch (err) {
-          if (msg) { msg.textContent = err.message || '取得に失敗しました'; msg.className = 'message error'; }
-        }
-      };
-
-      refreshManualList = enhancedRefreshManualList;
-      document.getElementById('man-refresh')?.removeEventListener('click', originalRefreshManualList);
-      document.getElementById('man-date')?.removeEventListener('change', originalRefreshManualList);
-
-      function setReservationMessage(text, type) {
-        const msg = document.getElementById('res-msg');
-        if (!msg) return;
-        msg.textContent = text || '';
-        msg.className = type ? `message ${type}` : 'message';
-      }
-
-      function syncReservationRangeToMonth(refresh = false) {
-        const startEl = document.getElementById('res-range-start');
-        const endEl = document.getElementById('res-range-end');
-        if (!startEl || !endEl) return;
-        const { year, month } = getSelectedYearMonth();
-        startEl.value = `${year}-${pad2(month)}-01`;
-        const lastDay = new Date(year, month, 0).getDate();
-        endEl.value = `${year}-${pad2(month)}-${pad2(lastDay)}`;
-        if (refresh) refreshReservationList();
-      }
-
-      function clearReservationForm(resetRange = false) {
-        const today = new Date();
-        const dateInput = document.getElementById('res-date');
-        if (dateInput) {
-          dateInput.value = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`;
-        }
-        const startInput = document.getElementById('res-start');
-        if (startInput) startInput.value = '09:00';
-        const endInput = document.getElementById('res-end');
-        if (endInput) endInput.value = '18:00';
-        const labelInput = document.getElementById('res-label');
-        if (labelInput) labelInput.value = 'Reservation';
-        const noteInput = document.getElementById('res-note');
-        if (noteInput) noteInput.value = '';
-        const empSelect = document.getElementById('res-employee');
-        if (empSelect) empSelect.value = '';
-        const skillSelect = document.getElementById('res-skill');
-        if (skillSelect) skillSelect.value = '';
-        if (resetRange) syncReservationRangeToMonth(false);
-        setReservationMessage('', '');
-      }
-
-      function initReservationDefaults() {
-        clearReservationForm(true);
-      }
-
-      async function loadSkillsForReservation() {
-        try {
-          const res = await callApi2('/api/skills');
-          const list = res.data || [];
-          const optionHtml = list.map(s => `<option value="${s.id}">${s.code || s.name || ('Skill#' + s.id)}</option>`).join('');
-          const applyOptions = (id, fallbackLabel) => {
-            const select = document.getElementById(id);
-            if (!select) return;
-            const placeholder = select.querySelector('option[value=""]')?.textContent || fallbackLabel || '未選択';
-            select.innerHTML = `<option value="">${placeholder}</option>${optionHtml}`;
-          };
-          applyOptions('res-skill', '未選択');
-          applyOptions('t_skill', 'すべて');
-          applyOptions('b_skill', 'スキル未指定');
-        } catch (_e) { }
-      }
-
-      async function refreshReservationList() {
-        const tbody = document.getElementById('res-list');
-        if (!tbody) return;
-        const start = document.getElementById('res-range-start')?.value;
-        const end = document.getElementById('res-range-end')?.value;
-        if (!start || !end) {
-          setReservationMessage('表示期間を設定してください', 'error');
-          tbody.innerHTML = '';
-          return;
-        }
-        if (start > end) {
-          setReservationMessage('開始日は終了日以前にしてください', 'error');
-          return;
-        }
-        try {
-          const res = await callApi2(`/api/schedule/reservations?start=${start}&end=${end}`);
-          const rows = res.data || [];
-          if (!rows.length) {
-            tbody.innerHTML = '<tr><td colspan="9">予約がありません</td></tr>';
-            setReservationMessage('該当する予約はありません', 'info');
-            return;
-          }
-          const shortTime = (v) => (v || '').slice(0, 5);
-          tbody.innerHTML = rows.map(r => {
-            const timeRange = `${shortTime(r.startTime)}-${shortTime(r.endTime)}`;
-            const actions = [];
-            if (r.status === 'PENDING') {
-              actions.push(`<button class="button ghost" data-act="cancel" data-id="${r.id}">キャンセル</button>`);
-            } else if (r.status === 'CANCELLED') {
-              actions.push(`<button class="button ghost" data-act="pending" data-id="${r.id}">再開</button>`);
-            }
-            actions.push(`<button class="button danger" data-act="delete" data-id="${r.id}">削除</button>`);
-            return `<tr data-id="${r.id}">
-              <td>${r.id}</td>
-              <td>${r.workDate}</td>
-              <td>${timeRange}</td>
-              <td>${r.employeeName || ''}</td>
-              <td>${r.skillCode || '-'}</td>
-              <td>${r.label || ''}</td>
-              <td>${statusMap[r.status] || r.status || '-'}</td>
-              <td>${r.note || ''}</td>
-              <td>${actions.join(' ')}</td>
-            </tr>`;
-          }).join('');
-          tbody.querySelectorAll('button[data-act="cancel"]').forEach(btn => {
-            btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'CANCELLED'));
-          });
-          tbody.querySelectorAll('button[data-act="pending"]').forEach(btn => {
-            btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'PENDING'));
-          });
-          tbody.querySelectorAll('button[data-act="delete"]').forEach(btn => {
-            btn.addEventListener('click', () => {
-              const id = btn.getAttribute('data-id');
-              if (!id) return;
-              if (confirm(`ID=${id} の予約を削除しますか?`)) {
-                deleteReservation(id);
-              }
-            });
-          });
-          setReservationMessage('', '');
-        } catch (err) {
-          setReservationMessage(err.message || '予約の取得に失敗しました', 'error');
-        }
-      }
-
-      async function createReservation() {
-        const payload = {
-          workDate: document.getElementById('res-date')?.value,
-          employeeId: Number(document.getElementById('res-employee')?.value || 0),
-          skillId: document.getElementById('res-skill')?.value ? Number(document.getElementById('res-skill').value) : null,
-          startTime: document.getElementById('res-start')?.value,
-          endTime: document.getElementById('res-end')?.value,
-          label: document.getElementById('res-label')?.value || 'Reservation',
-          note: document.getElementById('res-note')?.value || ''
-        };
-        if (!payload.workDate || !payload.employeeId || !payload.startTime || !payload.endTime) {
-          setReservationMessage('日付・従業員・時間を入力してください', 'error');
-          return;
-        }
-        try {
-          await callApi2('/api/schedule/reservations', { method: 'POST', body: JSON.stringify(payload) });
-          setReservationMessage('予約を登録しました', 'success');
-          clearReservationForm(false);
-          await refreshReservationList();
-        } catch (err) {
-          setReservationMessage(err.message || '予約の登録に失敗しました', 'error');
-        }
-      }
-
-      async function deleteReservationsInRange() {
-        const start = document.getElementById('res-range-start')?.value;
-        const end = document.getElementById('res-range-end')?.value;
-        if (!start || !end) {
-          setReservationMessage('表示期間を設定してください', 'error');
-          return;
-        }
-        if (end < start) {
-          setReservationMessage('開始日は終了日以前にしてください', 'error');
-          return;
-        }
-        if (!confirm(`期間 ${start} 〜 ${end} の予約をすべて削除しますか？`)) return;
-        try {
-          await callApi2(`/api/schedule/reservations/bulk?start=${start}&end=${end}`, { method: 'DELETE' });
-          setReservationMessage('指定期間の予約を削除しました', 'success');
-          await refreshReservationList();
-        } catch (err) {
-          setReservationMessage(err.message || '一括削除に失敗しました', 'error');
-        }
-      }
-
-      async function updateReservationStatus(id, status) {
-        if (!id) return;
-        try {
-          await callApi2(`/api/schedule/reservations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-          setReservationMessage('ステータスを更新しました', 'success');
-          await refreshReservationList();
-        } catch (err) {
-          setReservationMessage(err.message || 'ステータスの更新に失敗しました', 'error');
-        }
-      }
-
-      async function deleteReservation(id) {
-        try {
-          await callApi2(`/api/schedule/reservations/${id}`, { method: 'DELETE' });
-          setReservationMessage('予約を削除しました', 'success');
-          await refreshReservationList();
-        } catch (err) {
-          setReservationMessage(err.message || '削除に失敗しました', 'error');
-        }
-      }
-
-      async function loadTimelineGrid() {
-        const timesCol = document.getElementById('t_times');
-        const rowsCol = document.getElementById('t_rows');
-        if (!timesCol || !rowsCol) return;
-        const date = document.getElementById('res-date')?.value;
-        if (!date) {
-          timesCol.innerHTML = '';
-          rowsCol.innerHTML = '<div class="muted">日付を選択するとタイムラインを表示します</div>';
-          return;
-        }
-        const gran = document.getElementById('t_gran')?.value || '60';
-        const skillId = document.getElementById('t_skill')?.value || '';
-        rowsCol.innerHTML = '<div class="muted">読み込み中...</div>';
-        timesCol.innerHTML = '';
-        try {
-          let url = `/api/schedule/grid/day?date=${date}&granularity=${gran}`;
-          if (skillId) url += `&skillId=${skillId}`;
-          const res = await fetch(url, { credentials: 'include' });
-          if (!res.ok) throw new Error('タイムラインの取得に失敗しました');
-          const data = await res.json();
-          const slots = (data && data.data && data.data.slots) || [];
-          if (!slots.length) {
-            rowsCol.innerHTML = '<div class="muted">データがありません</div>';
-            return;
-          }
-          timesCol.innerHTML = slots.map(s => `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${s.start}</div>`).join('');
-          rowsCol.innerHTML = slots.map(s => {
-            const badgeColor = (s.shortage || 0) > 0 ? '#fee2e2' : '#e0f2fe';
-            const badgeText = (s.shortage || 0) > 0 ? '#7f1d1d' : '#075985';
-            const badge = `<span style="margin-right:10px; padding:2px 8px; border-radius:999px; font-size:12px; background:${badgeColor}; color:${badgeText};">${s.assigned}/${s.required}</span>`;
-            const names = (s.employees || []).map(n => `<span style="background:#eef2ff; color:#3730a3; border-radius:999px; padding:2px 8px; margin:0 4px 4px 0; display:inline-block;">${n}</span>`).join('');
-            return `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${badge}${names || '<span class="muted">割当なし</span>'}</div>`;
-          }).join('');
-        } catch (err) {
-          rowsCol.innerHTML = `<div class="muted">${err.message || 'タイムラインの取得に失敗しました'}</div>`;
-        }
-      }
-
-      async function addBoostDemand() {
-        const msg = document.getElementById('b_msg');
-        if (!msg) return;
-        const date = document.getElementById('res-date')?.value;
-        if (!date) {
-          msg.textContent = '日付を選択してください';
-          msg.style.color = '#b91c1c';
-          return;
-        }
-        const start = document.getElementById('b_start')?.value;
-        const end = document.getElementById('b_end')?.value;
-        let seats = Number(document.getElementById('b_seats')?.value || 1);
-        const skillId = document.getElementById('b_skill')?.value;
-        if (!start || !end || start >= end) {
-          msg.textContent = '時間帯を確認してください';
-          msg.style.color = '#b91c1c';
-          return;
-        }
-        if (seats < 1) seats = 1;
-        try {
-          await callApi2('/api/demand', {
-            method: 'POST',
-            body: JSON.stringify({
-              date,
-              dayOfWeek: null,
-              startTime: start,
-              endTime: end,
-              requiredSeats: seats,
-              skillId: skillId ? Number(skillId) : null
-            })
-          });
-          msg.textContent = '一時需要を追加しました';
-          msg.style.color = '#15803d';
-          await loadTimelineGrid();
-          const viewerDate = document.getElementById('view-date');
-          if (viewerDate && viewerDate.value === date) {
-            await loadEffective();
-          }
-        } catch (err) {
-          msg.textContent = err.message || '追加に失敗しました';
-          msg.style.color = '#b91c1c';
-        }
       }
 
       async function downloadScheduleCsv() {
@@ -2590,30 +2654,11 @@ document.getElementById('man-update')?.addEventListener('click', updateManual);
         }
       }
 
-      document.getElementById('res-create')?.addEventListener('click', createReservation);
-      document.getElementById('res-refresh')?.addEventListener('click', refreshReservationList);
-      document.getElementById('res-range-sync')?.addEventListener('click', () => { syncReservationRangeToMonth(true); });
-      document.getElementById('res-bulk-delete')?.addEventListener('click', deleteReservationsInRange);
-      document.getElementById('res-clear')?.addEventListener('click', () => clearReservationForm(false));
-      document.getElementById('res-employee')?.addEventListener('change', () => setReservationMessage('', ''));
-      document.getElementById('res-date')?.addEventListener('change', loadTimelineGrid);
-      document.getElementById('t_gran')?.addEventListener('change', loadTimelineGrid);
-      document.getElementById('t_skill')?.addEventListener('change', loadTimelineGrid);
-      document.getElementById('t_refresh')?.addEventListener('click', loadTimelineGrid);
-      document.getElementById('b_add')?.addEventListener('click', addBoostDemand);
       document.getElementById('download-csv')?.addEventListener('click', downloadScheduleCsv);
-      document.getElementById('man-refresh')?.addEventListener('click', refreshManualList);
-      document.getElementById('man-date')?.addEventListener('change', refreshManualList);
-      document.getElementById('year-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
-      document.getElementById('month-input')?.addEventListener('change', () => syncReservationRangeToMonth(true));
-      window.refreshReservationList = refreshReservationList;
-
-      ensureManualHeader();
-      initReservationDefaults();
-      loadSkillsForReservation()
-        .then(() => loadTimelineGrid())
-        .catch(() => loadTimelineGrid());
-      refreshReservationList();
+      document.getElementById('workflow-export')?.addEventListener('click', downloadScheduleCsv);
+      document.getElementById('workflow-scroll-generate')?.addEventListener('click', () => {
+        document.getElementById('schedule-card')?.scrollIntoView({ behavior: 'smooth' });
+      });
     })();
   </script>
 </body>

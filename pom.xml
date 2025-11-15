@@ -89,6 +89,7 @@
                 <configuration>
                     <release>${java.version}</release>
                     <parameters>true</parameters>
+                    <encoding>UTF-8</encoding> 
                 </configuration>
             </plugin>
             <plugin>

@@ -38,7 +38,7 @@ public interface DemandIntervalRepository extends JpaRepository<DemandInterval, 
                         d.date IS NULL
                         AND (
                             (:isHoliday = true AND d.holidayOnly = true)
-                            OR ((d.holidayOnly = false OR d.holidayOnly IS NULL) AND d.dayOfWeek = :dow)
+                            OR (:isHoliday = false AND (d.holidayOnly = false OR d.holidayOnly IS NULL) AND d.dayOfWeek = :dow)
                         )
                     )
                 )

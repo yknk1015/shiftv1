@@ -1,5 +1,6 @@
 package com.example.shiftv1.schedule;
 
+import com.example.shiftv1.breaks.BreakPeriodRepository;
 import com.example.shiftv1.common.ApiResponse;
 import com.example.shiftv1.exception.BusinessException;
 import org.slf4j.Logger;
@@ -8,17 +9,17 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.util.UriUtils;
 
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalTime;
 import java.time.YearMonth;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
-import java.nio.charset.StandardCharsets;
 
 @RestController
 @RequestMapping("/api/schedule")
@@ -27,20 +28,26 @@ public class ScheduleController {
     private final ScheduleService scheduleService;
     private final ShiftAssignmentRepository assignmentRepository;
     private final ShiftReservationRepository reservationRepository;
+    private final BreakPeriodRepository breakRepository;
     private final com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer;
     private final ScheduleJobStatusService jobStatusService;
+    private final ScheduleCsvExporter scheduleCsvExporter;
     private static final Logger logger = LoggerFactory.getLogger(ScheduleController.class);
 
     public ScheduleController(ScheduleService scheduleService,
                               ShiftAssignmentRepository assignmentRepository,
                               ShiftReservationRepository reservationRepository,
+                              BreakPeriodRepository breakRepository,
                               com.example.shiftv1.common.error.ErrorLogBuffer errorLogBuffer,
-                              ScheduleJobStatusService jobStatusService) {
+                              ScheduleJobStatusService jobStatusService,
+                              ScheduleCsvExporter scheduleCsvExporter) {
         this.scheduleService = scheduleService;
         this.assignmentRepository = assignmentRepository;
         this.reservationRepository = reservationRepository;
+        this.breakRepository = breakRepository;
         this.errorLogBuffer = errorLogBuffer;
         this.jobStatusService = jobStatusService;
+        this.scheduleCsvExporter = scheduleCsvExporter;
     }
 
     // Fallback generator (delegates to demand-based simple)
@@ -205,6 +212,7 @@ public class ScheduleController {
             var start = target.atDay(1);
             var end = target.atEndOfMonth();
             long before = assignmentRepository.countByWorkDateBetween(start, end);
+            breakRepository.deleteByAssignment_WorkDateBetween(start, end);
             assignmentRepository.deleteByWorkDateBetween(start, end);
             List<ShiftReservation> reservationsToReset = reservationRepository.findByWorkDateBetweenAndStatusIn(
                     start, end, List.of(ShiftReservation.Status.APPLIED));
@@ -266,26 +274,13 @@ public class ScheduleController {
         return meta;
     }
 
-    private String boolToStr(Boolean value) {
-        return (value != null && value) ? "1" : "0";
-    }
-
-    private String formatTime(LocalTime time, DateTimeFormatter formatter) {
-        return (time == null) ? "" : formatter.format(time);
-    }
-
-    private String escapeCsv(String value) {
-        if (value == null) {
-            return "";
-        }
-        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
-            return "\"" + value.replace("\"", "\"\"") + "\"";
-        }
-        return value;
-    }
-
-    private String safeId(Long value) {
-        return value == null ? "" : value.toString();
+    private ResponseEntity<byte[]> buildCsvResponse(ScheduleCsvExporter.CsvFile csvFile) {
+        String encoded = UriUtils.encode(csvFile.filename(), StandardCharsets.UTF_8);
+        String disposition = "attachment; filename=\"" + csvFile.filename() + "\"; filename*=UTF-8''" + encoded;
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition)
+                .contentType(MediaType.parseMediaType("text/csv; charset=UTF-8"))
+                .body(csvFile.data());
     }
     // Lightweight meta for polling (count only)
     @GetMapping("/meta")
@@ -350,27 +345,8 @@ public class ScheduleController {
                                             @RequestParam(name = "month", required = false) Integer month) {
         YearMonth target = resolveYearMonth(year, month);
         List<ShiftAssignment> assignments = assignmentRepository.findByWorkDateBetween(target.atDay(1), target.atEndOfMonth());
-        DateTimeFormatter dateFmt = DateTimeFormatter.ISO_LOCAL_DATE;
-        DateTimeFormatter timeFmt = DateTimeFormatter.ofPattern("HH:mm");
-        StringBuilder sb = new StringBuilder();
-        sb.append("date,employeeId,employeeName,shiftName,startTime,endTime,isFree,isOff,isLeave\n");
-        for (ShiftAssignment sa : assignments) {
-            sb.append(dateFmt.format(sa.getWorkDate())).append(',')
-                    .append(safeId(sa.getEmployee() != null ? sa.getEmployee().getId() : null)).append(',')
-                    .append(escapeCsv(sa.getEmployee() != null ? sa.getEmployee().getName() : "")).append(',')
-                    .append(escapeCsv(sa.getShiftName())).append(',')
-                    .append(formatTime(sa.getStartTime(), timeFmt)).append(',')
-                    .append(formatTime(sa.getEndTime(), timeFmt)).append(',')
-                    .append(boolToStr(sa.getIsFree())).append(',')
-                    .append(boolToStr(sa.getIsOff())).append(',')
-                    .append(boolToStr(sa.getIsLeave())).append('\n');
-        }
-        byte[] bytes = sb.toString().getBytes(StandardCharsets.UTF_8);
-        String filename = String.format("schedule-%d-%02d.csv", target.getYear(), target.getMonthValue());
-        return ResponseEntity.ok()
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
-                .contentType(MediaType.TEXT_PLAIN)
-                .body(bytes);
+        ScheduleCsvExporter.CsvFile csvFile = scheduleCsvExporter.export(assignments, target);
+        return buildCsvResponse(csvFile);
     }
 
     @PostMapping("/housekeeping")

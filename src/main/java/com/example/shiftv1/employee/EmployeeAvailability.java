@@ -1,5 +1,6 @@
 package com.example.shiftv1.employee;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import java.time.DayOfWeek;
 import java.time.LocalTime;
@@ -14,6 +15,7 @@ public class EmployeeAvailability {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "employee_id", nullable = false)
+    @JsonIgnore
     private Employee employee;
 
     @Enumerated(EnumType.STRING)
@@ -27,6 +29,7 @@ public class EmployeeAvailability {
     private LocalTime endTime;
 
     public Long getId() { return id; }
+    @JsonIgnore
     public Employee getEmployee() { return employee; }
     public void setEmployee(Employee employee) { this.employee = employee; }
     public DayOfWeek getDayOfWeek() { return dayOfWeek; }
@@ -36,4 +39,3 @@ public class EmployeeAvailability {
     public LocalTime getEndTime() { return endTime; }
     public void setEndTime(LocalTime endTime) { this.endTime = endTime; }
 }
-

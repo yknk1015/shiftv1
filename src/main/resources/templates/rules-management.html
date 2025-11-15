@@ -7,11 +7,22 @@
   <style>
     body { font-family: system-ui, -apple-system, Segoe UI, sans-serif; margin: 0; background:#f6f7fb; color:#0f172a; }
     .container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+    .back-link {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      color:#2563eb;
+      text-decoration:none;
+      margin-bottom:12px;
+    }
+    .back-link:hover { text-decoration:underline; }
     .header { display:flex; justify-content: space-between; align-items:center; margin-bottom: 12px; }
     .tabs { display:flex; gap:8px; border-bottom:1px solid #e2e8f0; }
     .tab { padding:10px 14px; cursor:pointer; border:1px solid #e2e8f0; border-bottom:none; border-radius:8px 8px 0 0; background:#fff; }
     .tab.active { background:#eef2ff; border-color:#c7d2fe; }
     .panel { background:#fff; border:1px solid #e2e8f0; border-radius:0 8px 8px 8px; padding:16px; }
+    .panel h3 { margin-top:0; }
     .row { display:flex; gap:16px; align-items:center; margin:10px 0; }
     label { min-width: 180px; color:#334155; }
     input[type="text"], input[type="date"], select { padding:8px 10px; border:1px solid #cbd5e1; border-radius:8px; min-width:220px; }
@@ -22,21 +33,40 @@
     .msg { margin-top:8px; font-size:13px; }
     .msg.ok { color:#14532d; }
     .msg.err { color:#7f1d1d; }
+    .grid-two { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:12px; }
+    .card { border:1px solid #e2e8f0; border-radius:12px; background:#f8fafc; padding:14px 16px; }
+    .card h4 { margin:0 0 8px; }
+    table { width:100%; border-collapse:collapse; margin-top:10px; }
+    th, td { text-align:left; padding:8px 6px; border-bottom:1px solid #e2e8f0; font-size:14px; }
+    th { color:#475569; font-weight:500; }
+    .table-wrap { max-height:280px; overflow:auto; }
+    .inline-note { font-size:12px; color:#94a3b8; }
   </style>
-  <script>
+<script src="/js/app.js"></script>
+<script>
+    const state = { pairDefs: [], pairingId: null, editingIndex: null };
+
     document.addEventListener('DOMContentLoaded', init);
     async function init(){
-      sel('tab-free').addEventListener('click', ()=>activate('free'));
-      sel('tab-pattern').addEventListener('click', ()=>activate('pattern'));
-      activate('free');
+      ['free','pairing','breaks'].forEach(name=>{
+        sel('tab-'+name).addEventListener('click', ()=>activate(name));
+      });
+      const initialTab = location.hash === '#breaks' ? 'breaks' : (location.hash === '#pairing' ? 'pairing' : 'free');
+      activate(initialTab);
       await loadFree();
-      await loadEmployees();
+      await loadPairingSettings();
+      await loadBreakSettings();
+      sel('btn-save-pairing').addEventListener('click', savePairing);
+      sel('btn-add-pair').addEventListener('click', addOrUpdatePair);
+      sel('btn-cancel-pair').addEventListener('click', ()=> resetPairForm());
+      sel('btn-save-breaks').addEventListener('click', saveBreakSettings);
     }
     function sel(id){ return document.getElementById(id); }
     function activate(name){
-      ['free','pattern'].forEach(n=>{
-        sel('tab-'+n).classList.toggle('active', n===name);
-        sel('panel-'+n).style.display = n===name? 'block':'none';
+      ['free','pairing','breaks'].forEach(n=>{
+        const active = n===name;
+        sel('tab-'+n).classList.toggle('active', active);
+        sel('panel-'+n).style.display = active? 'block':'none';
       });
     }
     async function loadFree(){
@@ -49,6 +79,47 @@
         }
       }catch(e){ console.warn(e); }
     }
+    async function loadBreakSettings(){
+      try{
+        const res = await fetch('/api/config/break-settings');
+        if(!res.ok) throw new Error('取得に失敗しました');
+        const data = await res.json();
+        sel('autoShortBreak').checked = !!data.shortBreakEnabled;
+        sel('shortBreakMinutes').value = data.shortBreakMinutes ?? 15;
+        sel('shortBreakMin').value = data.minShiftMinutes ?? 180;
+        sel('shortBreakApplyShort').checked = data.applyToShortShifts ?? true;
+        setBreakMsg('', true);
+      }catch(e){
+        setBreakMsg('休憩設定の取得に失敗しました', false);
+      }
+    }
+    function setBreakMsg(text, ok){
+      const el = sel('msg-breaks');
+      if(!el) return;
+      el.textContent = text || '';
+      el.className = 'msg ' + (ok ? 'ok' : 'err');
+    }
+    async function saveBreakSettings(){
+      const body = {
+        shortBreakEnabled: sel('autoShortBreak').checked,
+        shortBreakMinutes: Number(sel('shortBreakMinutes').value || '15'),
+        minShiftMinutes: Number(sel('shortBreakMin').value || '180'),
+        applyToShortShifts: sel('shortBreakApplyShort').checked
+      };
+      try{
+        const res = await fetch('/api/config/break-settings', {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(body)
+        });
+        if(!res.ok){
+          throw new Error();
+        }
+        setBreakMsg('保存しました', true);
+      }catch(e){
+        setBreakMsg('保存に失敗しました', false);
+      }
+    }
     async function saveFree(){
       try{
         const body = { onlyWeekdays: sel('onlyWeekdays').checked, skipHolidays: sel('skipHolidays').checked };
@@ -58,65 +129,254 @@
         sel('msg-free').className = 'msg ' + (js.success? 'ok':'err');
       }catch(e){ sel('msg-free').textContent='通信エラー'; sel('msg-free').className='msg err'; }
     }
-    async function loadEmployees(){
+    async function loadPairingSettings(){
       try{
-        const res = await fetch('/api/employees');
-        const js = await res.json();
-        if(js.success){
-          const s = sel('emp'); s.innerHTML='';
-          js.data.forEach(e=>{ const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; s.appendChild(o); });
-          if(js.data.length){ sel('emp').value = js.data[0].id; await loadRule(); }
-        }
-      }catch(e){ console.warn(e); }
-    }
-    async function loadRule(){
-      const id = sel('emp').value; if(!id) return;
-      const res = await fetch(`/api/employees/${id}/rule`);
-      const js = await res.json();
-      if(js.success){
-        const r = js.data;
-        sel('pattern').value = r.workOffPattern || '';
-        sel('anchor').value = r.patternAnchorDate || '';
-        sel('strict').checked = !!r.patternStrict;
+        const res = await fetch('/api/config/pairing-settings');
+        const data = await res.json();
+        state.pairingId = data.id || null;
+        sel('pairEnabled').checked = !!data.enabled;
+        sel('pairPreferShorts').checked = !!data.preferShorts;
+        sel('pairTolerance').value = data.pairToleranceMinutes ?? 0;
+        sel('pairFullWindow').value = data.fullWindow || '09:00-18:00';
+        sel('pairMorningWindow').value = data.morningWindow || '09:00-13:00';
+        sel('pairAfternoonWindow').value = data.afternoonWindow || '13:00-18:00';
+        sel('pairStandaloneWindows').value = data.standaloneWindows || '';
+        state.pairDefs = parsePairDefinitions(data.skillPairings);
+        state.editingIndex = null;
+        renderPairDefinitions();
+        resetPairForm('', true);
+      }catch(e){
+        console.warn(e);
+        setPairingStatus('ペアリング設定の取得に失敗しました', false);
       }
     }
-    async function saveRule(){
-      const id = sel('emp').value; if(!id) return;
-      const body = {
-        workOffPattern: sel('pattern').value || null,
-        patternAnchorDate: sel('anchor').value || null,
-        patternStrict: sel('strict').checked
+    function parsePairDefinitions(raw){
+      if(!raw) return [];
+      try{
+        const arr = JSON.parse(raw);
+        if(!Array.isArray(arr)) return [];
+        return arr
+          .map(item=>(
+            {
+              name: (item.name || '').toString().trim(),
+              fullWindow: (item.fullWindow || '').toString().trim(),
+              morningWindow: (item.morningWindow || '').toString().trim(),
+              afternoonWindow: (item.afternoonWindow || '').toString().trim()
+            }
+          ))
+          .filter(item=>isValidWindow(item.fullWindow) && isValidWindow(item.morningWindow) && isValidWindow(item.afternoonWindow));
+      }catch(e){
+        console.warn('pair definition parse error', e);
+        return [];
+      }
+    }
+    function isValidWindow(str){
+      return typeof str === 'string' && /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(str.trim());
+    }
+    function gatherPairForm(){
+      const name = sel('pairName').value.trim();
+      const full = sel('pairDefFull').value.trim();
+      const morning = sel('pairDefMorning').value.trim();
+      const afternoon = sel('pairDefAfternoon').value.trim();
+      if(!isValidWindow(full) || !isValidWindow(morning) || !isValidWindow(afternoon)){
+        setPairFormMsg('時間帯は HH:MM-HH:MM 形式で入力してください', false);
+        return null;
+      }
+      return {
+        name: name || 'ペア',
+        fullWindow: full,
+        morningWindow: morning,
+        afternoonWindow: afternoon
       };
-      const res = await fetch(`/api/employees/${id}/rule`, { method:'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify(body)});
-      const js = await res.json();
-      sel('msg-pattern').textContent = js.success? '保存しました' : '保存に失敗しました';
-      sel('msg-pattern').className = 'msg ' + (js.success? 'ok':'err');
+    }
+    function addOrUpdatePair(){
+      const payload = gatherPairForm();
+      if(!payload) return;
+      if(state.editingIndex != null){
+        state.pairDefs[state.editingIndex] = payload;
+        setPairFormMsg('ペアを更新しました', true);
+      }else{
+        state.pairDefs.push(payload);
+        setPairFormMsg('ペアを追加しました', true);
+      }
+      renderPairDefinitions();
+      resetPairForm('', true);
+    }
+    function editPair(index){
+      const target = state.pairDefs[index];
+      if(!target) return;
+      sel('pairName').value = target.name || '';
+      sel('pairDefFull').value = target.fullWindow || '';
+      sel('pairDefMorning').value = target.morningWindow || '';
+      sel('pairDefAfternoon').value = target.afternoonWindow || '';
+      state.editingIndex = index;
+      updatePairButtonLabel();
+      setPairFormMsg('編集モードです。更新ボタンで反映できます。', true);
+    }
+    function removePair(index){
+      state.pairDefs.splice(index,1);
+      if(state.editingIndex === index){
+        resetPairForm('', true);
+      }else if(state.editingIndex != null && state.editingIndex > index){
+        state.editingIndex--;
+      }
+      renderPairDefinitions();
+      setPairFormMsg('削除しました', true);
+    }
+    function resetPairForm(message, ok){
+      ['pairName','pairDefFull','pairDefMorning','pairDefAfternoon'].forEach(id=>{
+        const el = sel(id);
+        if(!el) return;
+        el.value = '';
+      });
+      state.editingIndex = null;
+      updatePairButtonLabel();
+      if(message !== undefined){
+        setPairFormMsg(message || '', ok);
+      }else{
+        setPairFormMsg('', true);
+      }
+    }
+    function renderPairDefinitions(){
+      const host = sel('pairDefList');
+      if(!host) return;
+      if(!state.pairDefs.length){
+        host.innerHTML = '<p class="note">まだペア構成は登録されていません。時間帯を入力して追加してください。</p>';
+        updatePairButtonLabel();
+        return;
+      }
+      let html = '<table><thead><tr><th>名称</th><th>フル</th><th>午前</th><th>午後</th><th></th></tr></thead><tbody>';
+      state.pairDefs.forEach((p, idx)=>{
+        html += `<tr>
+          <td>${p.name || 'ペア'}</td>
+          <td>${p.fullWindow}</td>
+          <td>${p.morningWindow}</td>
+          <td>${p.afternoonWindow}</td>
+          <td>
+            <button type="button" class="secondary" data-edit-index="${idx}">編集</button>
+            <button type="button" class="secondary" data-remove-index="${idx}">削除</button>
+          </td>
+        </tr>`;
+      });
+      html += '</tbody></table>';
+      host.innerHTML = html;
+      host.querySelectorAll('button[data-edit-index]').forEach(btn=>{
+        btn.addEventListener('click', ()=> editPair(Number(btn.dataset.editIndex)));
+      });
+      host.querySelectorAll('button[data-remove-index]').forEach(btn=>{
+        btn.addEventListener('click', ()=> removePair(Number(btn.dataset.removeIndex)));
+      });
+      updatePairButtonLabel();
+    }
+    function updatePairButtonLabel(){
+      const btn = sel('btn-add-pair');
+      if(btn) btn.textContent = state.editingIndex == null ? '追加' : '更新';
+    }
+    function setPairFormMsg(text, ok){
+      const el = sel('pairDefMsg');
+      if(!el) return;
+      el.textContent = text || '';
+      el.className = 'msg ' + (ok? 'ok':'err');
+    }
+    async function savePairing(){
+      const payload = {
+        id: state.pairingId,
+        enabled: sel('pairEnabled').checked,
+        preferShorts: sel('pairPreferShorts').checked,
+        pairToleranceMinutes: Number(sel('pairTolerance').value || 0),
+        fullWindow: sel('pairFullWindow').value.trim(),
+        morningWindow: sel('pairMorningWindow').value.trim(),
+        afternoonWindow: sel('pairAfternoonWindow').value.trim(),
+        standaloneWindows: sel('pairStandaloneWindows').value.trim(),
+        skillPairings: JSON.stringify(state.pairDefs)
+      };
+      try{
+        const res = await fetch('/api/config/pairing-settings', {
+          method:'PUT',
+          headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        if(res.ok){
+          const js = await res.json();
+          state.pairingId = js.id || state.pairingId;
+          setPairingStatus('保存しました', true);
+        }else{
+          setPairingStatus('保存に失敗しました', false);
+        }
+      }catch(e){
+        console.warn(e);
+        setPairingStatus('通信エラーが発生しました', false);
+      }
+    }
+    function setPairingStatus(text, ok){
+      const el = sel('msg-pairing');
+      if(!el) return;
+      el.textContent = text || '';
+      if(!text){ el.className = 'msg'; return; }
+      el.className = 'msg ' + (ok? 'ok' : 'err');
     }
   </script>
 </head>
 <body>
   <div class="container">
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
     <div class="header">
       <h2>ルール管理</h2>
       <a href="/dashboard"><button class="secondary">ダッシュボードへ戻る</button></a>
     </div>
     <div class="tabs">
       <div id="tab-free" class="tab active">FREE配置</div>
-      <div id="tab-pattern" class="tab">勤務/休パターン</div>
+      <div id="tab-pairing" class="tab">ペアリング</div>
+      <div id="tab-breaks" class="tab">休憩ルール</div>
     </div>
     <div class="panel" id="panel-free">
-      <div class="row"><label>FREEは平日のみに配置</label><span class="switch"><input id="onlyWeekdays" type="checkbox"/> 平日限定</span></div>
-      <div class="row"><label>祝日にFREEを配置しない</label><span class="switch"><input id="skipHolidays" type="checkbox"/> 祝日スキップ</span></div>
+      <div class="row"><label>FREEは平日に優先して配置</label><span class="switch"><input id="onlyWeekdays" type="checkbox"/> 平日を優先</span></div>
+      <div class="row"><label>祝日では可能なら回避</label><span class="switch"><input id="skipHolidays" type="checkbox"/> 祝日は低優先</span></div>
       <div class="row"><button onclick="saveFree()">保存</button><span id="msg-free" class="msg"></span></div>
-      <p class="note">FREEは勤務扱いに含めません。余剰人員の活用（研修/有休促進など）用の枠です。</p>
+      <p class="note">FREEは勤務扱いに含めません。余剰人員の活用（研修/有休促進など）用の枠です。優先フラグをONにしても必要に応じて土日祝へ自動配置されます。</p>
+      <p class="note">勤務/休パターン設定は <a href="/employee-master" target="_blank">従業員マスタ &gt; 勤務ルール</a> へ移管しました。</p>
     </div>
-    <div class="panel" id="panel-pattern" style="display:none">
-      <div class="row"><label>従業員</label><select id="emp" onchange="loadRule()"></select></div>
-      <div class="row"><label>勤務/休パターン</label><input id="pattern" type="text" placeholder="例) 3W-1O-2W-1O"/></div>
-      <div class="row"><label>アンカー日</label><input id="anchor" type="date"/></div>
-      <div class="row"><label>厳格適用</label><span class="switch"><input id="strict" type="checkbox"/> OFF日は割当不可</span></div>
-      <div class="row"><button onclick="saveRule()">保存</button><span id="msg-pattern" class="msg"></span></div>
-      <p class="note">パターン例: "3W-1O-2W-1O" は「3勤1休→2勤1休」を繰り返します。厳格適用ONでOFF日を優先確保します。</p>
+    <div class="panel" id="panel-breaks" style="display:none">
+      <h3>休憩ルール</h3>
+      <p class="note">勤務時間に応じて小休憩を自動挿入します。例: 15 / 10 など自由に入力し、組織全体で共有されます。</p>
+      <div class="row"><label>小休憩を自動割当</label><span class="switch"><input id="autoShortBreak" type="checkbox"/> 自動で追加</span></div>
+      <div class="row"><label>小休憩の長さ (分)</label><input id="shortBreakMinutes" type="number" min="5" step="5" placeholder="15"/></div>
+      <div class="row"><label>適用する勤務時間 (分)</label><input id="shortBreakMin" type="number" min="60" step="15" placeholder="180"/></div>
+      <div class="row"><label>短時間シフトにも適用</label><span class="switch"><input id="shortBreakApplyShort" type="checkbox" checked/> ランチ無しシフトにも追加</span></div>
+      <div class="row"><button id="btn-save-breaks" type="button">設定を保存</button><span id="msg-breaks" class="msg"></span></div>
+      <p class="note">※ 6時間以上のシフトでは昼休憩後の残り時間を目安に、小休憩は自動的にシフト後半へ配置されます。短時間シフトでは勤務時間の中央付近に配置されます。</p>
+    </div>
+    <div class="panel" id="panel-pairing" style="display:none">
+      <h3>ペアリング設定</h3>
+      <p class="note">時短勤務者の組み合わせ・時間帯を揃えて配属するためのルールです。全体設定とスキル別のペアリング指示をまとめて管理できます。</p>
+      <div class="grid-two">
+        <div class="card">
+          <h4>全体ルール</h4>
+          <div class="row"><label>ペアリング有効</label><span class="switch"><input id="pairEnabled" type="checkbox"/> ペアリングを使う</span></div>
+          <div class="row"><label>時短優先</label><span class="switch"><input id="pairPreferShorts" type="checkbox"/> まず短時間枠を埋める</span></div>
+          <div class="row"><label>ペア許容差（分）</label><input id="pairTolerance" type="number" min="0" step="1"/></div>
+          <div class="row"><label>フル枠</label><input id="pairFullWindow" type="text" placeholder="09:00-18:00"/></div>
+          <div class="row"><label>AM（時短）</label><input id="pairMorningWindow" type="text" placeholder="09:00-13:00"/></div>
+          <div class="row"><label>PM（時短）</label><input id="pairAfternoonWindow" type="text" placeholder="13:00-18:00"/></div>
+          <div class="row"><label>単独枠（カンマ区切り）</label><input id="pairStandaloneWindows" type="text" placeholder="17:00-21:00,20:00-24:00"/></div>
+          <p class="note">単独枠はペアリングせず配置して良い時間帯です。複数指定するときはカンマで区切ってください。</p>
+        </div>
+        <div class="card">
+          <h4>ペア構成</h4>
+          <p class="note">午前・午後など短時間枠の組み合わせを複数登録できます。生成時は同じスキル内でのみマッチングします。</p>
+          <div class="row"><label>名称</label><input id="pairName" type="text" placeholder="例: 早番セット"/></div>
+          <div class="row"><label>フル枠</label><input id="pairDefFull" type="text" placeholder="08:00-17:00"/></div>
+          <div class="row"><label>午前枠</label><input id="pairDefMorning" type="text" placeholder="08:00-12:00"/></div>
+          <div class="row"><label>午後枠</label><input id="pairDefAfternoon" type="text" placeholder="13:00-17:00"/></div>
+          <div class="row"><button id="btn-add-pair" type="button">追加</button><button id="btn-cancel-pair" type="button" class="secondary">クリア</button><span id="pairDefMsg" class="msg"></span></div>
+          <div class="table-wrap" id="pairDefList"></div>
+        </div>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <button id="btn-save-pairing" type="button">設定を保存</button>
+        <span id="msg-pairing" class="msg"></span>
+      </div>
+      <p class="inline-note">※ ペアは同じスキル同士でのみ自動連携します。スキルの作成や優先度はスキル管理画面で変更してください。</p>
     </div>
   </div>
 </body>

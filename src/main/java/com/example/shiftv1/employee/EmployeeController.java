@@ -29,7 +29,7 @@ public class EmployeeController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<List<Employee>>> getAllEmployees() {
-        List<Employee> employees = employeeRepository.findAll();
+        List<Employee> employees = employeeRepository.findAllOrdered();
         return ResponseEntity.ok(ApiResponse.success("従業員一覧を取得しました", employees));
     }
 
@@ -57,6 +57,8 @@ public class EmployeeController {
             Employee employee = new Employee(name, role);
             Integer pr = request.assignPriority();
             employee.setAssignPriority(clampPriority(pr == null ? 3 : pr));
+            Integer order = request.displayOrder();
+            employee.setDisplayOrder(order != null ? order : nextDisplayOrder());
             Employee savedEmployee = employeeRepository.save(employee);
             return ResponseEntity.status(HttpStatus.CREATED)
                     .body(ApiResponse.success("従業員を作成しました", savedEmployee));
@@ -82,6 +84,9 @@ public class EmployeeController {
         if (request.assignPriority() != null) {
             employee.setAssignPriority(clampPriority(request.assignPriority()));
         }
+        if (request.displayOrder() != null) {
+            employee.setDisplayOrder(request.displayOrder());
+        }
         Employee updatedEmployee = employeeRepository.save(employee);
         return ResponseEntity.ok(ApiResponse.success("従業員を更新しました", updatedEmployee));
     }
@@ -102,7 +107,7 @@ public class EmployeeController {
         return ResponseEntity.ok(ApiResponse.success("従業員数を取得しました", new EmployeeCountResponse(count)));
     }
 
-    public record EmployeeRequest(String name, String role, Integer assignPriority) {}
+    public record EmployeeRequest(String name, String role, Integer assignPriority, Integer displayOrder) {}
 
     // Phase A: work preferences payload
     public static class WorkPrefsRequest {
@@ -133,6 +138,15 @@ public class EmployeeController {
     private int clampPriority(Integer p) {
         if (p == null) return 3; // default mid for 1-5
         return Math.max(1, Math.min(5, p));
+    }
+
+    private int nextDisplayOrder() {
+        return employeeRepository.findTopByOrderByDisplayOrderDescIdDesc()
+                .map(e -> {
+                    Integer current = e.getDisplayOrder();
+                    return (current == null ? 0 : current) + 1;
+                })
+                .orElse(1);
     }
 
     @PutMapping("/{id}/work-prefs")

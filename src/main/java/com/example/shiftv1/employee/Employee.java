@@ -39,6 +39,9 @@ public class Employee {
     @Column(name = "assign_priority")
     private Integer assignPriority = 100;
 
+    @Column(name = "display_order")
+    private Integer displayOrder = 0;
+
     // Phase A additions: block eligibility and overtime preferences
     @Column(name = "eligible_full")
     private Boolean eligibleFull = true;
@@ -122,4 +125,7 @@ public class Employee {
 
     public Integer getAssignPriority() { return assignPriority; }
     public void setAssignPriority(Integer assignPriority) { this.assignPriority = assignPriority; }
+
+    public Integer getDisplayOrder() { return displayOrder; }
+    public void setDisplayOrder(Integer displayOrder) { this.displayOrder = displayOrder; }
 }

@@ -7,6 +7,16 @@
   <style>
     body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
     .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .back-link {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      color:#2563eb;
+      text-decoration:none;
+      margin-bottom:16px;
+    }
+    .back-link:hover { text-decoration:underline; }
     .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
     .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
     label { display:flex; flex-direction:column; gap:6px; font-size:14px; }
@@ -14,7 +24,17 @@
     button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
     pre { background:#0b1020; color:#e5e7eb; padding:12px; border-radius:8px; overflow:auto; max-height:300px; }
     a { color:#2563eb; text-decoration:none; }
+    .muted { color:#64748b; font-size:13px; }
+    .log-table-wrap { overflow:auto; max-height:320px; margin-top:12px; }
+    .log-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .log-table th, .log-table td { padding:8px; border-bottom:1px solid #e2e8f0; text-align:left; }
+    .log-table th { color:#475569; font-weight:600; }
+    .log-time { white-space:nowrap; font-family:monospace; }
+    .log-message { color:#b45309; }
+    .log-detail { color:#475569; font-size:13px; }
+    .log-empty { color:#94a3b8; font-size:13px; text-align:center; }
   </style>
+  <script src="/js/app.js"></script>
   <script>
     async function call(path, method='GET', params={}){
       const url = new URL(path, window.location.origin);
@@ -35,7 +55,10 @@
         const id = document.getElementById('date'); if (id) id.value = first;
       }catch(_){}
     }
-    document.addEventListener('DOMContentLoaded', initDefaults);
+    document.addEventListener('DOMContentLoaded', () => {
+      initDefaults();
+      loadWarningsTable();
+    });
 
     async function genSync(){
       setMsg('sync','実行中...');
@@ -113,25 +136,84 @@
         setMsg('logs', JSON.stringify(data, null, 2));
       }catch(e){ setMsg('logs', 'ERROR: '+e.message); }
     }
+    async function loadWarningsTable(limit = 100){
+      setWarningsStatus('読み込み中...');
+      try{
+        const data = await call('/api/admin/error-logs', 'GET', { limit });
+        const items = (data && data.data && data.data.items) || [];
+        renderWarningRows(items);
+        setWarningsStatus(`最新 ${items.length} 件`);
+      }catch(e){
+        renderWarningRows([]);
+        setWarningsStatus('取得に失敗しました: ' + e.message, true);
+      }
+    }
+    function renderWarningRows(items){
+      const body = document.getElementById('warning-body');
+      if(!body) return;
+      if(!items.length){
+        body.innerHTML = '<tr><td colspan="3" class="log-empty">ログはありません</td></tr>';
+        return;
+      }
+      body.innerHTML = items.map(item => {
+        const time = escapeHtml(item.time || '');
+        const msg = escapeHtml(item.message || '');
+        const detail = escapeHtml(item.detail || '');
+        return `<tr>
+          <td class="log-time">${time}</td>
+          <td class="log-message">${msg || '-'}</td>
+          <td class="log-detail">${detail || ''}</td>
+        </tr>`;
+      }).join('');
+    }
+    function setWarningsStatus(text, isError){
+      const el = document.getElementById('warning-status');
+      if(!el) return;
+      el.textContent = text || '';
+      el.style.color = isError ? '#b91c1c' : '#64748b';
+    }
+    function escapeHtml(str){
+      return String(str ?? '').replace(/[&<>"']/g, ch => ({
+        '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+      }[ch]));
+    }
     function setMsg(id, text){ document.getElementById('out_'+id).textContent=text; }
   </script>
 </head>
 <body>
   <div class="container">
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
     <h2>管理者デバッグ</h2>
 
     <div class="card">
       <h3 style="margin:0 0 8px;">検証用クイックリンク</h3>
       <div class="row" style="flex-wrap:wrap; gap:8px;">
-        <a href="/monthly-demand">月間需要エディタ</a>
         <a href="/demand">需要登録</a>
         <a href="/demand-analytics">需要アナリティクス</a>
         <!-- timeline 統合済みのためリンク非表示 -->
         <a href="/calendar">カレンダー</a>
-        <a href="/pairing-settings">ペアリング設定</a>
+        <a href="/rules-management#pairing">ペアリング設定</a>
         <a href="/employee-master">従業員マスタ</a>
-        <a href="/warnings">警告ビュー</a>
         <a href="/dashboard">ダッシュボード</a>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:0 0 8px;">警告・エラーログ</h3>
+      <p class="muted">生成時のペアリング失敗など、最近の警告メッセージを最大100件まで表示します。</p>
+      <div class="row" style="align-items:center;">
+        <button type="button" onclick="loadWarningsTable()">最新を取得</button>
+        <span id="warning-status" class="muted"></span>
+      </div>
+      <div class="log-table-wrap">
+        <table class="log-table">
+          <thead>
+            <tr><th>時刻</th><th>メッセージ</th><th>詳細</th></tr>
+          </thead>
+          <tbody id="warning-body">
+            <tr><td colspan="3" class="log-empty">読み込み中...</td></tr>
+          </tbody>
+        </table>
       </div>
     </div>
 
@@ -212,7 +294,7 @@
       if(!res.ok || data?.success === false) throw new Error(data?.message || ('HTTP ' + res.status));
       alert('Reset OK');
     }catch(e){
-      alert('Reset failed: ' + e.message);
+      alert('リセットに失敗しました: ' + e.message);
     }
   }
 

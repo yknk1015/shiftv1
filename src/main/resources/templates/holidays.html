@@ -7,6 +7,16 @@
   <style>
     body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
     .container { max-width: 960px; margin: 0 auto; padding: 24px; }
+    .back-link {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      color:#2563eb;
+      text-decoration:none;
+      margin-bottom:12px;
+    }
+    .back-link:hover { text-decoration:underline; }
     h1 { margin: 0 0 16px; }
     .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
     .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
@@ -15,6 +25,11 @@
     button { background:#2563eb; color:#fff; border:none; cursor:pointer; }
     button.ghost { background:#f1f5f9; color:#0f172a; }
     button.danger { background:#ef4444; color:#fff; }
+    .insights { display:grid; grid-template-columns:repeat(auto-fit,minmax(220px,1fr)); gap:16px; margin-bottom:16px; }
+    .stat-card { background:#fff; border:1px solid #dbeafe; border-radius:12px; padding:16px; box-shadow:0 10px 25px rgba(15,23,42,0.05); }
+    .stat-card h3 { margin:0 0 8px; font-size:15px; color:#1d4ed8; }
+    .stat-card p { margin:0; }
+    .stat-card button { margin-top:12px; }
     table { width:100%; border-collapse:collapse; margin-top:12px; }
     th, td { border-bottom:1px solid #e2e8f0; padding:8px; text-align:left; font-size:14px; }
     th { color:#475569; }
@@ -24,7 +39,25 @@
 </head>
 <body>
   <div class="container">
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
     <h1>祝日管理</h1>
+    <div class="insights">
+      <div class="stat-card">
+        <h3>次の祝日</h3>
+        <p id="next-holiday">--</p>
+        <p class="muted" id="next-holiday-sub"></p>
+      </div>
+      <div class="stat-card">
+        <h3>今年の登録数</h3>
+        <p id="yearly-count">--</p>
+        <p class="muted" id="yearly-months"></p>
+      </div>
+      <div class="stat-card">
+        <h3>シフト生成への影響</h3>
+        <p id="holiday-impact">祝日を登録すると、需要設定で「祝」を選んだ時間帯や祝日勤務不可の従業員ルールに即時反映されます。</p>
+        <button type="button" class="ghost" onclick="location.href='/demand'">需要を開く</button>
+      </div>
+    </div>
     <section class="card">
       <div class="row">
         <label>日付<input type="date" id="holiday-date" /></label>
@@ -43,8 +76,10 @@
     </section>
   </div>
 
+  <script src="/js/app.js"></script>
   <script>
     let holidayEditingId = null;
+    let holidayList = [];
 
     async function fetchJson(url, options = {}) {
       const res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...options });
@@ -58,8 +93,13 @@
     async function loadHolidays() {
       try {
         const res = await fetchJson('/api/holidays');
-        renderHolidayTable(res.data || []);
+        holidayList = res.data || [];
+        renderHolidayTable(holidayList);
+        renderInsights();
       } catch (e) {
+        holidayList = [];
+        renderHolidayTable([]);
+        renderInsights();
         document.getElementById('holiday-msg').textContent = e.message;
       }
     }
@@ -82,6 +122,33 @@
         </tr>`).join('');
       tbody.querySelectorAll('button[data-act="edit"]').forEach(btn => btn.addEventListener('click', () => startEdit(list.find(h => String(h.id) === btn.dataset.id))));
       tbody.querySelectorAll('button[data-act="delete"]').forEach(btn => btn.addEventListener('click', () => deleteHoliday(btn.dataset.id)));
+    }
+
+    function renderInsights() {
+        const sorted = (holidayList || []).filter(h => h && h.date).slice().sort((a,b)=>a.date.localeCompare(b.date));
+        const today = new Date();
+        const todayStr = today.toISOString().slice(0,10);
+        let next = sorted.find(h => h.date >= todayStr);
+        const nextText = document.getElementById('next-holiday');
+        const nextSub = document.getElementById('next-holiday-sub');
+        if (next) {
+          const nextDate = new Date(`${next.date}T00:00:00`);
+          const formatter = new Intl.DateTimeFormat('ja-JP', { dateStyle: 'long' });
+          nextText.textContent = `${formatter.format(nextDate)} (${next.name || '祝日'})`;
+          const diff = Math.ceil((nextDate - today) / (1000*60*60*24));
+          nextSub.textContent = diff > 0 ? `あと ${diff} 日` : '本日';
+        } else {
+          nextText.textContent = '未登録';
+          nextSub.textContent = '祝日を追加してください';
+        }
+
+        const thisYear = today.getFullYear();
+        const yearEntries = sorted.filter(h => h.date && h.date.startsWith(`${thisYear}-`));
+        document.getElementById('yearly-count').textContent = `${yearEntries.length} 日`;
+        const months = [...new Set(yearEntries.map(h => Number(h.date.slice(5,7))))].sort((a,b)=>a-b);
+        document.getElementById('yearly-months').textContent = months.length
+          ? `${months.map(m => `${m}月`).join(' / ')}`
+          : '今年の祝日は未登録です';
     }
 
     async function saveHoliday() {

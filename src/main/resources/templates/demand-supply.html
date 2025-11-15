@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>需要 vs 供給ビュー</title>
+    <style>
+        body {
+            margin: 0;
+            background: #f4f6fb;
+            font-family: "Segoe UI", "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+            color: #0f172a;
+        }
+        .page {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 24px;
+        }
+        .back-link {
+            display:inline-flex;
+            align-items:center;
+            gap:6px;
+            font-weight:600;
+            color:#2563eb;
+            text-decoration:none;
+            margin-bottom:12px;
+        }
+        .back-link:hover { text-decoration:underline; }
+        header {
+            margin-bottom: 16px;
+        }
+        h1 {
+            margin: 0 0 8px;
+            font-size: 22px;
+        }
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: flex-end;
+        }
+        .field {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 12px;
+            color: #475569;
+        }
+        .field input,
+        .field select {
+            padding: 6px 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            min-width: 140px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            background: #2563eb;
+            color: #fff;
+            font-weight: 600;
+            cursor: pointer;
+        }
+        button:disabled {
+            opacity: .5;
+            cursor: not-allowed;
+        }
+        .panel {
+            background: #fff;
+            border-radius: 12px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.08);
+            margin-bottom: 20px;
+        }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 12px;
+            margin: 16px 0;
+        }
+        .card {
+            padding: 14px;
+            border-radius: 12px;
+            border: 1px solid #e2e8f0;
+            background: linear-gradient(180deg, #fff, #f8fafc);
+        }
+        .card .label {
+            font-size: 12px;
+            color: #64748b;
+            margin-bottom: 6px;
+        }
+        .card .value {
+            font-size: 20px;
+            font-weight: 600;
+        }
+        .legend {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            font-size: 12px;
+            color: #475569;
+            margin-top: 8px;
+        }
+        .chip {
+            padding: 2px 8px;
+            border-radius: 999px;
+            background: #e2e8f0;
+            color: #0f172a;
+        }
+        .chip.demand { background: #fee2e2; color: #b91c1c; }
+        .chip.supply { background: #d1fae5; color: #047857; }
+        .chip.break { background: #fef3c7; color: #b45309; }
+        .chip.deficit { background: #fde68a; color: #92400e; }
+        .chip.free { background: #e0f2fe; color: #0369a1; }
+        .table-wrap {
+            overflow: auto;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        th, td {
+            border: 1px solid #e2e8f0;
+            padding: 6px;
+            min-width: 110px;
+            vertical-align: top;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        th.sticky,
+        td.sticky {
+            position: sticky;
+            left: 0;
+            background: #fff;
+            z-index: 2;
+            min-width: 140px;
+            font-weight: 600;
+        }
+        td.status-ok { background: #f0fdf4; }
+        td.status-break { background: #fefce8; }
+        td.status-short { background: #fee2e2; }
+        .cell {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .cell .topline {
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+        .cell .gap {
+            font-size: 12px;
+            font-weight: 600;
+        }
+        .cell .gap.ok { color: #15803d; }
+        .cell .gap.break { color: #b45309; }
+        .cell .gap.short { color: #b91c1c; }
+        .cell small {
+            font-size: 11px;
+            color: #475569;
+        }
+        .skill-section {
+            margin-top: 12px;
+        }
+        .empty {
+            color: #94a3b8;
+            text-align: center;
+            padding: 40px 0;
+        }
+        .msg {
+            font-size: 13px;
+            margin-left: 12px;
+            color: #ef4444;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
+        <header>
+        <h1>スキル別 需要 vs 供給 (時間帯)</h1>
+        <div class="controls">
+            <label class="field">開始日
+                <input type="date" id="startDate">
+            </label>
+            <label class="field">終了日
+                <input type="date" id="endDate">
+            </label>
+            <label class="field">粒度
+                <select id="granularity">
+                    <option value="60">60分</option>
+                    <option value="30">30分</option>
+                    <option value="15">15分</option>
+                </select>
+            </label>
+            <label class="field">スキル絞り込み
+                <select id="skillFilter" multiple size="4" style="min-width:200px;"></select>
+            </label>
+            <button id="loadBtn">データ取得</button>
+            <span id="statusMsg" class="msg"></span>
+        </div>
+        <div class="legend">
+            <span class="chip demand">需要</span>
+            <span class="chip supply">稼働供給</span>
+            <span class="chip break">休憩中</span>
+            <span class="chip deficit">不足 (休憩由来/純不足)</span>
+            <span class="chip free">FREEフォロー可能</span>
+        </div>
+    </header>
+
+    <section class="panel">
+        <div class="cards" id="summaryCards"></div>
+    </section>
+
+    <section class="panel">
+        <h3>全スキルまとめ</h3>
+        <div class="table-wrap">
+            <table id="aggregateTable"></table>
+        </div>
+    </section>
+
+    <section class="panel skill-section">
+        <h3>スキル別詳細</h3>
+        <div class="table-wrap">
+            <table id="skillTable"></table>
+        </div>
+    </section>
+</div>
+<script>
+(function(){
+    const dom = {
+        start: document.getElementById('startDate'),
+        end: document.getElementById('endDate'),
+        gran: document.getElementById('granularity'),
+        skills: document.getElementById('skillFilter'),
+        loadBtn: document.getElementById('loadBtn'),
+        status: document.getElementById('statusMsg'),
+        cards: document.getElementById('summaryCards'),
+        aggregateTable: document.getElementById('aggregateTable'),
+        skillTable: document.getElementById('skillTable')
+    };
+
+    function todayStr() {
+        return new Date().toISOString().slice(0,10);
+    }
+
+    function fmt(num, digits=1) {
+        if (num == null) return '-';
+        if (Math.abs(num - Math.round(num)) < 0.001) return String(Math.round(num));
+        return Number(num).toFixed(digits);
+    }
+
+    function sum(arr) {
+        return (arr || []).reduce((acc,v)=>acc + (v||0), 0);
+    }
+
+    async function loadSkills() {
+        try {
+            const res = await fetch('/api/skills');
+            const json = await res.json();
+            if (!json.success) return;
+            dom.skills.innerHTML = '';
+            (json.data || []).forEach(s=>{
+                const opt = document.createElement('option');
+                opt.value = s.id;
+                opt.textContent = s.name || s.code || ('#'+s.id);
+                dom.skills.appendChild(opt);
+            });
+        } catch (e) {
+            console.warn('スキル取得に失敗しました', e);
+        }
+    }
+
+    function selectedSkillIds() {
+        return Array.from(dom.skills.selectedOptions).map(opt => Number(opt.value));
+    }
+
+    async function fetchSnapshot() {
+        const params = new URLSearchParams();
+        if (dom.start.value) params.append('start', dom.start.value);
+        if (dom.end.value) params.append('end', dom.end.value);
+        params.append('granularity', dom.gran.value || '60');
+        const skills = selectedSkillIds();
+        if (skills.length) params.append('skillIds', skills.join(','));
+        const res = await fetch(`/api/analytics/demand-supply?${params.toString()}`);
+        const json = await res.json();
+        if (!json.success) throw new Error(json.message || 'データ取得に失敗しました');
+        return json.data;
+    }
+
+    function renderSummary(snapshot) {
+        const cards = [];
+        cards.push({
+            label: '対象期間 / 粒度',
+            value: `${snapshot.startDate} 〜 ${snapshot.endDate}`,
+            sub: `${snapshot.rangeDays}日 / ${snapshot.granularityMinutes}分`
+        });
+        const skillCount = (snapshot.skills || []).length;
+        cards.push({
+            label: '対象スキル / 参照シフト',
+            value: `${skillCount}件`,
+            sub: `割当 ${snapshot.meta?.assignmentCount || 0} 件`
+        });
+        const maxGap = snapshot.meta?.maxNetGap || 0;
+        const maxBreakGap = snapshot.meta?.maxBreakGap || 0;
+        cards.push({
+            label: '最大不足 (純 / 休憩由来)',
+            value: `${fmt(maxGap)} 名`,
+            sub: `休憩のみ不足 ${fmt(maxBreakGap)} 名`
+        });
+        const freeWorking = sum(snapshot.freePool?.working || []);
+        const freeCover = sum(snapshot.freePool?.coverBreak || []);
+        cards.push({
+            label: 'FREE稼働 / 休憩フォロー可能',
+            value: `${fmt(freeWorking)} 名`,
+            sub: `休憩フォロー ${fmt(freeCover)} 名時分`
+        });
+        dom.cards.innerHTML = cards.map(card => `
+            <div class="card">
+                <div class="label">${card.label}</div>
+                <div class="value">${card.value}</div>
+                <div class="label">${card.sub || ''}</div>
+            </div>
+        `).join('');
+    }
+
+    function cellClass(netGap, breakGap, assignGap) {
+        if (netGap <= 0) return 'status-ok';
+        if (assignGap > 0.01) return 'status-short';
+        return 'status-break';
+    }
+
+    function buildCell(demand, supply, breakImpact, netGap, breakGap, assignGap) {
+        const cls = cellClass(netGap, breakGap, assignGap);
+        const gapText = netGap <= 0
+            ? '<div class="gap ok">OK</div>'
+            : `<div class="gap ${assignGap>0?'short':'break'}">▲${fmt(netGap)}${breakGap>0?` (休${fmt(breakGap)})`:''}${assignGap>0?` (純${fmt(assignGap)})`:''}</div>`;
+        return `<td class="${cls}">
+            <div class="cell">
+                <div class="topline"><span>需 ${fmt(demand,0)}</span><span>供 ${fmt(supply)}</span></div>
+                ${gapText}
+                ${breakImpact>0?`<small>休憩 ${fmt(breakImpact)}</small>`:''}
+            </div>
+        </td>`;
+    }
+
+    function renderAggregate(snapshot) {
+        const slots = snapshot.slots || [];
+        const totals = snapshot.totals || {};
+        const free = snapshot.freePool || {};
+        let html = '<thead><tr><th class="sticky">種別/時間帯</th>' + slots.map(s=>`<th>${s}</th>`).join('') + '</tr></thead>';
+        html += '<tbody>';
+        html += '<tr><td class="sticky">全スキル</td>' +
+            slots.map((_, idx) => {
+                const d = totals.demand?.[idx] || 0;
+                const s = totals.supply?.[idx] || 0;
+                const b = totals.breakImpact?.[idx] || 0;
+                const net = totals.netGap?.[idx] || 0;
+                const br = totals.breakGap?.[idx] || 0;
+                const assign = totals.assignGap?.[idx] || 0;
+                return buildCell(d, s, b, net, br, assign);
+            }).join('') +
+            '</tr>';
+        html += '<tr><td class="sticky">FREE稼働</td>' +
+            slots.map((_, idx) => {
+                const work = free.working?.[idx] || 0;
+                const coverBreak = free.coverBreak?.[idx] || 0;
+                const coverDef = free.coverDeficit?.[idx] || 0;
+                return `<td>
+                    <div class="cell">
+                        <div class="topline"><span>待機 ${fmt(work)}</span></div>
+                        ${coverBreak>0?`<small>休憩フォロー ${fmt(coverBreak)}</small>`:''}
+                        ${coverDef>0?`<small>不足フォロー ${fmt(coverDef)}</small>`:''}
+                    </div>
+                </td>`;
+            }).join('') +
+            '</tr>';
+        html += '</tbody>';
+        dom.aggregateTable.innerHTML = html;
+    }
+
+    function renderSkillTable(snapshot) {
+        const skills = snapshot.skills || [];
+        const slots = snapshot.slots || [];
+        if (!skills.length) {
+            dom.skillTable.innerHTML = '<tbody><tr><td class="sticky">データなし</td><td colspan="'+slots.length+'" class="empty">該当スキルがありません</td></tr></tbody>';
+            return;
+        }
+        let thead = '<thead><tr><th class="sticky">スキル/時間帯</th>' + slots.map(s=>`<th>${s}</th>`).join('') + '</tr></thead>';
+        let tbody = '<tbody>';
+        skills.forEach(skill => {
+            const label = skill.name || skill.code || ('#' + skill.id);
+            tbody += `<tr><td class="sticky">${label}</td>` +
+                slots.map((_, idx) => {
+                    const d = skill.demand?.[idx] || 0;
+                    const s = skill.supply?.[idx] || 0;
+                    const b = skill.breakImpact?.[idx] || 0;
+                    const net = skill.netGap?.[idx] || 0;
+                    const br = skill.breakGap?.[idx] || 0;
+                    const assign = skill.assignGap?.[idx] || 0;
+                    return buildCell(d, s, b, net, br, assign);
+                }).join('') +
+                '</tr>';
+        });
+        tbody += '</tbody>';
+        dom.skillTable.innerHTML = thead + tbody;
+    }
+
+    async function loadSnapshot() {
+        dom.loadBtn.disabled = true;
+        dom.status.textContent = '読み込み中...';
+        try {
+            const data = await fetchSnapshot();
+            renderSummary(data);
+            renderAggregate(data);
+            renderSkillTable(data);
+            dom.status.textContent = '';
+        } catch (err) {
+            console.error(err);
+            dom.status.textContent = err.message || '取得に失敗しました';
+            dom.aggregateTable.innerHTML = '';
+            dom.skillTable.innerHTML = '';
+        } finally {
+            dom.loadBtn.disabled = false;
+        }
+    }
+
+    function initDates() {
+        const today = todayStr();
+        dom.start.value = today;
+        dom.end.value = today;
+    }
+
+    dom.loadBtn.addEventListener('click', () => loadSnapshot());
+
+    initDates();
+    loadSkills().then(loadSnapshot);
+})();
+</script>
+</body>
+</html>

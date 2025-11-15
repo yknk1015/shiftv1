@@ -9,5 +9,6 @@ public interface SkillRepository extends JpaRepository<Skill, Long> {
     boolean existsByCode(String code);
     boolean existsByCodeIgnoreCase(String code);
     Optional<Skill> findByCode(String code);
+    Optional<Skill> findByCodeIgnoreCase(String code);
     List<Skill> findByCodeContainingIgnoreCaseOrNameContainingIgnoreCase(String code, String name);
 }

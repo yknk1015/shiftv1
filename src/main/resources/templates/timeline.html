@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>タイムライン</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --border: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --chip-bg: #eef2ff;
+      --chip-text: #1d4ed8;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif;
+    }
+    .page {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 32px 24px 48px;
+      display: flex;
+      flex-direction: column;
+      gap: 24px;
+    }
+    .back-link {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .back-link:hover { text-decoration: underline; }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    }
+    header h1 {
+      margin: 0;
+      font-size: 28px;
+    }
+    header p {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: flex-end;
+    }
+    label {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+    input[type="date"] {
+      padding: 8px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      font-size: 15px;
+    }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 18px;
+      background: var(--accent);
+      color: #fff;
+      font-weight: 600;
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+      transform: none;
+    }
+    button:hover:not(:disabled) {
+      transform: translateY(-1px);
+    }
+    .status {
+      min-height: 24px;
+      font-size: 14px;
+      color: var(--muted);
+    }
+    .status.error { color: #b91c1c; }
+    .timeline-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .timeline-row {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: #fff;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .timeline-row header {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: baseline;
+      font-weight: 600;
+    }
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+    .chip {
+      background: var(--chip-bg);
+      color: var(--chip-text);
+      border-radius: 999px;
+      padding: 6px 14px;
+      font-size: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+    .chip span {
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 40px 0;
+      border: 1px dashed var(--border);
+      border-radius: 12px;
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
+    <header>
+      <h1>タイムライン</h1>
+      <p>日付を選択してシフトのタイムラインを確認できます</p>
+    </header>
+
+    <section class="card">
+      <div class="controls">
+        <label>表示日
+          <input type="date" id="timeline-date" />
+        </label>
+        <button id="reload-timeline">再読み込み</button>
+        <div class="status" id="timeline-status"></div>
+      </div>
+    </section>
+
+    <section class="card">
+      <div id="timeline-container" class="timeline-grid"></div>
+    </section>
+  </div>
+
+  <script src="/js/app.js"></script>
+  <script>
+    (() => {
+      const dateInput = document.getElementById('timeline-date');
+      const reloadBtn = document.getElementById('reload-timeline');
+      const statusEl = document.getElementById('timeline-status');
+      const container = document.getElementById('timeline-container');
+
+      function setStatus(message, tone) {
+        statusEl.textContent = message || '';
+        statusEl.classList.toggle('error', tone === 'error');
+      }
+
+      function formatTime(value) {
+        return (value || '').slice(0, 5) || '--:--';
+      }
+
+      function render(assignments) {
+        if (!assignments.length) {
+          container.innerHTML = '<div class="empty">データがありません</div>';
+          return;
+        }
+        const grouped = assignments.reduce((map, item) => {
+          const key = item.employeeName || '未割当';
+          if (!map[key]) map[key] = [];
+          map[key].push(item);
+          return map;
+        }, {});
+
+        const rows = Object.entries(grouped)
+          .sort((a, b) => a[0].localeCompare(b[0], 'ja'))
+          .map(([name, list]) => {
+            const chips = list
+              .sort((x, y) => (x.startTime || '').localeCompare(y.startTime || ''))
+              .map(item => {
+                const label = item.shiftName || (item.isFree ? 'FREE' : item.isOff ? 'OFF' : 'シフト');
+                const type = item.isLeave ? '有給' : item.isFree ? 'FREE' : item.isOff ? 'OFF' : '';
+                const detail = [
+                  `${formatTime(item.startTime)}-${formatTime(item.endTime)}`,
+                  type
+                ].filter(Boolean).join(' / ');
+                return `<div class="chip"><strong>${label}</strong><span>${detail}</span></div>`;
+              })
+              .join('');
+            return `<div class="timeline-row">
+              <header>
+                <div>${name}</div>
+                <small>${list.length} 件</small>
+              </header>
+              <div class="chips">${chips}</div>
+            </div>`;
+          })
+          .join('');
+
+        container.innerHTML = rows;
+      }
+
+      async function loadTimeline() {
+        if (!dateInput.value) {
+          setStatus('日付を選択してください', 'error');
+          container.innerHTML = '<div class="empty">日付を選択してください</div>';
+          return;
+        }
+        try {
+          setStatus('読み込み中...', null);
+          reloadBtn.disabled = true;
+          const year = Number(dateInput.value.slice(0, 4));
+          const month = Number(dateInput.value.slice(5, 7));
+          const res = await apiClient(`/api/schedule?year=${year}&month=${month}`);
+          const assignments = (res.data || []).filter(item => item.workDate === dateInput.value);
+          render(assignments);
+          setStatus(`${assignments.length} 件を表示`, null);
+        } catch (err) {
+          console.error(err);
+          setStatus(err.message || '取得に失敗しました', 'error');
+          container.innerHTML = '<div class="empty">読み込みに失敗しました</div>';
+        } finally {
+          reloadBtn.disabled = false;
+        }
+      }
+
+      reloadBtn.addEventListener('click', loadTimeline);
+      dateInput.addEventListener('change', loadTimeline);
+
+      const today = new Date().toISOString().slice(0, 10);
+      dateInput.value = today;
+      loadTimeline();
+    })();
+  </script>
+</body>
+</html>

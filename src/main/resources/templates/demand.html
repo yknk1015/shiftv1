@@ -16,24 +16,253 @@
       --accent-soft: #eef2ff;
       --danger: #ef4444;
     }
-    body { margin:0; background:var(--bg); color:var(--text); font-family:system-ui,-apple-system,'Segoe UI','Hiragino Sans','Yu Gothic',sans-serif; }
-    .container { max-width:1200px; margin:0 auto; padding:24px; }
-    h1 { margin:0 0 20px; }
-    h3 { margin:0 0 12px; }
-    .card { background:var(--card); border:1px solid var(--border); border-radius:12px; padding:20px; margin-bottom:20px; }
+    * { box-sizing:border-box; }
+    body {
+      margin:0;
+      background:var(--bg);
+      color:var(--text);
+      font-family:system-ui,-apple-system,'Segoe UI','Hiragino Sans','Yu Gothic',sans-serif;
+      min-height:100vh;
+    }
+    .container { max-width:1200px; margin:0 auto; padding:32px 24px 48px; }
+    .back-link {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      color:var(--accent);
+      text-decoration:none;
+      margin-bottom:12px;
+    }
+    .back-link:hover { text-decoration:underline; }
+    .page-header {
+      display:flex;
+      justify-content:space-between;
+      align-items:flex-start;
+      gap:16px;
+      margin-bottom:24px;
+    }
+    .page-header h1 { margin:4px 0 6px; font-size:28px; }
+    .eyebrow {
+      font-size:12px;
+      letter-spacing:0.08em;
+      text-transform:uppercase;
+      color:var(--muted);
+      margin:0;
+    }
+    .status-pill {
+      border-radius:999px;
+      padding:6px 18px;
+      background:#e2e8f0;
+      color:#0f172a;
+      font-size:13px;
+      font-weight:600;
+      white-space:nowrap;
+      align-self:flex-start;
+    }
+    .status-pill[data-tone="success"] { background:#dcfce7; color:#166534; }
+    .status-pill[data-tone="danger"] { background:#fee2e2; color:#b91c1c; }
+    .overview-grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:16px;
+      margin-bottom:24px;
+    }
+    .overview-card {
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      min-height:120px;
+    }
+    .overview-card .label { font-size:13px; color:var(--muted); letter-spacing:0.04em; }
+    .overview-card .value { font-size:26px; font-weight:600; }
+    .overview-card .subtext { font-size:13px; color:#64748b; line-height:1.4; }
+    .workspace {
+      display:flex;
+      gap:20px;
+      align-items:flex-start;
+    }
+    .sidebar {
+      width:260px;
+      position:sticky;
+      top:32px;
+      align-self:flex-start;
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .nav-card, .helper-card {
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px;
+    }
+    .nav-title { font-weight:600; margin-bottom:12px; }
+    .tab-nav { display:flex; flex-direction:column; gap:10px; }
+    .tab-link {
+      border:1px solid transparent;
+      border-radius:10px;
+      padding:10px 12px;
+      text-align:left;
+      background:#f8fafc;
+      cursor:pointer;
+      font-size:14px;
+      display:flex;
+      flex-direction:column;
+      gap:4px;
+      color:#0f172a;
+      transition:background 0.2s,border 0.2s,transform 0.2s;
+    }
+    .tab-link small { display:block; color:#64748b; font-size:12px; }
+    .tab-link.active {
+      border-color:var(--accent);
+      background:#fff;
+      box-shadow:0 4px 12px rgba(37,99,235,0.12);
+      transform:translateX(2px);
+    }
+    .helper-card h4 { margin:0 0 12px; font-size:15px; }
+    .helper-card ul { margin:0 0 12px 18px; padding:0; display:flex; flex-direction:column; gap:6px; }
+    .helper-card li { font-size:13px; color:#475569; }
+    .helper-note { font-size:12px; line-height:1.5; }
+    .workspace-main { flex:1; min-width:0; }
+    .tab-panel { display:none; }
+    .tab-panel.active { display:block; }
+    .card {
+      background:var(--card);
+      border:1px solid var(--border);
+      border-radius:14px;
+      padding:20px;
+      margin-bottom:20px;
+      box-shadow:0 10px 30px rgba(15,23,42,0.04);
+    }
+    .card-heading { margin-bottom:16px; }
+    .card-heading h3 { margin:0 0 4px; }
+    .card-heading p { margin:0; color:#475569; font-size:14px; }
     .row { display:flex; gap:12px; flex-wrap:wrap; align-items:flex-end; }
     label { font-size:13px; color:#475569; display:flex; flex-direction:column; gap:4px; }
-    input, select, button { font-size:14px; padding:8px 10px; border-radius:8px; border:1px solid var(--border); }
-    button { background:var(--accent); color:#fff; border:none; cursor:pointer; }
-    button.ghost { background:var(--accent-soft); color:#1d4ed8; border:1px solid #c7d2fe; }
+    input, select, button {
+      font-size:14px;
+      padding:8px 10px;
+      border-radius:8px;
+      border:1px solid var(--border);
+      background:#fff;
+      font-family:inherit;
+    }
+    button {
+      background:var(--accent);
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      font-weight:600;
+      transition:opacity 0.2s,transform 0.2s;
+    }
+    button:hover { opacity:0.9; }
+    button:disabled { opacity:0.5; cursor:not-allowed; }
+    button.ghost {
+      background:var(--accent-soft);
+      color:#1d4ed8;
+      border:1px solid #c7d2fe;
+    }
     button.danger { background:var(--danger); color:#fff; }
     table { width:100%; border-collapse:collapse; margin-top:12px; }
     th, td { border-bottom:1px solid var(--border); text-align:left; padding:8px; font-size:14px; }
     th { color:#475569; font-weight:500; }
     .muted { color:var(--muted); font-size:13px; margin-top:6px; }
     .message { margin-top:8px; font-size:13px; }
+    .message.success { color:#15803d; }
+    .message.error { color:#b91c1c; }
+    .message.info { color:#0f172a; opacity:0.8; }
     .weekly-table section { margin-top:14px; }
     .weekly-table h4 { margin:0 0 6px; font-size:15px; }
+    .daily-panels {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(280px,1fr));
+      gap:16px;
+      margin-top:16px;
+    }
+    .data-block {
+      border:1px dashed var(--border);
+      border-radius:12px;
+      padding:12px;
+      background:#f8fafc;
+      min-height:160px;
+    }
+    .ops-date-row {
+      display:flex;
+      gap:12px;
+      flex-wrap:wrap;
+      align-items:flex-end;
+      margin-bottom:8px;
+    }
+    .ops-columns {
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
+      gap:20px;
+    }
+    .ops-panel {
+      display:flex;
+      flex-direction:column;
+      gap:16px;
+    }
+    .mini-panel {
+      background:#f9fafb;
+      border:1px solid var(--border);
+      border-radius:12px;
+      padding:16px;
+    }
+    .mini-header {
+      display:flex;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      margin-bottom:12px;
+    }
+    .mini-header h4 { margin:0; font-size:16px; }
+    .mini-header p { margin:4px 0 0; color:#475569; font-size:13px; }
+    .mini-actions { display:flex; gap:10px; flex-wrap:wrap; align-items:flex-end; }
+    .chip {
+      background:#eef2ff;
+      color:#312e81;
+      border-radius:999px;
+      padding:4px 10px;
+      font-size:12px;
+      font-weight:600;
+      display:inline-flex;
+      gap:6px;
+      align-items:center;
+    }
+    .inline-note { font-size:13px; margin-top:8px; color:#475569; }
+    .timeline-grid {
+      display:grid;
+      grid-template-columns:110px 1fr;
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:hidden;
+      min-height:180px;
+    }
+    .timeline-grid-column {
+      max-height:260px;
+      overflow:auto;
+      background:#fff;
+    }
+    .timeline-grid-column.times {
+      background:#f8fafc;
+      font-weight:600;
+      border-right:1px solid var(--border);
+    }
+    .table-scroll {
+      border:1px solid var(--border);
+      border-radius:12px;
+      overflow:auto;
+      max-height:320px;
+      margin-top:8px;
+    }
+    .table-scroll table { margin-top:0; }
+    .range-sep { align-self:center; font-size:18px; color:#475569; }
     .calendar-header { display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:6px; color:#475569; font-size:12px; }
     .calendar-grid { display:grid; grid-template-columns:repeat(7,1fr); gap:6px; }
     .calendar-cell { background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px; min-height:92px; cursor:pointer; }
@@ -44,115 +273,437 @@
     .monthly-layout { display:grid; grid-template-columns:1.1fr 1fr; gap:16px; }
     .monthly-panel { border:1px solid var(--border); border-radius:12px; padding:16px; background:#fff; }
     .monthly-actions { display:flex; gap:8px; flex-wrap:wrap; }
+    @media (max-width:1100px) {
+      .workspace { flex-direction:column; }
+      .sidebar { width:100%; position:static; }
+    }
     @media (max-width:900px) { .monthly-layout { grid-template-columns:1fr; } }
+    @media (max-width:640px) {
+      .page-header { flex-direction:column; }
+      .row { flex-direction:column; align-items:stretch; }
+    }
   </style>
 </head>
 <body>
   <div class="container">
-    <h1>需要管理</h1>
-
-    <section class="card">
-      <h3>需要の確認</h3>
-      <div class="row">
-        <label>日付<input type="date" id="view-date" /></label>
-        <button id="btn-view-effective">当日の需要を表示</button>
-        <button id="btn-view-all" class="ghost">すべて表示</button>
-        <button id="btn-view-sort" class="ghost">整頓</button>
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
+    <div class="page-header">
+      <div>
+        <p class="eyebrow">Demand Control Center</p>
+        <h1>需要管理</h1>
+        <p class="muted">日次のモニタ、曜日設定、月次生成をまとめて操作できるように並び替えました。</p>
       </div>
-      <div id="effective" style="margin-top:12px"></div>
-      <div id="all" style="margin-top:12px"></div>
-    </section>
+      <div class="status-pill" id="status-pill" data-tone="neutral">待機中</div>
+    </div>
 
-    <section class="card" id="weekly-card">
-      <h3>曜日・祝日の需要テンプレート</h3>
-      <div class="row">
-        <label>曜日/祝
-          <select id="weekly-day">
-            <option value="MONDAY">月曜日</option>
-            <option value="TUESDAY">火曜日</option>
-            <option value="WEDNESDAY">水曜日</option>
-            <option value="THURSDAY">木曜日</option>
-            <option value="FRIDAY">金曜日</option>
-            <option value="SATURDAY">土曜日</option>
-            <option value="SUNDAY">日曜日</option>
-            <option value="HOLIDAY">祝（祝日のみ）</option>
-          </select>
-        </label>
-        <label>開始<input type="time" id="weekly-start" value="09:00" /></label>
-        <label>終了<input type="time" id="weekly-end" value="18:00" /></label>
-        <label>必要数<input type="number" id="weekly-required" min="0" value="5" style="width:90px" /></label>
-        <label>スキル<select id="weekly-skill" style="min-width:180px;"></select></label>
-        <button id="weekly-submit">登録 / 更新</button>
-        <button id="weekly-cancel" class="ghost">キャンセル</button>
+    <div class="overview-grid">
+      <div class="overview-card">
+        <div class="label">フォーカス日</div>
+        <div class="value" id="summary-selected-date">--</div>
+        <div class="subtext">日次タブやカレンダーで選択した日が表示されます。</div>
       </div>
-      <div class="muted">曜日テンプレートは「曜日設定で初期化」ボタンで月間需要へ反映できます。「祝」は祝日のみ適用されます。</div>
-      <div id="weekly-msg" class="message"></div>
-      <div class="weekly-table" id="weekly-table"></div>
-    </section>
+      <div class="overview-card">
+        <div class="label">選択中の月</div>
+        <div class="value" id="summary-month">--</div>
+        <div class="subtext">曜日テンプレの適用先になる年月です。</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">当日適用件数</div>
+        <div class="value" id="summary-effective">取得待ち</div>
+        <div class="subtext">「当日の需要を表示」で最新化してください。</div>
+      </div>
+      <div class="overview-card">
+        <div class="label">テンプレート本数</div>
+        <div class="value" id="summary-templates">0 本</div>
+        <div class="subtext">曜日/祝日テンプレートの登録状況。</div>
+      </div>
+    </div>
 
-    <section class="card" id="monthly-card">
-      <div class="row" style="justify-content:space-between; align-items:center;">
-        <div class="row">
-          <label>年月<input type="month" id="ym" /></label>
-          <label>既定座席<input type="number" id="defaultSeats" min="0" value="5" style="width:80px;" /></label>
-          <label>スキル<select id="skillSelect" style="min-width:180px;"><option value="">選択</option></select></label>
-        </div>
-        <div class="monthly-actions">
-          <button id="btnApplyWeekly" class="ghost">曜日設定で初期化</button>
-          <button id="btnGenerate" title="需要ベースでこの月を生成">この月を生成</button>
-        </div>
-      </div>
-      <div class="monthly-layout" style="margin-top:16px;">
-        <div>
-          <div class="calendar-header">
-            <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
+    <div class="workspace">
+      <aside class="sidebar">
+        <div class="nav-card">
+          <div class="nav-title">ワークスペース</div>
+          <div class="tab-nav">
+            <button type="button" class="tab-link active" data-tab-target="panel-daily">
+              <span>日次モニタ</span>
+              <small>日付別の需要確認と整頓</small>
+            </button>
+            <button type="button" class="tab-link" data-tab-target="panel-weekly">
+              <span>曜日テンプレ</span>
+              <small>曜日/祝ごとのパターン管理</small>
+            </button>
+            <button type="button" class="tab-link" data-tab-target="panel-monthly">
+              <span>月次プラン</span>
+              <small>座席微調整と生成</small>
+            </button>
           </div>
-          <div id="grid" class="calendar-grid"></div>
         </div>
-        <div class="monthly-panel">
-          <div class="row" style="justify-content:space-between;">
-            <div>
-              <span id="panelDate" style="font-weight:600;"></span>
-              <span id="panelSummary" class="muted" style="margin-left:8px;"></span>
+        <div class="helper-card">
+          <h4>よく使う手順</h4>
+          <ul>
+            <li>確認したい日付を選び、当日/全体リストを確認</li>
+            <li>不足はテンプレ登録 or 日別追加で補正</li>
+            <li>月次タブで座席を微調整し、必要なら生成</li>
+          </ul>
+          <p class="muted helper-note">曜日テンプレを反映する場合は月次タブ内の「曜日設定で初期化」を利用します。</p>
+        </div>
+      </aside>
+
+      <div class="workspace-main">
+        <div class="tab-panel active" id="panel-daily">
+          <section class="card" id="daily-card">
+            <div class="card-heading">
+              <h3>日次の需要モニタ</h3>
+              <p>対象日を指定し、適用されている需要と全体リストを比較できます。</p>
             </div>
-            <div class="row" style="gap:6px;">
-              <button id="btnAddAM" class="ghost" disabled>AM追加</button>
-              <button id="btnAddPM" class="ghost" disabled>PM追加</button>
-              <button id="btnAddFull" class="ghost" disabled>フル追加</button>
+            <div class="row">
+              <label>日付<input type="date" id="view-date" /></label>
+              <button id="btn-view-effective">当日の需要を表示</button>
+              <button id="btn-view-all" class="ghost">すべて表示</button>
+              <button id="btn-view-sort" class="ghost">整頓</button>
             </div>
-          </div>
-          <div class="row" style="margin-top:8px;">
-            <label>開始<input type="time" id="f_start" value="09:00" /></label>
-            <label>終了<input type="time" id="f_end" value="18:00" /></label>
-            <label>座席<input type="number" id="f_seats" min="0" value="5" style="width:80px;" /></label>
-            <button id="btnAdd">追加</button>
-          </div>
-          <div id="monthly-msg" class="message"></div>
-          <div id="list"></div>
+            <div class="muted">整頓を押すと ID と時間帯で並び替えます。</div>
+            <div class="daily-panels">
+              <div class="data-block" id="effective"></div>
+              <div class="data-block" id="all"></div>
+            </div>
+          </section>
+
+          <section class="card" id="operations-card">
+            <div class="card-heading">
+              <h3>需要補正 &amp; 予約ワークフロー</h3>
+              <p>日次モニタで選んだ日付と同期しながら、一時需要の積み増しと事前シフト予約をまとめて整理できます。</p>
+            </div>
+            <div class="ops-date-row">
+              <label>対象日
+                <input type="date" id="res-date" />
+              </label>
+              <button type="button" class="ghost" id="ops-sync-date">日次モニタの日付を同期</button>
+            </div>
+            <p class="muted">タイムライン・一時需要・予約フォームはこの対象日に対して操作されます。</p>
+            <div class="ops-columns">
+              <div class="ops-panel">
+                <div class="mini-panel">
+                  <div class="mini-header">
+                    <div>
+                      <h4>一時需要ブースト</h4>
+                      <p>突発的な不足分だけを登録して、生成前に需要バランスを合わせます。</p>
+                    </div>
+                    <span class="chip">対象日 <span id="boost-date-label">--</span></span>
+                  </div>
+                  <div class="row">
+                    <label>開始
+                      <input type="time" id="b_start" value="09:00" />
+                    </label>
+                    <label>終了
+                      <input type="time" id="b_end" value="18:00" />
+                    </label>
+                    <label>座席
+                      <input type="number" id="b_seats" value="1" min="1" style="width:90px;" />
+                    </label>
+                    <label>スキル
+                      <select id="b_skill">
+                        <option value="">スキル未指定</option>
+                      </select>
+                    </label>
+                    <button type="button" id="b_add">一時需要を追加</button>
+                  </div>
+                  <div id="b_msg" class="inline-note"></div>
+                  <p class="muted">登録すると日次リストやカレンダーに反映され、必要に応じて当日の需要も再取得してください。</p>
+                </div>
+                <div class="mini-panel timeline-panel">
+                  <div class="mini-header">
+                    <div>
+                      <h4>タイムラインプレビュー</h4>
+                      <p>対象日の需要・予約・割当状況を分単位で把握できます。</p>
+                    </div>
+                    <div class="mini-actions">
+                      <label>粒度
+                        <select id="t_gran">
+                          <option value="15">15分</option>
+                          <option value="30">30分</option>
+                          <option value="60" selected>60分</option>
+                        </select>
+                      </label>
+                      <label>スキル
+                        <select id="t_skill">
+                          <option value="">すべて</option>
+                        </select>
+                      </label>
+                      <button type="button" class="ghost" id="t_refresh">再読込</button>
+                    </div>
+                  </div>
+                  <div class="timeline-grid">
+                    <div id="t_times" class="timeline-grid-column times"></div>
+                    <div id="t_rows" class="timeline-grid-column"></div>
+                  </div>
+                  <p class="muted">不足帯が赤く表示されます。予約や需要調整の前後で比較してください。</p>
+                </div>
+              </div>
+              <div class="ops-panel">
+                <div class="mini-panel">
+                  <div class="mini-header">
+                    <div>
+                      <h4>事前シフト予約</h4>
+                      <p>対象日に固定したい勤務者とスキル枠を登録します。</p>
+                    </div>
+                    <button type="button" class="ghost" id="res-clear">フォームをリセット</button>
+                  </div>
+                  <div class="row">
+                    <label>勤務者
+                      <select id="res-employee">
+                        <option value="">選択してください</option>
+                      </select>
+                    </label>
+                    <label>スキル
+                      <select id="res-skill">
+                        <option value="">未選択</option>
+                      </select>
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label>開始
+                      <input type="time" id="res-start" value="09:00" />
+                    </label>
+                    <label>終了
+                      <input type="time" id="res-end" value="18:00" />
+                    </label>
+                    <label>ラベル
+                      <input type="text" id="res-label" value="Reservation" />
+                    </label>
+                  </div>
+                  <div class="row">
+                    <label>メモ
+                      <input type="text" id="res-note" placeholder="任意" />
+                    </label>
+                    <button type="button" id="res-create">予約を登録</button>
+                    <button type="button" class="ghost" id="res-refresh">一覧を更新</button>
+                  </div>
+                  <div id="res-msg" class="message"></div>
+                </div>
+                <div class="mini-panel">
+                  <div class="mini-header">
+                    <div>
+                      <h4>予約一覧と期間管理</h4>
+                      <p>月次プランに合わせてフィルタし、状態を整理します。</p>
+                    </div>
+                    <button type="button" class="ghost" id="res-range-sync">月次に同期</button>
+                  </div>
+                  <div class="row">
+                    <label>開始
+                      <input type="date" id="res-range-start" />
+                    </label>
+                    <span class="range-sep">〜</span>
+                    <label>終了
+                      <input type="date" id="res-range-end" />
+                    </label>
+                    <button type="button" class="danger" id="res-bulk-delete">期間の予約を削除</button>
+                  </div>
+                  <div class="table-scroll">
+                    <table>
+                      <thead>
+                        <tr>
+                          <th>需要ID</th>
+                          <th>日付</th>
+                          <th>時間帯</th>
+                          <th>割当従業員</th>
+                          <th>スキル</th>
+                          <th>メモラベル</th>
+                          <th>状態</th>
+                          <th>備考</th>
+                          <th></th>
+                        </tr>
+                      </thead>
+                      <tbody id="res-list"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+        </div>
+
+        <div class="tab-panel" id="panel-weekly">
+          <section class="card" id="weekly-card">
+            <div class="card-heading">
+              <h3>曜日・祝日の需要テンプレート</h3>
+              <p>曜日別のパターンを整えてから「曜日設定で初期化」で月次データへ反映します。</p>
+            </div>
+            <div class="row">
+              <label>曜日/祝
+                <select id="weekly-day">
+                  <option value="MONDAY">月曜日</option>
+                  <option value="TUESDAY">火曜日</option>
+                  <option value="WEDNESDAY">水曜日</option>
+                  <option value="THURSDAY">木曜日</option>
+                  <option value="FRIDAY">金曜日</option>
+                  <option value="SATURDAY">土曜日</option>
+                  <option value="SUNDAY">日曜日</option>
+                  <option value="HOLIDAY">祝（祝日のみ）</option>
+                </select>
+              </label>
+              <label>開始<input type="time" id="weekly-start" value="09:00" /></label>
+              <label>終了<input type="time" id="weekly-end" value="18:00" /></label>
+              <label>必要数<input type="number" id="weekly-required" min="0" value="5" style="width:90px" /></label>
+              <label>スキル<select id="weekly-skill" style="min-width:180px;"></select></label>
+              <label>休憩(分)<input type="number" id="weekly-break" min="0" step="5" value="0" style="width:90px" /></label>
+              <button type="button" id="weekly-break-reset" class="ghost">推奨を反映</button>
+              <button id="weekly-submit">登録 / 更新</button>
+              <button id="weekly-cancel" class="ghost">キャンセル</button>
+            </div>
+            <div class="muted">「祝」は祝日のみ適用。推奨休憩: 6時間以上45分 / 8時間以上60分。テンプレを整えたら月次タブで初期化してください。</div>
+            <div id="weekly-msg" class="message"></div>
+            <div class="weekly-table" id="weekly-table"></div>
+          </section>
+        </div>
+
+        <div class="tab-panel" id="panel-monthly">
+          <section class="card" id="monthly-card">
+            <div class="card-heading">
+              <h3>月次の需要編集と生成</h3>
+              <p>座席の微調整、テンプレ適用、生成リクエストを一箇所で行います。</p>
+            </div>
+            <div class="row" style="justify-content:space-between; align-items:center;">
+              <div class="row">
+                <label>年月<input type="month" id="ym" /></label>
+                <label>既定座席<input type="number" id="defaultSeats" min="0" value="5" style="width:80px;" /></label>
+                <label>スキル<select id="skillSelect" style="min-width:180px;"><option value="">選択</option></select></label>
+              </div>
+              <div class="monthly-actions">
+                <button id="btnApplyWeekly" class="ghost">曜日設定で初期化</button>
+                <button id="btnGenerate" title="需要ベースでこの月を生成">この月を生成</button>
+              </div>
+            </div>
+            <div class="monthly-layout" style="margin-top:16px;">
+              <div>
+                <div class="calendar-header">
+                  <div>日</div><div>月</div><div>火</div><div>水</div><div>木</div><div>金</div><div>土</div>
+                </div>
+                <div id="grid" class="calendar-grid"></div>
+              </div>
+              <div class="monthly-panel">
+                <div class="row" style="justify-content:space-between;">
+                  <div>
+                    <span id="panelDate" style="font-weight:600;"></span>
+                    <span id="panelSummary" class="muted" style="margin-left:8px;"></span>
+                  </div>
+                  <div class="row" style="gap:6px; align-items:center;">
+                    <label style="display:flex; align-items:center; gap:6px;">
+                      <span>ペアセット</span>
+                      <select id="pairPresetSelect" style="min-width:140px;">
+                        <option value="">既定</option>
+                      </select>
+                    </label>
+                    <button id="btnAddAM" class="ghost" disabled>AM追加</button>
+                    <button id="btnAddPM" class="ghost" disabled>PM追加</button>
+                    <button id="btnAddFull" class="ghost" disabled>フル追加</button>
+                  </div>
+                </div>
+                <div class="row" style="margin-top:8px;">
+                  <label>開始<input type="time" id="f_start" value="09:00" /></label>
+                  <label>終了<input type="time" id="f_end" value="18:00" /></label>
+                  <label>座席<input type="number" id="f_seats" min="0" value="5" style="width:80px;" /></label>
+                  <button id="btnAdd">追加</button>
+                </div>
+                <div id="monthly-msg" class="message"></div>
+                <div id="list"></div>
+              </div>
+            </div>
+          </section>
         </div>
       </div>
-    </section>
+    </div>
   </div>
 
+  <script src="/js/app.js"></script>
   <script>
     const DAY_LABELS = { MONDAY: '月', TUESDAY: '火', WEDNESDAY: '水', THURSDAY: '木', FRIDAY: '金', SATURDAY: '土', SUNDAY: '日', HOLIDAY: '祝' };
     const WEEKLY_ORDER = ['MONDAY','TUESDAY','WEDNESDAY','THURSDAY','FRIDAY','SATURDAY','SUNDAY','HOLIDAY'];
     let weeklyEditingId = null;
     const weeklyCache = new Map();
-    const state = { year: null, month: null, days: {}, pairing: null, skills: [], selectedDate: null };
+    const state = { year: null, month: null, days: {}, pairing: null, pairingSets: [], skills: [], selectedDate: null };
+    const metrics = { effective: 0, all: 0, templates: 0 };
+    const RESERVATION_STATUS_MAP = { PENDING: '予約中', CONFIRMED: '確定', COMPLETED: '完了', CANCELLED: '停止' };
+    const pad2 = (v) => String(v).padStart(2, '0');
+    const weeklyBreakInput = document.getElementById('weekly-break');
+    const weeklyBreakResetBtn = document.getElementById('weekly-break-reset');
+    let weeklyBreakManual = false;
 
-    async function fetchJson(url, options = {}) {
-      const res = await fetch(url, { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...options });
+    function timeStrToMinutes(str) {
+      if (!str || str.length < 4) return null;
+      const [h, m] = str.split(':').map(Number);
+      if (Number.isNaN(h) || Number.isNaN(m)) return null;
+      return (h * 60) + m;
+    }
+
+    function suggestBreakMinutes(startStr, endStr) {
+      const start = timeStrToMinutes(startStr);
+      const end = timeStrToMinutes(endStr);
+      if (start == null || end == null || end <= start) return 0;
+      const duration = end - start;
+      if (duration >= 480) return 60;
+      if (duration >= 360) return 45;
+      return 0;
+    }
+
+    function autoFillWeeklyBreak(force = false) {
+      if (!force && weeklyBreakManual) return;
+      const start = document.getElementById('weekly-start').value;
+      const end = document.getElementById('weekly-end').value;
+      weeklyBreakInput.value = suggestBreakMinutes(start, end);
+    }
+    autoFillWeeklyBreak(true);
+
+    function setStatus(text, tone) {
+      const actualTone = tone || 'neutral';
+      const pill = document.getElementById('status-pill');
+      if (!pill) return;
+      pill.textContent = text || '待機中';
+      pill.setAttribute('data-tone', actualTone);
+    }
+
+    function updateOverview() {
+      const dateInput = document.getElementById('view-date');
+      const selected = document.getElementById('summary-selected-date');
+      if (selected) selected.textContent = state.selectedDate || dateInput?.value || '--';
+      const monthLabel = document.getElementById('summary-month');
+      if (monthLabel) monthLabel.textContent = (state.year && state.month) ? `${state.year}年${String(state.month).padStart(2,'0')}月` : '--';
+      const effectiveLabel = document.getElementById('summary-effective');
+      if (effectiveLabel) effectiveLabel.textContent = metrics.effective ? `${metrics.effective} 件` : '取得待ち';
+      const templateLabel = document.getElementById('summary-templates');
+      if (templateLabel) templateLabel.textContent = `${metrics.templates} 本`;
+    }
+
+    function initWorkspaceTabs() {
+      const buttons = document.querySelectorAll('[data-tab-target]');
+      const panels = document.querySelectorAll('.tab-panel');
+      buttons.forEach(btn => {
+        btn.addEventListener('click', () => {
+          const target = btn.getAttribute('data-tab-target');
+          if (!target) return;
+          buttons.forEach(b => b.classList.toggle('active', b === btn));
+          panels.forEach(panel => panel.classList.toggle('active', panel.id === target));
+        });
+      });
+    }
+
+    async function fetchJson(url, options, timeout) {
+      const opts = options || {};
+      const limit = typeof timeout === 'number' ? timeout : 15000;
+      const merged = { credentials: 'include', headers: { 'Content-Type': 'application/json' }, ...opts };
+      const res = await fetchWithTimeout(url, merged, limit);
       const data = await res.json().catch(() => ({}));
       if (!res.ok || data.success === false) throw new Error(data.message || 'リクエストに失敗しました');
       return data;
     }
 
-    async function fetchWithTimeout(url, options = {}, timeout = 15000) {
+    async function fetchWithTimeout(url, options, timeout) {
+      const opts = options || {};
+      const limit = typeof timeout === 'number' ? timeout : 15000;
       const controller = new AbortController();
-      const id = setTimeout(() => controller.abort(), timeout);
+      const id = setTimeout(() => controller.abort(), limit);
       try {
-        const res = await fetch(url, { credentials: 'include', ...options, signal: controller.signal });
+        const res = await fetch(url, { credentials: 'include', ...opts, signal: controller.signal });
         clearTimeout(id);
         return res;
       } catch (err) {
@@ -161,25 +712,346 @@
       }
     }
 
+    function setReservationMessage(text, type) {
+      const msg = document.getElementById('res-msg');
+      if (!msg) return;
+      msg.textContent = text || '';
+      msg.className = type ? `message ${type}` : 'message';
+    }
+
+    function updateBoostTargetLabel() {
+      const label = document.getElementById('boost-date-label');
+      const date = document.getElementById('res-date')?.value;
+      if (label) label.textContent = date || '--';
+    }
+
+    function syncOperationsDateFromView(refreshTimeline) {
+      const needsTimeline = Boolean(refreshTimeline);
+      const viewDate = document.getElementById('view-date')?.value;
+      const opsDate = document.getElementById('res-date');
+      if (!viewDate || !opsDate) return;
+      opsDate.value = viewDate;
+      updateBoostTargetLabel();
+      if (needsTimeline) loadTimelineGrid();
+    }
+
+    function syncReservationRangeToMonth(refresh) {
+      const startEl = document.getElementById('res-range-start');
+      const endEl = document.getElementById('res-range-end');
+      const needRefresh = Boolean(refresh);
+      if (!startEl || !endEl) return;
+      const today = new Date();
+      const year = state.year || today.getFullYear();
+      const month = state.month || (today.getMonth() + 1);
+      startEl.value = `${year}-${pad2(month)}-01`;
+      const lastDay = new Date(year, month, 0).getDate();
+      endEl.value = `${year}-${pad2(month)}-${pad2(lastDay)}`;
+      if (needRefresh) refreshReservationList();
+    }
+
+    async function loadReservationEmployees() {
+      const select = document.getElementById('res-employee');
+      if (!select) return;
+      try {
+        const res = await fetchJson('/api/employees');
+        const list = res.data || [];
+        select.innerHTML = '<option value="">選択してください</option>' + list.map(e => `<option value="${e.id}">${e.name || ('Emp#' + e.id)}</option>`).join('');
+      } catch (err) {
+        select.innerHTML = '<option value="">取得に失敗しました</option>';
+        setReservationMessage(err.message || '従業員の取得に失敗しました', 'error');
+      }
+    }
+
+    async function loadReservationSkills() {
+      try {
+        const res = await fetchJson('/api/skills');
+        const list = res.data || [];
+        const options = list.map(s => `<option value="${s.id}">${s.code || s.name || ('スキル#' + s.id)}</option>`).join('');
+        const apply = (id, placeholder) => {
+          const el = document.getElementById(id);
+          if (!el) return;
+          el.innerHTML = `<option value="">${placeholder}</option>${options}`;
+        };
+        apply('res-skill', '未選択');
+        apply('t_skill', 'すべて');
+        apply('b_skill', 'スキル未指定');
+      } catch (err) {
+        setReservationMessage(err.message || 'スキルの取得に失敗しました', 'error');
+      }
+    }
+
+    async function loadReservationMasters() {
+      await Promise.all([loadReservationEmployees(), loadReservationSkills()]);
+    }
+
+    function clearReservationForm(resetRange) {
+      const start = document.getElementById('res-start');
+      if (start) start.value = '09:00';
+      const end = document.getElementById('res-end');
+      if (end) end.value = '18:00';
+      const label = document.getElementById('res-label');
+      if (label) label.value = 'Reservation';
+      const note = document.getElementById('res-note');
+      if (note) note.value = '';
+      const emp = document.getElementById('res-employee');
+      if (emp) emp.value = '';
+      const skill = document.getElementById('res-skill');
+      if (skill) skill.value = '';
+      if (resetRange) syncReservationRangeToMonth(false);
+      setReservationMessage('', '');
+    }
+
+    async function refreshReservationList() {
+      const tbody = document.getElementById('res-list');
+      if (!tbody) return;
+      const start = document.getElementById('res-range-start')?.value;
+      const end = document.getElementById('res-range-end')?.value;
+      if (!start || !end) {
+        setReservationMessage('表示期間を設定してください', 'error');
+        tbody.innerHTML = '';
+        return;
+      }
+      if (start > end) {
+        setReservationMessage('開始日は終了日以前にしてください', 'error');
+        return;
+      }
+      tbody.innerHTML = '<tr><td colspan="9">読み込み中...</td></tr>';
+      try {
+        const res = await fetchWithTimeout(`/api/schedule/reservations?start=${start}&end=${end}`);
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.message || '予約の取得に失敗しました');
+        const rows = data.data || [];
+        if (!rows.length) {
+          tbody.innerHTML = '<tr><td colspan="9">予約がありません</td></tr>';
+          setReservationMessage('該当する予約はありません', 'info');
+          return;
+        }
+        const shortTime = (v) => (v || '').slice(0, 5);
+        tbody.innerHTML = rows.map(r => {
+          const timeRange = `${shortTime(r.startTime)}-${shortTime(r.endTime)}`;
+          const actions = [];
+          if (r.status === 'PENDING') {
+            actions.push(`<button class="ghost" data-act="cancel" data-id="${r.id}">キャンセル</button>`);
+          } else if (r.status === 'CANCELLED') {
+            actions.push(`<button class="ghost" data-act="pending" data-id="${r.id}">再開</button>`);
+          }
+          actions.push(`<button class="danger" data-act="delete" data-id="${r.id}">削除</button>`);
+          return `<tr data-id="${r.id}">
+            <td>${r.id}</td>
+            <td>${r.workDate || ''}</td>
+            <td>${timeRange}</td>
+            <td>${r.employeeName || ''}</td>
+            <td>${r.skillCode || '-'}</td>
+            <td>${r.label || ''}</td>
+            <td>${RESERVATION_STATUS_MAP[r.status] || r.status || '-'}</td>
+            <td>${r.note || ''}</td>
+            <td>${actions.join(' ')}</td>
+          </tr>`;
+        }).join('');
+        tbody.querySelectorAll('button[data-act="cancel"]').forEach(btn => {
+          btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'CANCELLED'));
+        });
+        tbody.querySelectorAll('button[data-act="pending"]').forEach(btn => {
+          btn.addEventListener('click', () => updateReservationStatus(btn.getAttribute('data-id'), 'PENDING'));
+        });
+        tbody.querySelectorAll('button[data-act="delete"]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const id = btn.getAttribute('data-id');
+            if (!id) return;
+            if (confirm(`ID=${id} の予約を削除しますか?`)) deleteReservation(id);
+          });
+        });
+        setReservationMessage('', '');
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="9">予約の取得に失敗しました</td></tr>';
+        setReservationMessage(err.message || '予約の取得に失敗しました', 'error');
+      }
+    }
+
+    async function createReservation() {
+      const payload = {
+        workDate: document.getElementById('res-date')?.value,
+        employeeId: Number(document.getElementById('res-employee')?.value || 0),
+        skillId: document.getElementById('res-skill')?.value ? Number(document.getElementById('res-skill').value) : null,
+        startTime: document.getElementById('res-start')?.value,
+        endTime: document.getElementById('res-end')?.value,
+        label: document.getElementById('res-label')?.value || 'Reservation',
+        note: document.getElementById('res-note')?.value || ''
+      };
+      if (!payload.workDate || !payload.employeeId || !payload.startTime || !payload.endTime) {
+        setReservationMessage('日付・従業員・時間を入力してください', 'error');
+        return;
+      }
+      try {
+        await fetchJson('/api/schedule/reservations', { method: 'POST', body: JSON.stringify(payload) });
+        setReservationMessage('予約を登録しました', 'success');
+        setStatus('事前シフト予約を登録しました', 'success');
+        clearReservationForm(false);
+        await refreshReservationList();
+        await loadTimelineGrid();
+      } catch (err) {
+        setReservationMessage(err.message || '予約の登録に失敗しました', 'error');
+        setStatus('予約の登録に失敗しました', 'danger');
+      }
+    }
+
+    async function deleteReservationsInRange() {
+      const start = document.getElementById('res-range-start')?.value;
+      const end = document.getElementById('res-range-end')?.value;
+      if (!start || !end) {
+        setReservationMessage('表示期間を設定してください', 'error');
+        return;
+      }
+      if (end < start) {
+        setReservationMessage('開始日は終了日以前にしてください', 'error');
+        return;
+      }
+      if (!confirm(`期間 ${start} 〜 ${end} の予約を削除しますか？`)) return;
+      try {
+        const res = await fetchWithTimeout(`/api/schedule/reservations/bulk?start=${start}&end=${end}`, { method: 'DELETE', credentials: 'include' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok || data.success === false) throw new Error(data.message || '一括削除に失敗しました');
+        setReservationMessage('指定期間の予約を削除しました', 'success');
+        setStatus('指定期間の予約を削除しました', 'success');
+        await refreshReservationList();
+      } catch (err) {
+        setReservationMessage(err.message || '一括削除に失敗しました', 'error');
+        setStatus('予約の削除に失敗しました', 'danger');
+      }
+    }
+
+    async function updateReservationStatus(id, status) {
+      if (!id) return;
+      try {
+        await fetchJson(`/api/schedule/reservations/${id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        setReservationMessage('ステータスを更新しました', 'success');
+        await refreshReservationList();
+      } catch (err) {
+        setReservationMessage(err.message || 'ステータスの更新に失敗しました', 'error');
+      }
+    }
+
+    async function deleteReservation(id) {
+      if (!id) return;
+      try {
+        await fetchJson(`/api/schedule/reservations/${id}`, { method: 'DELETE' });
+        setReservationMessage('予約を削除しました', 'success');
+        await refreshReservationList();
+      } catch (err) {
+        setReservationMessage(err.message || '削除に失敗しました', 'error');
+      }
+    }
+
+    async function loadTimelineGrid() {
+      const timesCol = document.getElementById('t_times');
+      const rowsCol = document.getElementById('t_rows');
+      if (!timesCol || !rowsCol) return;
+      const date = document.getElementById('res-date')?.value;
+      if (!date) {
+        timesCol.innerHTML = '';
+        rowsCol.innerHTML = '<div class="muted">対象日を選択するとタイムラインを表示します</div>';
+        return;
+      }
+      const gran = document.getElementById('t_gran')?.value || '60';
+      const skillId = document.getElementById('t_skill')?.value || '';
+      rowsCol.innerHTML = '<div class="muted">読み込み中...</div>';
+      timesCol.innerHTML = '';
+      try {
+        let url = `/api/schedule/grid/day?date=${date}&granularity=${gran}`;
+        if (skillId) url += `&skillId=${skillId}`;
+        const res = await fetchWithTimeout(url, { credentials: 'include' });
+        if (!res.ok) throw new Error('タイムラインの取得に失敗しました');
+        const data = await res.json();
+        const slots = (data && data.data && data.data.slots) || [];
+        if (!slots.length) {
+          rowsCol.innerHTML = '<div class="muted">データがありません</div>';
+          return;
+        }
+        timesCol.innerHTML = slots.map(s => `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${s.start}</div>`).join('');
+        rowsCol.innerHTML = slots.map(s => {
+          const shortage = (s.shortage || 0) > 0;
+          const badge = `<span style="margin-right:10px; padding:2px 8px; border-radius:999px; font-size:12px; background:${shortage ? '#fee2e2' : '#e0f2fe'}; color:${shortage ? '#7f1d1d' : '#075985'};">${s.assigned}/${s.required}</span>`;
+          const names = (s.employees || []).map(n => `<span style="background:#eef2ff; color:#3730a3; border-radius:999px; padding:2px 8px; margin:0 4px 4px 0; display:inline-block;">${n}</span>`).join('');
+          return `<div style="padding:6px 8px; border-bottom:1px dashed #e2e8f0;">${badge}${names || '<span class="muted">割当なし</span>'}</div>`;
+        }).join('');
+      } catch (err) {
+        rowsCol.innerHTML = `<div class="muted">${err.message || 'タイムラインの取得に失敗しました'}</div>`;
+      }
+    }
+
+    async function addBoostDemand() {
+      const msg = document.getElementById('b_msg');
+      if (!msg) return;
+      const date = document.getElementById('res-date')?.value;
+      if (!date) {
+        msg.textContent = '対象日を設定してください';
+        msg.style.color = '#b91c1c';
+        return;
+      }
+      const start = document.getElementById('b_start')?.value;
+      const end = document.getElementById('b_end')?.value;
+      let seats = Number(document.getElementById('b_seats')?.value || 1);
+      const skillId = document.getElementById('b_skill')?.value;
+      if (!start || !end || start >= end) {
+        msg.textContent = '時間帯を確認してください';
+        msg.style.color = '#b91c1c';
+        return;
+      }
+      if (seats < 1) seats = 1;
+      const payload = {
+        date,
+        dayOfWeek: null,
+        startTime: start,
+        endTime: end,
+        requiredSeats: seats,
+        skillId: skillId ? Number(skillId) : null,
+        active: true
+      };
+      try {
+        await fetchJson('/api/demand', { method: 'POST', body: JSON.stringify(payload) });
+        msg.textContent = '一時需要を追加しました';
+        msg.style.color = '#15803d';
+        setStatus('一時需要を追加しました', 'success');
+        await loadTimelineGrid();
+        if (state.selectedDate === date) {
+          await loadDay(date);
+          renderList();
+          const sumLabel = document.getElementById(`sum-${date}`);
+          if (sumLabel) sumLabel.textContent = `合計 ${sumSeats(state.days[date])}`;
+        }
+        if (document.getElementById('view-date')?.value === date) {
+          await loadEffective();
+        }
+      } catch (err) {
+        msg.textContent = err.message || '追加に失敗しました';
+        msg.style.color = '#b91c1c';
+        setStatus('一時需要の追加に失敗しました', 'danger');
+      }
+    }
+
     async function loadEffective() {
       const date = document.getElementById('view-date').value;
       if (!date) { alert('日付を入力してください'); return; }
+      setStatus('当日需要を取得しています...', 'neutral');
       try {
         const res = await fetchWithTimeout(`/api/demand/effective?date=${date}`);
         const j = await res.json();
         renderTable('effective', '当日適用', j.data || []);
       } catch {
         document.getElementById('effective').innerHTML = '<div class="muted">取得に失敗しました</div>';
+        setStatus('当日需要の取得に失敗しました', 'danger');
       }
     }
 
     async function loadAll() {
+      setStatus('全需要データを取得しています...', 'neutral');
       try {
         const res = await fetchWithTimeout('/api/demand');
         const j = await res.json();
         renderTable('all', 'すべて', j.data || []);
       } catch {
         document.getElementById('all').innerHTML = '<div class="muted">取得に失敗しました</div>';
+        setStatus('全需要データの取得に失敗しました', 'danger');
       }
     }
 
@@ -187,7 +1059,7 @@
       const host = document.getElementById(id);
       const html = [];
       html.push(`<div class="muted" style="margin-bottom:6px;">${title}</div>`);
-      html.push('<table><thead><tr><th>ID</th><th>日付</th><th>曜日</th><th>開始</th><th>終了</th><th>必要数</th><th>スキル</th><th>祝</th></tr></thead><tbody>');
+      html.push('<table><thead><tr><th>需要ID</th><th>日付</th><th>曜日</th><th>開始</th><th>終了</th><th>必要人数</th><th>スキル</th><th>祝日</th></tr></thead><tbody>');
       if (!rows.length) {
         html.push('<tr><td colspan="8" class="muted">データがありません</td></tr>');
       }
@@ -205,14 +1077,25 @@
       });
       html.push('</tbody></table>');
       host.innerHTML = html.join('');
+      if (id === 'effective') {
+        metrics.effective = rows.length;
+        setStatus('当日の需要を更新しました', 'success');
+      } else if (id === 'all') {
+        metrics.all = rows.length;
+        setStatus('全需要の一覧を更新しました', 'neutral');
+      }
+      updateOverview();
     }
 
     async function tidyOrder() {
+      setStatus('整頓を実行しています...', 'neutral');
       try {
         await fetchWithTimeout('/api/demand/sort', { method: 'POST' });
         await loadAll();
+        setStatus('需要の並び順を整頓しました', 'success');
       } catch {
         alert('整頓に失敗しました');
+        setStatus('需要の整頓に失敗しました', 'danger');
       }
     }
 
@@ -227,16 +1110,18 @@
       }
     }
 
-    function setWeeklyMessage(text, success = false) {
+    function setWeeklyMessage(text, success) {
+      const isSuccess = Boolean(success);
       const el = document.getElementById('weekly-msg');
       if (!el) return;
       el.textContent = text || '';
-      el.style.color = !text ? '' : (success ? '#15803d' : '#b91c1c');
+      el.style.color = !text ? '' : (isSuccess ? '#15803d' : '#b91c1c');
     }
 
     async function refreshWeeklyTable() {
       weeklyCache.clear();
       const sections = [];
+      let hadError = false;
       for (const day of WEEKLY_ORDER) {
         const url = day === 'HOLIDAY' ? '/api/demand?holidayOnly=true' : `/api/demand?dayOfWeek=${day}`;
         try {
@@ -246,6 +1131,7 @@
           items.forEach(r => weeklyCache.set(String(r.id), r));
           sections.push({ day, items });
         } catch {
+          hadError = true;
           sections.push({ day, items: [] });
         }
       }
@@ -258,27 +1144,33 @@
         const body = items.map(r => `<tr>
           <td>${(r.startTime || '').toString().slice(0,5)} - ${(r.endTime || '').toString().slice(0,5)}</td>
           <td>${r.requiredSeats ?? ''}</td>
+          <td>${r.breakMinutes ?? 0}分</td>
           <td>${r.skill ? (r.skill.name || r.skill.code || ('#' + r.skill.id)) : ''}</td>
           <td>
             <button class="ghost" data-id="${r.id}" data-act="edit">編集</button>
             <button class="danger" data-id="${r.id}" data-act="delete">削除</button>
           </td>
         </tr>`).join('');
-        return `<section><h4>${label}</h4><table><thead><tr><th>時間帯</th><th>座席</th><th>スキル</th><th></th></tr></thead><tbody>${body}</tbody></table></section>`;
+        return `<section><h4>${label}</h4><table><thead><tr><th>時間帯</th><th>必要人数</th><th>休憩枠</th><th>スキル</th><th></th></tr></thead><tbody>${body}</tbody></table></section>`;
       }).join('');
       host.querySelectorAll('button[data-act="edit"]').forEach(btn => btn.addEventListener('click', () => startWeeklyEdit(btn.dataset.id)));
       host.querySelectorAll('button[data-act="delete"]').forEach(btn => btn.addEventListener('click', () => deleteWeekly(btn.dataset.id)));
+      metrics.templates = weeklyCache.size;
+      updateOverview();
+      setStatus(hadError ? '曜日テンプレートの取得に失敗しました' : '曜日テンプレートを更新しました', hadError ? 'danger' : 'success');
     }
 
     function resetWeeklyForm() {
       weeklyEditingId = null;
-      document.getElementById('weekly-day').value = 'MONDAY';
-      document.getElementById('weekly-start').value = '09:00';
-      document.getElementById('weekly-end').value = '18:00';
-      document.getElementById('weekly-required').value = 5;
-      const sel = document.getElementById('weekly-skill');
-      if (sel && sel.options.length) sel.selectedIndex = 0;
-      setWeeklyMessage('');
+        document.getElementById('weekly-day').value = 'MONDAY';
+        document.getElementById('weekly-start').value = '09:00';
+        document.getElementById('weekly-end').value = '18:00';
+        document.getElementById('weekly-required').value = 5;
+        weeklyBreakManual = false;
+        autoFillWeeklyBreak(true);
+        const sel = document.getElementById('weekly-skill');
+        if (sel && sel.options.length) sel.selectedIndex = 0;
+        setWeeklyMessage('');
     }
 
     function startWeeklyEdit(id) {
@@ -290,6 +1182,13 @@
       document.getElementById('weekly-end').value = (row.endTime || '').toString().slice(0,5);
       document.getElementById('weekly-required').value = row.requiredSeats ?? 0;
       document.getElementById('weekly-skill').value = row.skill ? row.skill.id : '';
+      if (row.breakMinutes != null) {
+        weeklyBreakManual = true;
+        weeklyBreakInput.value = row.breakMinutes;
+      } else {
+        weeklyBreakManual = false;
+        autoFillWeeklyBreak(true);
+      }
       setWeeklyMessage(`ID=${id} を編集中です`, true);
     }
 
@@ -301,6 +1200,7 @@
         startTime: document.getElementById('weekly-start').value,
         endTime: document.getElementById('weekly-end').value,
         requiredSeats: Number(document.getElementById('weekly-required').value || 0),
+        breakMinutes: Number(document.getElementById('weekly-break').value || 0),
         skillId: Number(document.getElementById('weekly-skill').value || 0),
         active: true,
         holidayOnly: dayValue === 'HOLIDAY'
@@ -318,10 +1218,12 @@
       try {
         await fetchWithTimeout(url, { method, headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) });
         setWeeklyMessage('保存しました', true);
+        setStatus('テンプレートを保存しました', 'success');
         resetWeeklyForm();
         await refreshWeeklyTable();
       } catch {
         setWeeklyMessage('保存に失敗しました');
+        setStatus('テンプレートの保存に失敗しました', 'danger');
       }
     }
 
@@ -330,18 +1232,21 @@
       try {
         await fetchWithTimeout(`/api/demand/${id}`, { method:'DELETE' });
         setWeeklyMessage('削除しました', true);
+        setStatus('テンプレートを削除しました', 'success');
         if (Number(id) === weeklyEditingId) resetWeeklyForm();
         await refreshWeeklyTable();
       } catch {
         setWeeklyMessage('削除に失敗しました');
+        setStatus('テンプレートの削除に失敗しました', 'danger');
       }
     }
 
-    function setMonthlyMessage(text, success = true) {
+    function setMonthlyMessage(text, success) {
+      const isSuccess = success !== false;
       const el = document.getElementById('monthly-msg');
       if (!el) return;
       el.textContent = text || '';
-      el.style.color = !text ? '' : (success ? '#15803d' : '#b91c1c');
+      el.style.color = !text ? '' : (isSuccess ? '#15803d' : '#b91c1c');
     }
 
     function firstOfMonth(y, m){ return new Date(y, m-1, 1); }
@@ -349,6 +1254,48 @@
     function addDays(d, n){ const x=new Date(d); x.setDate(x.getDate()+n); return x; }
     function fmtDate(d){ return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,'0')+"-"+String(d.getDate()).padStart(2,'0'); }
     function parseWin(win){ const [s,e]=win.split('-'); return {s,e}; }
+    function parsePairDefinitions(raw){
+      if(!raw) return [];
+      try{
+        const arr = JSON.parse(raw);
+        if(!Array.isArray(arr)) return [];
+        return arr
+          .map(item=>({
+            name: (item.name || '').toString().trim(),
+            fullWindow: (item.fullWindow || '').toString().trim(),
+            morningWindow: (item.morningWindow || '').toString().trim(),
+            afternoonWindow: (item.afternoonWindow || '').toString().trim()
+          }))
+          .filter(item=>isValidPairWindow(item.fullWindow) && isValidPairWindow(item.morningWindow) && isValidPairWindow(item.afternoonWindow));
+      }catch{ return []; }
+    }
+    function isValidPairWindow(str){
+      return typeof str === 'string' && /^\d{2}:\d{2}-\d{2}:\d{2}$/.test(str.trim());
+    }
+    function renderPairPresetSelect(){
+      const sel = document.getElementById('pairPresetSelect');
+      if(!sel) return;
+      const options = ['<option value=\"\">既定</option>'];
+      state.pairingSets.forEach((p, idx)=>{
+        const label = p.name && p.name.length ? p.name : `セット${idx+1}`;
+        options.push(`<option value=\"${idx}\">${label}</option>`);
+      });
+      sel.innerHTML = options.join('');
+    }
+    function currentPairPreset(){
+      const sel = document.getElementById('pairPresetSelect');
+      if(!sel || sel.value==='') return null;
+      const idx = Number(sel.value);
+      if(Number.isFinite(idx)) return state.pairingSets[idx];
+      return null;
+    }
+    function resolvePairWindow(kind, fallback){
+      const preset = currentPairPreset();
+      if(preset && isValidPairWindow(preset[kind])) return preset[kind];
+      const base = state.pairing || {};
+      if(base && base[kind]) return base[kind];
+      return fallback;
+    }
 
     async function loadSkillsForMonthly(){
       try{
@@ -360,8 +1307,15 @@
     }
 
     async function loadPairing(){
-      try{ const r = await fetch('/api/config/pairing-settings'); state.pairing = await r.json(); }
-      catch(e){ state.pairing=null; }
+      try{
+        const r = await fetch('/api/config/pairing-settings');
+        state.pairing = await r.json();
+        state.pairingSets = parsePairDefinitions(state.pairing?.skillPairings);
+      }catch(e){
+        state.pairing = null;
+        state.pairingSets = [];
+      }
+      renderPairPresetSelect();
     }
 
     async function loadDay(dateStr){
@@ -377,6 +1331,7 @@
     function sumSeats(list){ return (list||[]).reduce((a,b)=> a + (b.requiredSeats||0), 0); }
 
     async function renderCalendar(){
+      updateOverview();
       const grid = document.getElementById('grid'); grid.innerHTML='';
       const base = firstOfMonth(state.year, state.month);
       const start = startOfCalendar(base);
@@ -409,7 +1364,7 @@
       const rows = state.days[state.selectedDate]||[];
       const total = sumSeats(rows);
       document.getElementById('panelSummary').textContent = `合計: ${total}`;
-      let html = '<table><thead><tr><th>時間帯</th><th>座席</th><th>スキル</th><th></th></tr></thead><tbody>';
+      let html = '<table><thead><tr><th>時間帯</th><th>必要人数</th><th>スキル</th><th></th></tr></thead><tbody>';
       for(const r of rows){
         const sk = r.skill ? (r.skill.name||r.skill.code||('#'+r.skill.id)) : '';
         html += `<tr data-id="${r.id}">
@@ -429,9 +1384,11 @@
           const id = e.currentTarget.getAttribute('data-id');
           if (!confirm(`需要ID=${id} を削除しますか?`)) return;
           const res = await fetch(`/api/demand/${id}`, { method:'DELETE' });
-          if(!res.ok){ alert('削除に失敗しました'); return; }
+          if(!res.ok){ alert('削除に失敗しました'); setStatus('需要の削除に失敗しました', 'danger'); return; }
           await loadDay(state.selectedDate); renderList();
           document.getElementById(`sum-${state.selectedDate}`).textContent = `合計 ${sumSeats(state.days[state.selectedDate])}`;
+          setStatus('需要を削除しました', 'success');
+          updateOverview();
         });
       });
       list.querySelectorAll('.btn-edit').forEach(btn=>{
@@ -456,6 +1413,8 @@
       const el = document.getElementById(`cell-${dateStr}`); if (el) el.classList.add('selected');
       if (!state.days[dateStr]){ await loadDay(dateStr); }
       renderList();
+      updateOverview();
+      setStatus(`${dateStr} の需要を開きました`, 'neutral');
     }
 
     async function createOrUpdateByForm(win){
@@ -482,6 +1441,8 @@
       delete document.getElementById('btnAdd').dataset.editId;
       await loadDay(state.selectedDate); renderList();
       document.getElementById(`sum-${state.selectedDate}`).textContent = `合計 ${sumSeats(state.days[state.selectedDate])}`;
+      setStatus(editId ? '需要を更新しました' : '需要を追加しました', 'success');
+      updateOverview();
     }
 
     async function applyWeeklyTemplates() {
@@ -496,27 +1457,29 @@
         const j = await res.json().catch(()=>({}));
         if (!res.ok || j.success === false) throw new Error(j.message || '適用に失敗しました');
         setMonthlyMessage(j.message || '曜日テンプレートを適用しました', true);
+        setStatus('曜日テンプレートを適用しました', 'success');
         await loadMonth();
       } catch (e) {
         setMonthlyMessage(e.message || '適用に失敗しました', false);
+        setStatus(e.message || '曜日テンプレートの適用に失敗しました', 'danger');
       }
     }
 
     function bindEvents(){
       document.getElementById('btnAdd').addEventListener('click', ()=> createOrUpdateByForm());
       document.getElementById('btnAddAM').addEventListener('click', ()=>{
-        const ps = state.pairing; if(!ps){ alert('ペア設定の取得に失敗しました'); return; }
-        const {s,e} = parseWin(ps.morningWindow||'09:00-13:00');
+        const win = resolvePairWindow('morningWindow','09:00-13:00');
+        const {s,e} = parseWin(win);
         createOrUpdateByForm({s,e});
       });
       document.getElementById('btnAddPM').addEventListener('click', ()=>{
-        const ps = state.pairing; if(!ps){ alert('ペア設定の取得に失敗しました'); return; }
-        const {s,e} = parseWin(ps.afternoonWindow||'13:00-18:00');
+        const win = resolvePairWindow('afternoonWindow','13:00-18:00');
+        const {s,e} = parseWin(win);
         createOrUpdateByForm({s,e});
       });
       document.getElementById('btnAddFull').addEventListener('click', ()=>{
-        const ps = state.pairing; if(!ps){ alert('ペア設定の取得に失敗しました'); return; }
-        const {s,e} = parseWin(ps.fullWindow||'09:00-18:00');
+        const win = resolvePairWindow('fullWindow','09:00-18:00');
+        const {s,e} = parseWin(win);
         createOrUpdateByForm({s,e});
       });
       document.getElementById('skillSelect').addEventListener('change', ()=>{
@@ -531,13 +1494,14 @@
           const r=await fetch(url,{method:'POST'});
           const j=await r.json();
           alert(j.message||'生成リクエストを受け付けました');
-        }catch{ alert('生成の開始に失敗しました'); }
+          setStatus(j.message || '需要ベースの生成をリクエストしました', 'success');
+        }catch{ alert('生成の開始に失敗しました'); setStatus('生成リクエストの送信に失敗しました', 'danger'); }
       });
       document.getElementById('ym').addEventListener('change', ()=>{
         const v = document.getElementById('ym').value;
         if(!v) return;
         const y=Number(v.slice(0,4)), m=Number(v.slice(5));
-        state.year=y; state.month=m; loadMonth();
+        state.year=y; state.month=m; updateOverview(); loadMonth(); syncReservationRangeToMonth(true);
       });
       document.getElementById('btnApplyWeekly').addEventListener('click', applyWeeklyTemplates);
     }
@@ -547,24 +1511,56 @@
     document.getElementById('btn-view-sort').addEventListener('click', tidyOrder);
     document.getElementById('weekly-submit').addEventListener('click', submitWeekly);
     document.getElementById('weekly-cancel').addEventListener('click', resetWeeklyForm);
+    document.getElementById('weekly-start').addEventListener('change', () => { weeklyBreakManual = false; autoFillWeeklyBreak(); });
+    document.getElementById('weekly-end').addEventListener('change', () => { weeklyBreakManual = false; autoFillWeeklyBreak(); });
+    weeklyBreakInput.addEventListener('input', () => { weeklyBreakManual = true; });
+    weeklyBreakResetBtn.addEventListener('click', () => { weeklyBreakManual = false; autoFillWeeklyBreak(true); });
+    document.getElementById('res-create')?.addEventListener('click', createReservation);
+    document.getElementById('res-refresh')?.addEventListener('click', refreshReservationList);
+    document.getElementById('res-range-sync')?.addEventListener('click', () => syncReservationRangeToMonth(true));
+    document.getElementById('res-bulk-delete')?.addEventListener('click', deleteReservationsInRange);
+    document.getElementById('res-clear')?.addEventListener('click', () => clearReservationForm(false));
+    document.getElementById('res-employee')?.addEventListener('change', () => setReservationMessage('', ''));
+    document.getElementById('res-date')?.addEventListener('change', () => { updateBoostTargetLabel(); loadTimelineGrid(); });
+    document.getElementById('t_gran')?.addEventListener('change', loadTimelineGrid);
+    document.getElementById('t_skill')?.addEventListener('change', loadTimelineGrid);
+    document.getElementById('t_refresh')?.addEventListener('click', loadTimelineGrid);
+    document.getElementById('b_add')?.addEventListener('click', addBoostDemand);
+    document.getElementById('ops-sync-date')?.addEventListener('click', () => syncOperationsDateFromView(true));
+    document.getElementById('view-date')?.addEventListener('change', () => {
+      updateOverview();
+      syncOperationsDateFromView(true);
+    });
 
     document.addEventListener('DOMContentLoaded', async ()=>{
+      initWorkspaceTabs();
+      setStatus('初期化中...', 'neutral');
       const today = new Date();
-      document.getElementById('view-date').value = today.toISOString().slice(0,10);
+      const todayStr = today.toISOString().slice(0,10);
+      const viewInput = document.getElementById('view-date');
+      if (viewInput) viewInput.value = todayStr;
+      const resInput = document.getElementById('res-date');
+      if (resInput) resInput.value = todayStr;
+      updateBoostTargetLabel();
       const ym = `${today.getFullYear()}-${String(today.getMonth()+1).padStart(2,'0')}`;
       document.getElementById('ym').value = ym;
       state.year = today.getFullYear();
       state.month = today.getMonth()+1;
       document.getElementById('f_seats').value = document.getElementById('defaultSeats').value;
+      syncReservationRangeToMonth(false);
+      updateOverview();
 
-      await Promise.all([loadWeeklySkills(), loadAll()]);
+      await Promise.all([loadWeeklySkills(), loadAll(), loadReservationMasters()]);
       await refreshWeeklyTable();
       resetWeeklyForm();
+      clearReservationForm(false);
 
       await loadSkillsForMonthly();
       await loadPairing();
       await loadMonth();
       bindEvents();
+      await refreshReservationList();
+      await loadTimelineGrid();
       await loadEffective();
     });
   </script>

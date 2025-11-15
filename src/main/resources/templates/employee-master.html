@@ -7,6 +7,16 @@
   <style>
     body { font-family: system-ui, -apple-system, 'Segoe UI', 'Hiragino Sans', 'Yu Gothic', sans-serif; margin:0; background:#f5f7fb; color:#0f172a; }
     .container { max-width: 1100px; margin: 0 auto; padding: 24px; }
+    .back-link {
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-weight:600;
+      color:#2563eb;
+      text-decoration:none;
+      margin-bottom:16px;
+    }
+    .back-link:hover { text-decoration:underline; }
     .card { background:#fff; border:1px solid #e2e8f0; border-radius:12px; padding:16px; margin-bottom:16px; }
     .row { display:flex; gap:12px; align-items:end; flex-wrap:wrap; }
     input, select, button { padding:8px 10px; border-radius:8px; border:1px solid #cbd5e1; font-size:14px; }
@@ -16,16 +26,24 @@
     .muted { color:#64748b; font-size:12px; }
     .cols { display:grid; grid-template-columns: 1fr 1fr; gap:16px; }
     @media (max-width: 900px){ .cols { grid-template-columns: 1fr; } }
+    .pto-summary { display:flex; flex-wrap:wrap; gap:10px; margin-top:4px; }
+    .pto-chip { background:#f1f5f9; border:1px solid #e2e8f0; border-radius:10px; padding:6px 12px; font-size:13px; display:flex; align-items:baseline; gap:6px; }
+    .pto-chip strong { font-size:18px; color:#0f172a; }
+    .pattern-builder { border:1px dashed #e2e8f0; border-radius:10px; padding:12px; background:#f8fafc; margin-top:8px; }
+    .pattern-builder-row { display:flex; flex-wrap:wrap; gap:10px; margin-top:8px; align-items:flex-end; }
+    .pattern-builder-row label { font-size:13px; color:#475569; display:flex; flex-direction:column; gap:4px; }
+    .pattern-preview { font-size:13px; color:#334155; margin-top:6px; }
   </style>
 </head>
 <body>
   <div class="container">
+    <a class="back-link" href="/dashboard">← ダッシュボードへ戻る</a>
     <h2>従業員マスタ</h2>
 
     <!-- 統合ビュー（β）：マスタ/詳細タブ -->
     <div class="card" id="beta-integrated">
-      <h3 style="margin:0 0 8px;">統合ビュー（β）</h3>
-      <div class="muted" style="margin-bottom:8px;">左で従業員を選択し、右のタブで編集します。まずは「基本情報＋優先度」のみ保存対応。その他は順次接続予定です。</div>
+      <h3 style="margin:0 0 8px;">従業員マスタ</h3>
+      <div class="muted" style="margin-bottom:8px;">左で従業員を選択し、右のタブで基本情報・スキル・勤務ルール・出勤可能時間・PTOをまとめて編集できます。</div>
       <style>
         .beta-layout { display:grid; grid-template-columns: 260px 1fr; gap:16px; }
         .beta-list { border:1px solid #e2e8f0; border-radius:8px; overflow:hidden; background:#fff; }
@@ -33,6 +51,11 @@
         .beta-list ul { list-style:none; margin:0; padding:0; max-height:360px; overflow:auto; }
         .beta-list li { padding:8px 10px; border-bottom:1px solid #f1f5f9; cursor:pointer; }
         .beta-list li.active { background:#eff6ff; font-weight:600; }
+        .beta-list-actions { display:flex; gap:8px; margin-top:8px; }
+        .beta-list-actions button { flex:1; }
+        .beta-create { margin-top:10px; border:1px solid #e2e8f0; border-radius:8px; padding:10px; background:#f8fafc; display:grid; gap:8px; }
+        .beta-create label { font-size:13px; color:#475569; display:flex; flex-direction:column; gap:4px; }
+        .beta-create-buttons { display:flex; gap:8px; }
         .beta-tabs { display:flex; gap:8px; border-bottom:1px solid #e2e8f0; margin-bottom:12px; }
         .beta-tab { padding:8px 10px; cursor:pointer; border-radius:6px 6px 0 0; }
         .beta-tab.active { background:#eff6ff; font-weight:600; }
@@ -45,6 +68,20 @@
         <div class="beta-list">
           <div class="beta-list-search">
             <input id="beta-q" type="text" placeholder="名前/役割で絞込" style="width:100%;"/>
+            <div class="beta-list-actions">
+              <button id="beta-refresh" type="button">再読み込み</button>
+              <button id="beta-create-toggle" type="button">新規登録</button>
+            </div>
+            <div id="beta-create-form" class="beta-create" style="display:none;">
+              <label>氏名<input type="text" id="beta-create-name" placeholder="例: 田中 太郎"/></label>
+              <label>役割<input type="text" id="beta-create-role" placeholder="例: スタッフ"/></label>
+              <label>表示順<input type="number" id="beta-create-order" min="0" step="1" placeholder="自動"/></label>
+              <div class="beta-create-buttons">
+                <button id="beta-create-save" type="button">追加</button>
+                <button id="beta-create-cancel" type="button" style="background:#e2e8f0; color:#0f172a;">キャンセル</button>
+              </div>
+              <div class="muted" id="beta-create-msg"></div>
+            </div>
           </div>
           <ul id="beta-emp-list"><li class="muted" style="padding:8px 10px;">読み込み中...</li></ul>
         </div>
@@ -54,7 +91,8 @@
             <div class="beta-tab" data-tab="skills">スキル</div>
             <div class="beta-tab" data-tab="rules">勤務ルール</div>
             <div class="beta-tab" data-tab="availability">出勤可能時間</div>
-            <div class="beta-tab" data-tab="pto">PTO</div>
+            <div class="beta-tab" data-tab="fixed">固定シフト</div>
+            <div class="beta-tab" data-tab="pto">有給 (PTO)</div>
           </div>
           <div class="beta-panel">
             <div id="beta-panel-basic">
@@ -62,9 +100,11 @@
                 <label>氏名<br><input id="beta-name" type="text"/></label>
                 <label>役割<br><input id="beta-role" type="text"/></label>
                 <label>優先度(1-5)<br><input id="beta-priority" type="number" min="1" max="5" step="1"/></label>
+                <label>表示順<br><input id="beta-order" type="number" min="0" step="1"/></label>
               </div>
               <div class="beta-actions">
                 <button id="beta-save-basic">保存</button>
+                <button id="beta-delete" style="background:#dc2626;" disabled>削除</button>
                 <div id="beta-msg" class="muted"></div>
               </div>
             </div>
@@ -98,6 +138,23 @@
                 <label><input type="checkbox" id="beta-rule-allowMulti"/> 1日に複数シフト可</label>
                 <label><input type="checkbox" id="beta-rule-allowHoliday"/> 休日勤務可</label>
               </div>
+              <div class="beta-row">
+                <label>勤務/休パターン<br><input type="text" id="beta-rule-pattern" placeholder="例: 3W-1O-2W-1O"/></label>
+                <label>アンカー日<br><input type="date" id="beta-rule-anchor"/></label>
+                <label><input type="checkbox" id="beta-rule-strict"/> OFF日を厳格適用</label>
+              </div>
+              <p class="muted">パターンは「W=勤務、O=休み」で定義します。例: 3W-1O は「3勤1休」を繰返します。厳格適用ONでOFF日を先に確保します。</p>
+              <div class="pattern-builder">
+                <div class="muted">勤務日数と休日日数を入力して「パターンに追加」を押すと、上のパターン欄が自動更新されます。</div>
+                <div class="pattern-builder-row">
+                  <label>勤務日数<br><input type="number" id="pattern-work-days" min="0" value="3"/></label>
+                  <label>休日日数<br><input type="number" id="pattern-off-days" min="0" value="1"/></label>
+                  <button type="button" id="pattern-add">パターンに追加</button>
+                  <button type="button" id="pattern-clear" style="background:#e2e8f0; color:#0f172a;">クリア</button>
+                </div>
+                <div class="pattern-preview" id="pattern-preview">現在のパターン: ー</div>
+                <div class="muted" id="pattern-strict-hint" style="display:none; color:#b45309;">生成されたシフトに反映させるには「OFF日を厳格適用」をONにしてください。</div>
+              </div>
               <div class="beta-actions">
                 <button id="beta-rule-save">ルール保存</button>
                 <div id="beta-rule-msg" class="muted"></div>
@@ -107,8 +164,8 @@
               <div class="beta-row">
                 <label>曜日
                   <select id="beta-av-dow">
-                    <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
-                    <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
+                    <option value="MONDAY">月曜日</option><option value="TUESDAY">火曜日</option><option value="WEDNESDAY">水曜日</option>
+                    <option value="THURSDAY">木曜日</option><option value="FRIDAY">金曜日</option><option value="SATURDAY">土曜日</option><option value="SUNDAY">日曜日</option>
                   </select>
                 </label>
                 <label>開始<br><input type="time" id="beta-av-start" value="09:00"/></label>
@@ -122,6 +179,18 @@
                 <tbody id="beta-av-tbody"></tbody>
               </table>
               <div class="muted" id="beta-av-msg" style="margin-top:6px;"></div>
+            </div>
+            <div id="beta-panel-fixed" style="display:none;">
+              <table style="width:100%; border-collapse:collapse;">
+                <thead><tr><th>曜日</th><th>有効</th><th>開始</th><th>終了</th><th>メモ</th></tr></thead>
+                <tbody id="beta-fixed-tbody"></tbody>
+              </table>
+              <div class="muted" style="margin-top:6px;">祝日で「休日勤務不可」の従業員は自動的に除外されます。</div>
+              <div class="beta-actions">
+                <button id="beta-fixed-reset" type="button" class="ghost">リセット</button>
+                <button id="beta-fixed-save" type="button">保存</button>
+                <div id="beta-fixed-msg" class="muted"></div>
+              </div>
             </div>
             <div id="beta-panel-pto" style="display:none;">
               <div class="beta-row">
@@ -145,8 +214,35 @@
           </div>
         </div>
       </div>
-      <script>
+<script src="/js/app.js"></script>
+<script>
         let betaSelectedId = null;
+        let betaEmployees = [];
+        const betaFixedDays = [
+          { key:'MONDAY', label:'月' },
+          { key:'TUESDAY', label:'火' },
+          { key:'WEDNESDAY', label:'水' },
+          { key:'THURSDAY', label:'木' },
+          { key:'FRIDAY', label:'金' },
+          { key:'SATURDAY', label:'土' },
+          { key:'SUNDAY', label:'日' }
+        ];
+        const betaDowMap = {
+          MONDAY:'月曜日',
+          TUESDAY:'火曜日',
+          WEDNESDAY:'水曜日',
+          THURSDAY:'木曜日',
+          FRIDAY:'金曜日',
+          SATURDAY:'土曜日',
+          SUNDAY:'日曜日'
+        };
+        function betaDowLabel(code){
+          return betaDowMap[code] || code || '';
+        }
+        let betaFixedState = [];
+        let betaAvList = [];
+        let betaPatternBlocks = [];
+        let patternStrictTouched = false;
         async function betaFetch(url, opt={}){
           const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });
           const ct = res.headers.get('content-type')||''; const data = ct.includes('json') ? await res.json() : await res.text();
@@ -154,57 +250,184 @@
           if(data && data.success===false) throw new Error(data.message||'処理に失敗しました');
           return data;
         }
-        function betaRenderList(list){
+        function betaSortEmployees(list){
+          return [...(list||[])].sort((a,b)=>{
+            const ao = a && a.displayOrder != null ? a.displayOrder : 0;
+            const bo = b && b.displayOrder != null ? b.displayOrder : 0;
+            if (ao !== bo) return ao - bo;
+            const aid = a && a.id != null ? a.id : 0;
+            const bid = b && b.id != null ? b.id : 0;
+            return aid - bid;
+          });
+        }
+        function betaNextDisplayOrder(){
+          if (!Array.isArray(betaEmployees) || betaEmployees.length === 0) return 1;
+          return betaEmployees.reduce((max, e)=>Math.max(max, e.displayOrder ?? 0), 0) + 1;
+        }
+        function betaRenderList(list = betaEmployees){
           const ul = document.getElementById('beta-emp-list');
           const q = (document.getElementById('beta-q').value||'').trim().toLowerCase();
-          const filtered = list.filter(e => {
+          const filtered = betaSortEmployees(list).filter(e => {
             const n=(e.name||'').toLowerCase(); const r=(e.role||'').toLowerCase();
             return !q || n.includes(q) || r.includes(q);
           });
-          if(filtered.length===0){ ul.innerHTML = '<li class="muted" style="padding:8px 10px;">該当なし</li>'; return; }
+          if(filtered.length===0){
+            const msg = list.length===0 ? '従業員が登録されていません' : '該当なし';
+            ul.innerHTML = `<li class="muted" style="padding:8px 10px;">${msg}</li>`;
+            return;
+          }
           ul.innerHTML = '';
           filtered.forEach(e => {
             const li = document.createElement('li');
-            li.textContent = `${e.id} ${e.name||''} ${e.role?('('+e.role+')'):''}`;
-            if (betaSelectedId===e.id) li.classList.add('active');
+            const order = e.displayOrder ?? '';
+            const roleText = e.role ? `(${e.role})` : '';
+            li.innerHTML = `<span class="muted" style="min-width:32px;display:inline-block;">#${order}</span> ${e.id} ${e.name||''} ${roleText}`;
+            li.dataset.empId = String(e.id ?? '');
+            if (String(betaSelectedId)===String(e.id)) li.classList.add('active');
             li.addEventListener('click', ()=>{ betaLoadDetail(e.id); });
             ul.appendChild(li);
           });
         }
-        async function betaLoadList(){
+        function betaInitFixedState(){
+          betaFixedState = betaFixedDays.map(day => ({
+            dayOfWeek: day.key,
+            label: day.label,
+            active: false,
+            startTime: '09:00',
+            endTime: '18:00',
+            note: ''
+          }));
+        }
+        betaInitFixedState();
+        function betaApplyFilter(){
+            betaRenderList();
+        }
+        async function betaLoadList(preferId){
           try{
             const j = await betaFetch('/api/employees');
-            const list = j.data||[]; betaRenderList(list);
-          }catch(e){ document.getElementById('beta-emp-list').innerHTML = '<li class="muted" style="padding:8px 10px;">読み込みに失敗しました</li>'; }
+            betaEmployees = betaSortEmployees(j.data||[]);
+            betaRenderList();
+            const list = betaEmployees;
+            const candidate = preferId ?? betaSelectedId ?? (list[0]?.id);
+            if (candidate && list.some(e => String(e.id) === String(candidate))) {
+              await betaLoadDetail(candidate);
+            } else if (!list.length) {
+              betaSelectedId = null;
+              document.getElementById('beta-msg').textContent = '従業員を登録してください';
+              const delBtn = document.getElementById('beta-delete'); if (delBtn) delBtn.disabled = true;
+            } else {
+              betaSelectedId = null;
+              document.getElementById('beta-msg').textContent = '従業員を選択してください';
+              const delBtn = document.getElementById('beta-delete'); if (delBtn) delBtn.disabled = true;
+            }
+          }catch(e){
+            document.getElementById('beta-emp-list').innerHTML = '<li class="muted" style="padding:8px 10px;">読み込みに失敗しました</li>';
+            betaSelectedId = null;
+            document.getElementById('beta-msg').textContent = e.message||'従業員の取得に失敗しました';
+            const delBtn = document.getElementById('beta-delete'); if (delBtn) delBtn.disabled = true;
+          }
         }
         async function betaLoadDetail(id){
           try{
             const j = await betaFetch(`/api/employees/${id}`);
             const emp = (j&&j.data)||null; if(!emp) throw new Error('従業員が見つかりません');
             betaSelectedId = emp.id;
-            document.querySelectorAll('#beta-emp-list li').forEach(li => { li.classList.remove('active'); if(li.textContent.startsWith(String(emp.id)+' ')) li.classList.add('active'); });
+            document.querySelectorAll('#beta-emp-list li').forEach(li => {
+              li.classList.toggle('active', li.dataset.empId === String(emp.id));
+            });
             document.getElementById('beta-name').value = emp.name||'';
             document.getElementById('beta-role').value = emp.role||'';
             const ap = emp.assignPriority; const shown = Math.max(1, Math.min(5, parseInt(ap??3,10)||3));
             document.getElementById('beta-priority').value = shown;
+            document.getElementById('beta-order').value = emp.displayOrder ?? '';
             document.getElementById('beta-msg').textContent='';
             // If the active tab is skills/rules/availability/pto, refresh that panel for the newly selected employee
             const activeTab = (document.querySelector('.beta-tab.active')?.getAttribute('data-tab')) || 'basic';
             if (activeTab==='skills') { betaEmpSkillsSet = new Set(); await betaLoadSkills(); }
             if (activeTab==='rules') { await betaLoadRule(); }
             if (activeTab==='availability') { await betaLoadAvailability(); }
+            if (activeTab==='fixed') { await betaLoadFixedShifts(); }
             if (activeTab==='pto') { await betaLoadPto(); }
           }catch(e){ document.getElementById('beta-msg').textContent = e.message||'詳細の取得に失敗しました'; }
         }
         function betaSwitchTab(key){
           document.querySelectorAll('.beta-tab').forEach(t=>{ t.classList.toggle('active', t.getAttribute('data-tab')===key); });
-          document.querySelectorAll('#beta-panel-basic,#beta-panel-skills,#beta-panel-rules,#beta-panel-availability,#beta-panel-pto').forEach(el=>{ el.style.display='none'; });
-          const map = {basic:'#beta-panel-basic', skills:'#beta-panel-skills', rules:'#beta-panel-rules', availability:'#beta-panel-availability', pto:'#beta-panel-pto'};
+          document.querySelectorAll('#beta-panel-basic,#beta-panel-skills,#beta-panel-rules,#beta-panel-availability,#beta-panel-fixed,#beta-panel-pto').forEach(el=>{ el.style.display='none'; });
+          const map = {basic:'#beta-panel-basic', skills:'#beta-panel-skills', rules:'#beta-panel-rules', availability:'#beta-panel-availability', fixed:'#beta-panel-fixed', pto:'#beta-panel-pto'};
           const sel = document.querySelector(map[key]||'#beta-panel-basic'); if (sel) sel.style.display='block';
           if (key==='skills') { betaLoadSkills(); }
           if (key==='rules') { betaLoadRule(); }
           if (key==='availability') { betaLoadAvailability(); }
+          if (key==='fixed') { betaLoadFixedShifts(); }
           if (key==='pto') { betaLoadPto(); }
+        }
+        function betaPatternPreview(str){
+          const preview = document.getElementById('pattern-preview');
+          if (preview) preview.textContent = `現在のパターン: ${str && str.length ? str : 'ー'}`;
+        }
+        function refreshPatternStrictHint(){
+          const checkbox = document.getElementById('beta-rule-strict');
+          const patternInput = document.getElementById('beta-rule-pattern');
+          const hint = document.getElementById('pattern-strict-hint');
+          if (!patternInput) {
+            if (hint) hint.style.display = 'none';
+            return;
+          }
+          const hasPattern = (patternInput.value || '').trim().length > 0;
+          if (checkbox && !patternStrictTouched && hasPattern && !checkbox.checked) {
+            checkbox.checked = true;
+          }
+          if (hint) {
+            hint.style.display = (checkbox && hasPattern && !checkbox.checked) ? 'block' : 'none';
+          }
+        }
+        function betaPatternSyncFromInput(){
+          const input = document.getElementById('beta-rule-pattern');
+          if (!input) return;
+          const str = (input.value || '').trim();
+          betaPatternBlocks = [];
+          const regex = /(\d+)\s*([WO])/gi;
+          let match;
+          while ((match = regex.exec(str)) !== null){
+            const count = parseInt(match[1], 10);
+            const type = match[2] && match[2].toUpperCase() === 'O' ? 'O' : 'W';
+            if (!Number.isNaN(count) && count > 0){
+              betaPatternBlocks.push({ type, value: count });
+            }
+          }
+          betaPatternPreview(str);
+          refreshPatternStrictHint();
+        }
+        function betaPatternBlocksToString(){
+          if (!betaPatternBlocks || !betaPatternBlocks.length) return '';
+          return betaPatternBlocks.map(block => `${block.value}${block.type}`).join('-');
+        }
+        function betaPatternAddBlock(){
+          betaPatternSyncFromInput();
+          const msgEl = document.getElementById('beta-rule-msg');
+          const work = parseInt(document.getElementById('pattern-work-days').value, 10) || 0;
+          const off = parseInt(document.getElementById('pattern-off-days').value, 10) || 0;
+          if (work <= 0 && off <= 0){
+            if (msgEl) msgEl.textContent = '勤務日数または休日日数を1以上で入力してください';
+            return;
+          }
+          if (work > 0) betaPatternBlocks.push({ type:'W', value: work });
+          if (off > 0) betaPatternBlocks.push({ type:'O', value: off });
+          const next = betaPatternBlocksToString();
+          const input = document.getElementById('beta-rule-pattern');
+          if (input) input.value = next;
+          betaPatternPreview(next);
+          if (msgEl) msgEl.textContent = '';
+          refreshPatternStrictHint();
+        }
+        function betaPatternClear(){
+          betaPatternBlocks = [];
+          const input = document.getElementById('beta-rule-pattern');
+          if (input) input.value = '';
+          betaPatternPreview('');
+          const msgEl = document.getElementById('beta-rule-msg');
+          if (msgEl) msgEl.textContent = '';
+          refreshPatternStrictHint();
         }
         async function betaSaveBasic(){
           const id = betaSelectedId; if(!id){ document.getElementById('beta-msg').textContent='従業員を選択してください'; return; }
@@ -212,30 +435,107 @@
           const role = document.getElementById('beta-role').value.trim();
           let assignPriority = parseInt(document.getElementById('beta-priority').value,10);
           if (isNaN(assignPriority)) assignPriority = 3; assignPriority = Math.max(1, Math.min(5, assignPriority));
+          let displayOrder = parseInt(document.getElementById('beta-order').value,10);
+          if (Number.isNaN(displayOrder)) displayOrder = null;
           try{
-            await betaFetch(`/api/employees/${id}`, { method:'PUT', body: JSON.stringify({ name, role, assignPriority }) });
+            await betaFetch(`/api/employees/${id}`, { method:'PUT', body: JSON.stringify({ name, role, assignPriority, displayOrder }) });
             document.getElementById('beta-msg').textContent='保存しました';
-            // Refresh list to reflect name/role updates
-            await betaLoadList();
+            await betaLoadList(id);
           }catch(e){ document.getElementById('beta-msg').textContent = e.message||'保存に失敗しました'; }
         }
+        function toggleBetaCreate(force){
+          const form = document.getElementById('beta-create-form');
+          if(!form) return;
+          const currentlyShown = form.style.display !== 'none';
+          const show = force !== undefined ? force : !currentlyShown;
+          form.style.display = show ? 'grid' : 'none';
+          if (!show){
+            document.getElementById('beta-create-name').value = '';
+            document.getElementById('beta-create-role').value = '';
+            document.getElementById('beta-create-order').value = '';
+            setBetaCreateMsg('');
+          } else {
+            document.getElementById('beta-create-name').focus();
+            document.getElementById('beta-create-order').value = betaNextDisplayOrder();
+          }
+        }
+        function setBetaCreateMsg(text, isError=false){
+          const el = document.getElementById('beta-create-msg');
+          if(!el) return;
+          el.textContent = text || '';
+          el.style.color = isError ? '#b91c1c' : '#64748b';
+        }
+        async function betaCreateEmployee(){
+          const name = document.getElementById('beta-create-name').value.trim();
+          const role = document.getElementById('beta-create-role').value.trim();
+          let displayOrder = parseInt(document.getElementById('beta-create-order').value,10);
+          if (Number.isNaN(displayOrder)) displayOrder = null;
+          if(!name){ setBetaCreateMsg('氏名は必須です', true); return; }
+          try{
+            const resp = await betaFetch('/api/employees', { method:'POST', body: JSON.stringify({ name, role, displayOrder }) });
+            const newId = (resp && resp.data && resp.data.id) || resp?.id || null;
+            document.getElementById('beta-msg').textContent = resp?.message || '従業員を追加しました';
+            toggleBetaCreate(false);
+            await betaLoadList(newId);
+          }catch(e){
+            setBetaCreateMsg(e.message||'追加に失敗しました', true);
+          }
+        }
+        async function betaDeleteEmployee(){
+          const id = betaSelectedId;
+          if(!id){ return; }
+          if(!confirm('この従業員を削除しますか？')) return;
+          try{
+            await betaFetch(`/api/employees/${id}`, { method:'DELETE' });
+            document.getElementById('beta-msg').textContent = '削除しました';
+            await betaLoadList();
+          }catch(e){
+            document.getElementById('beta-msg').textContent = e.message||'削除に失敗しました';
+          }
+        }
+        betaRenderFixedTable();
         // events
-        document.getElementById('beta-q').addEventListener('input', betaLoadList);
+        document.getElementById('beta-q').addEventListener('input', betaApplyFilter);
+        document.getElementById('beta-refresh').addEventListener('click', ()=>betaLoadList(betaSelectedId));
+        document.getElementById('beta-create-toggle').addEventListener('click', ()=>toggleBetaCreate());
+        document.getElementById('beta-create-save').addEventListener('click', betaCreateEmployee);
+        document.getElementById('beta-create-cancel').addEventListener('click', ()=>toggleBetaCreate(false));
+        document.getElementById('beta-delete').addEventListener('click', betaDeleteEmployee);
         document.getElementById('beta-save-basic').addEventListener('click', betaSaveBasic);
         document.querySelectorAll('.beta-tab').forEach(t=> t.addEventListener('click', ()=> betaSwitchTab(t.getAttribute('data-tab'))));
         document.getElementById('beta-skill-search').addEventListener('click', betaLoadSkills);
         document.getElementById('beta-skill-save').addEventListener('click', betaSaveSkills);
         document.getElementById('beta-rule-save').addEventListener('click', betaSaveRule);
+        const patternStrictCheckboxEl = document.getElementById('beta-rule-strict');
+        if (patternStrictCheckboxEl) {
+          patternStrictCheckboxEl.addEventListener('change', () => {
+            patternStrictTouched = true;
+            refreshPatternStrictHint();
+          });
+        }
+        const patternAddBtn = document.getElementById('pattern-add');
+        if (patternAddBtn) patternAddBtn.addEventListener('click', betaPatternAddBlock);
+        const patternClearBtn = document.getElementById('pattern-clear');
+        if (patternClearBtn) patternClearBtn.addEventListener('click', betaPatternClear);
+        const patternInput = document.getElementById('beta-rule-pattern');
+        if (patternInput) patternInput.addEventListener('input', betaPatternSyncFromInput);
         document.getElementById('beta-av-add').addEventListener('click', betaAvAdd);
         document.getElementById('beta-av-clear').addEventListener('click', betaAvClear);
         document.getElementById('beta-av-save').addEventListener('click', betaAvSave);
+        const betaFixedTable = document.getElementById('beta-fixed-tbody');
+        if (betaFixedTable) {
+          betaFixedTable.addEventListener('input', betaHandleFixedInput);
+          betaFixedTable.addEventListener('change', betaHandleFixedInput);
+        }
+        document.getElementById('beta-fixed-reset').addEventListener('click', betaFixedReset);
+        document.getElementById('beta-fixed-save').addEventListener('click', betaSaveFixedShifts);
         document.getElementById('beta-pto-grant').addEventListener('click', betaPtoGrant);
         document.getElementById('beta-pto-request').addEventListener('click', betaPtoRequest);
         // init
-        betaLoadList().then(()=>{
-          // auto select first
-          const first = document.querySelector('#beta-emp-list li'); if(first){ const id = (first.textContent||'').split(' ')[0]; if(id) betaLoadDetail(id); }
-        });
+        toggleBetaCreate(false);
+        const delBtnInit = document.getElementById('beta-delete'); if (delBtnInit) delBtnInit.disabled = true;
+        betaPatternSyncFromInput();
+        betaLoadList();
 
         // ===== Skills Tab Logic =====
         let betaAllSkillsCache = [];
@@ -306,7 +606,12 @@
             document.getElementById('beta-rule-allowMulti').checked = !!r.allowMultipleShiftsPerDay;
             document.getElementById('beta-rule-allowHoliday').checked = !!r.allowHolidayWork;
             document.getElementById('beta-rule-weeklyRest').value = r.weeklyRestDays ?? '';
+            document.getElementById('beta-rule-pattern').value = r.workOffPattern || '';
+            document.getElementById('beta-rule-anchor').value = r.patternAnchorDate || '';
+            document.getElementById('beta-rule-strict').checked = !!r.patternStrict;
             document.getElementById('beta-rule-msg').textContent = '';
+            patternStrictTouched = false;
+            betaPatternSyncFromInput();
           }catch(e){ document.getElementById('beta-rule-msg').textContent = e.message||'取得に失敗しました'; }
         }
         async function betaSaveRule(){
@@ -318,18 +623,21 @@
             minRestHours: parseInt(document.getElementById('beta-rule-minRest').value||''),
             allowMultipleShiftsPerDay: document.getElementById('beta-rule-allowMulti').checked,
             allowHolidayWork: document.getElementById('beta-rule-allowHoliday').checked,
-            weeklyRestDays: parseInt(document.getElementById('beta-rule-weeklyRest').value||'')
+            weeklyRestDays: parseInt(document.getElementById('beta-rule-weeklyRest').value||''),
+            workOffPattern: (document.getElementById('beta-rule-pattern').value||'').trim() || null,
+            patternAnchorDate: document.getElementById('beta-rule-anchor').value || null,
+            patternStrict: document.getElementById('beta-rule-strict').checked
           };
           // remove NaN
           Object.keys(body).forEach(k => { if (typeof body[k]==='number' && Number.isNaN(body[k])) delete body[k]; });
+          if (!body.workOffPattern) delete body.workOffPattern;
+          if (!body.patternAnchorDate) delete body.patternAnchorDate;
           try{
             await betaFetch(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)});
             document.getElementById('beta-rule-msg').textContent='保存しました';
           }catch(e){ document.getElementById('beta-rule-msg').textContent = e.message||'保存に失敗しました'; }
         }
-
         // ===== Availability Tab Logic =====
-        let betaAvList = [];
         async function betaLoadAvailability(){
           const id = betaSelectedId; if(!id){ document.getElementById('beta-av-msg').textContent='従業員を選択してください'; return; }
           try{
@@ -345,7 +653,7 @@
           tbody.innerHTML = betaAvList.map((a,i)=>{
             const s = (a.startTime||'').toString().slice(0,5); const e = (a.endTime||'').toString().slice(0,5);
             const d = a.dayOfWeek;
-            return `<tr><td>${d}</td><td>${s}</td><td>${e}</td><td><button data-av-del="${i}">削除</button></td></tr>`;
+            return `<tr><td>${betaDowLabel(d)}</td><td>${s}</td><td>${e}</td><td><button data-av-del="${i}">削除</button></td></tr>`;
           }).join('');
           tbody.querySelectorAll('button[data-av-del]').forEach(btn=> btn.addEventListener('click', (ev)=>{
             const idx = parseInt(ev.currentTarget.getAttribute('data-av-del'),10);
@@ -367,6 +675,126 @@
             await betaFetch(`/api/employees/${id}/availability`, { method:'PUT', body: JSON.stringify(betaAvList) });
             document.getElementById('beta-av-msg').textContent='保存しました';
           }catch(e){ document.getElementById('beta-av-msg').textContent = e.message||'保存に失敗しました'; }
+        }
+
+        // ===== Fixed Shift Tab Logic =====
+        function betaEnsureFixedState(){
+          if (!Array.isArray(betaFixedState) || betaFixedState.length === 0) {
+            betaInitFixedState();
+            return;
+          }
+          const map = {};
+          betaFixedState.forEach(item => { if (item && item.dayOfWeek) map[item.dayOfWeek] = item; });
+          betaFixedState = betaFixedDays.map(day => {
+            const match = map[day.key] || {};
+            return {
+              dayOfWeek: day.key,
+              label: day.label,
+              active: !!match.active,
+              startTime: (match.startTime || '09:00').slice(0,5),
+              endTime: (match.endTime || '18:00').slice(0,5),
+              note: match.note || ''
+            };
+          });
+        }
+        function betaRenderFixedTable(){
+          betaEnsureFixedState();
+          const tbody = document.getElementById('beta-fixed-tbody');
+          if (!tbody) return;
+          tbody.innerHTML = betaFixedState.map(item => {
+            const checked = item.active ? 'checked' : '';
+            return `<tr data-day="${item.dayOfWeek}">
+              <td>${item.label}</td>
+              <td style="text-align:center;"><input type="checkbox" data-day="${item.dayOfWeek}" data-kind="active" ${checked}/></td>
+              <td><input type="time" data-day="${item.dayOfWeek}" data-kind="start" value="${item.startTime || ''}"/></td>
+              <td><input type="time" data-day="${item.dayOfWeek}" data-kind="end" value="${item.endTime || ''}"/></td>
+              <td><input type="text" data-day="${item.dayOfWeek}" data-kind="note" value="${item.note || ''}" placeholder="例) 送迎対応"/></td>
+            </tr>`;
+          }).join('');
+        }
+        async function betaLoadFixedShifts(){
+          const id = betaSelectedId;
+          const msgEl = document.getElementById('beta-fixed-msg');
+          if (!id) {
+            betaInitFixedState(); betaRenderFixedTable();
+            if (msgEl) msgEl.textContent = '従業員を選択してください';
+            return;
+          }
+          try{
+            const resp = await betaFetch(`/api/employees/${id}/fixed-shifts`);
+            const data = resp?.data || [];
+            betaInitFixedState();
+            data.forEach(item => {
+              if (!item || !item.dayOfWeek) return;
+              const row = betaFixedState.find(x => x.dayOfWeek === item.dayOfWeek);
+              if (!row) return;
+              row.active = item.active !== false;
+              row.startTime = (item.startTime || '09:00').slice(0,5);
+              row.endTime = (item.endTime || '18:00').slice(0,5);
+              row.note = item.note || '';
+            });
+            betaRenderFixedTable();
+            if (msgEl) msgEl.textContent = '';
+          }catch(e){
+            betaInitFixedState(); betaRenderFixedTable();
+            if (msgEl) msgEl.textContent = e.message || '取得に失敗しました';
+          }
+        }
+        function betaHandleFixedInput(ev){
+          const target = ev.target;
+          if (!target || !target.dataset) return;
+          const day = target.dataset.day;
+          const kind = target.dataset.kind;
+          if (!day || !kind) return;
+          const item = betaFixedState.find(x => x.dayOfWeek === day);
+          if (!item) return;
+          if (kind === 'active') item.active = target.checked;
+          if (kind === 'start') item.startTime = target.value;
+          if (kind === 'end') item.endTime = target.value;
+          if (kind === 'note') item.note = target.value;
+        }
+        function betaFixedReset(){
+          betaInitFixedState();
+          betaRenderFixedTable();
+          const msgEl = document.getElementById('beta-fixed-msg');
+          if (msgEl) msgEl.textContent = '';
+        }
+        function betaFixedMinutes(str){
+          if (!str) return null;
+          const parts = str.split(':');
+          if (parts.length < 2) return null;
+          const h = parseInt(parts[0],10);
+          const m = parseInt(parts[1],10);
+          if (Number.isNaN(h) || Number.isNaN(m)) return null;
+          return h*60 + m;
+        }
+        async function betaSaveFixedShifts(){
+          const id = betaSelectedId;
+          const msgEl = document.getElementById('beta-fixed-msg');
+          if (!id){ if (msgEl) msgEl.textContent = '従業員を選択してください'; return; }
+          const payload = [];
+          for (const item of betaFixedState){
+            if (!item.active) continue;
+            const startMin = betaFixedMinutes(item.startTime);
+            const endMin = betaFixedMinutes(item.endTime);
+            if (startMin == null || endMin == null || startMin >= endMin){
+              if (msgEl) msgEl.textContent = `${item.label}の時間帯が不正です`;
+              return;
+            }
+            payload.push({
+              dayOfWeek: item.dayOfWeek,
+              startTime: item.startTime,
+              endTime: item.endTime,
+              note: item.note,
+              active: true
+            });
+          }
+          try{
+            await betaFetch(`/api/employees/${id}/fixed-shifts`, { method:'PUT', body: JSON.stringify(payload) });
+            if (msgEl) msgEl.textContent = '保存しました';
+          }catch(e){
+            if (msgEl) msgEl.textContent = e.message || '保存に失敗しました';
+          }
         }
 
         // ===== PTO Tab Logic =====
@@ -402,248 +830,6 @@
         }
       </script>
     </div>
-
-    <!-- 従業員の登録・一覧 -->
-    <div class="card">
-      <div class="row">
-        <label>氏名<br><input type="text" id="emp-name" placeholder="例: 田中 太郎" /></label>
-        <label>役割<br><input type="text" id="emp-role" placeholder="例: スタッフ" /></label>
-        <button id="emp-add">従業員を追加</button>
-      </div>
-      <div id="emp-msg" class="muted" style="margin-top:6px;"></div>
-      <table style="margin-top:8px;">
-        <thead><tr><th>ID</th><th>氏名</th><th>役割</th><th>操作</th></tr></thead>
-        <tbody id="emp-tbody"></tbody>
-      </table>
-    </div>
-
-    <div class="cols">
-      <!-- スキル付与 -->
-      <div class="card">
-        <h3 style="margin:0 0 8px;">スキル付与</h3>
-        <div class="row">
-          <label>従業員<br><select id="emp-select"></select></label>
-          <label>検索<br><input type="text" id="skill-q" placeholder="code/name 部分一致"/></label>
-          <button id="skill-search">検索</button>
-          <button id="skill-save">保存</button>
-        </div>
-        <div class="row" style="align-items:flex-start; gap:24px; margin-top:8px;">
-          <div style="flex:1;">
-            <div class="muted">スキル一覧</div>
-            <div id="skill-list"></div>
-          </div>
-          <div style="flex:1;">
-            <div class="muted">付与済み</div>
-            <ul id="emp-skill-list" style="list-style:none; padding-left:0; margin:0;"></ul>
-          </div>
-        </div>
-        <div id="emp-skill-msg" class="muted" style="margin-top:6px;"></div>
-      </div>
-
-      <!-- 個別勤務ルール -->
-      <div class="card">
-        <h3 style="margin:0 0 8px;">個別勤務ルール</h3>
-        <div class="row">
-          <label>週最大時間<br><input type="number" id="weeklyMax" value="40"/></label>
-          <label>日最大時間<br><input type="number" id="dailyMax" value="8"/></label>
-          <label>連勤上限(日)<br><input type="number" id="maxConsecutive" value="5"/></label>
-          <label>最低休息(時)<br><input type="number" id="minRest" value="11"/></label>
-        </div>
-        <div class="row">
-          <label><input type="checkbox" id="allowMulti"/> 1日に複数シフト可</label>
-          <label><input type="checkbox" id="allowHoliday" checked/> 休日勤務可</label>
-          <button id="rule-save">ルール保存</button>
-        </div>
-        <div class="muted" id="rule-msg" style="margin-top:6px;"></div>
-        <hr/>
-        <h4 style="margin:0 0 8px;">出勤可能時間</h4>
-        <div class="row">
-          <label>曜日
-            <select id="av-dow">
-              <option>MONDAY</option><option>TUESDAY</option><option>WEDNESDAY</option>
-              <option>THURSDAY</option><option>FRIDAY</option><option>SATURDAY</option><option>SUNDAY</option>
-            </select>
-          </label>
-          <label>開始<br><input type="time" id="av-start" value="09:00"/></label>
-          <label>終了<br><input type="time" id="av-end" value="21:00"/></label>
-          <button id="av-add">追加</button>
-          <button id="av-clear">全クリア</button>
-          <button id="av-save">保存</button>
-        </div>
-        <table style="margin-top:8px;">
-          <thead><tr><th>曜日</th><th>開始</th><th>終了</th><th>操作</th></tr></thead>
-          <tbody id="av-tbody"></tbody>
-        </table>
-        <div class="muted" id="av-msg" style="margin-top:6px;"></div>
-      </div>
   </div>
-
-  <!-- 有休（PTO）管理 -->
-  <div class="card">
-      <h3 style="margin:0 0 8px;">有休の管理</h3>
-      <div class="row">
-        <label>従業員<br><select id="lv-emp"></select></label>
-        <div class="muted" id="lv-balance" style="min-width:220px;">残数: -</div>
-      </div>
-      <div class="row">
-        <label>付与日数<br><input type="number" id="lv-grant-days" value="1" min="1" style="width:100px;"/></label>
-        <button id="lv-grant-btn">付与</button>
-      </div>
-      <div class="row">
-        <label>休暇日<br><input type="date" id="lv-date"/></label>
-        <button id="lv-request-btn">この日を有休にする</button>
-      </div>
-      <div class="muted" id="lv-msg" style="margin-top:6px;"></div>
-    </div>
-
-    <div class="muted"><a href="/dashboard">ダッシュボード</a></div>
-  </div>
-
-  <!-- シフトアサイン優先度設定 -->
-  <div class="card">
-    <h3 style="margin:0 0 8px;">シフトアサイン優先度</h3>
-    <div class="muted" style="margin-bottom:8px;">範囲は1〜5（5が高優先）。現在はテスト中のため初期値は全員同一です。</div>
-    <table>
-      <thead>
-        <tr><th style="width:60px;">ID</th><th>氏名</th><th>役割</th><th style="width:140px;">優先度</th><th style="width:120px;">操作</th></tr>
-      </thead>
-      <tbody id="prio-tbody"></tbody>
-    </table>
-    <div id="prio-msg" class="muted" style="margin-top:6px;"></div>
-  </div>
-
-  <script>
-    async function fetchEmployeesForPriority() {
-      const res = await fetch('/api/employees');
-      const json = await res.json();
-      if (!json || !json.success) { document.getElementById('prio-msg').textContent = '従業員取得に失敗しました'; return; }
-      const list = json.data || [];
-      const tbody = document.getElementById('prio-tbody');
-      tbody.innerHTML = '';
-      for (const e of list) {
-        const tr = document.createElement('tr');
-        const ap = (e.assignPriority ?? 3);
-        const shown = Math.max(1, Math.min(5, parseInt(ap,10)||3));
-        tr.innerHTML = `
-          <td>${e.id}</td>
-          <td>${e.name || ''}</td>
-          <td>${e.role || ''}</td>
-          <td><input type="number" min="1" max="5" step="1" value="${shown}" data-eid="${e.id}" style="width:100%;"></td>
-          <td><button data-save="${e.id}">保存</button></td>
-        `;
-        tbody.appendChild(tr);
-      }
-      tbody.querySelectorAll('button[data-save]').forEach(btn => {
-        btn.addEventListener('click', async () => {
-          const id = btn.getAttribute('data-save');
-          const input = tbody.querySelector(`input[data-eid="${id}"]`);
-          let val = parseInt(input.value, 10);
-          if (isNaN(val)) val = 3; if (val < 1) val = 1; if (val > 5) val = 5;
-          const resp = await fetch(`/api/employees/${id}/priority`, {
-            method: 'PUT', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ assignPriority: val })
-          });
-          const js = await resp.json();
-          document.getElementById('prio-msg').textContent = js && js.success ? '優先度を更新しました' : '更新に失敗しました';
-        });
-      });
-    }
-    // kick load for priority section
-    fetchEmployeesForPriority().catch(()=>{});
-  </script>
-  <script>
-    // utils
-    async function api(url, opt={}){
-      const res = await fetch(url, { credentials:'include', headers:{'Content-Type':'application/json'}, ...opt });
-      const ct = res.headers.get('content-type')||''; const data = ct.includes('json') ? await res.json() : await res.text();
-      if(!res.ok) throw new Error((data&&data.message) || ('HTTP '+res.status));
-      if(data && data.success===false) throw new Error(data.message||'処理に失敗しました');
-      return data;
-    }
-    function setMsg(id,t){ const el=document.getElementById(id); if(el) el.textContent=t||''; }
-
-    // employees
-    async function loadEmployees(){
-      const j = await api('/api/employees');
-      const list = j.data||[]; const tbody=document.getElementById('emp-tbody'); tbody.innerHTML='';
-      const sel = document.getElementById('emp-select'); sel.innerHTML='';
-      list.forEach(e=>{
-        const tr=document.createElement('tr');
-        tr.innerHTML = `<td>${e.id}</td><td><input value="${e.name||''}" data-k="name"/></td><td><input value="${e.role||''}" data-k="role"/></td><td><button data-a="save">保存</button> <button data-a="del" style="background:#ef4444;">削除</button></td>`;
-        tr.querySelector('[data-a="save"]').addEventListener('click', async()=>{
-          try{ const name=tr.querySelector('input[data-k="name"]').value.trim(); const role=tr.querySelector('input[data-k="role"]').value.trim(); const r=await api(`/api/employees/${e.id}`, {method:'PUT', body: JSON.stringify({name, role})}); setMsg('emp-msg', r.message||'更新しました'); await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'更新に失敗しました'); }
-        });
-        tr.querySelector('[data-a="del"]').addEventListener('click', async()=>{
-          if(!confirm('削除しますか？')) return; try{ const r=await api(`/api/employees/${e.id}`, {method:'DELETE'}); setMsg('emp-msg', r.message||'削除しました'); await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'削除に失敗しました'); }
-        });
-        tbody.appendChild(tr);
-        const o=document.createElement('option'); o.value=e.id; o.textContent=e.name; sel.appendChild(o);
-      });
-      if(sel.value) { await onEmpChange(); }
-      // mirror to lv-emp select
-      const lvSel=document.getElementById('lv-emp'); if(lvSel){ lvSel.innerHTML=''; const def=new Option('(選択)', '', true, true); lvSel.appendChild(def); Array.from(sel.options).forEach(o=>{ if(o.value){ lvSel.appendChild(new Option(o.text, o.value)); } }); }
-    }
-    async function addEmployee(){
-      const name=document.getElementById('emp-name').value.trim(); const role=document.getElementById('emp-role').value.trim();
-      if(!name){ setMsg('emp-msg','氏名は必須です'); return; }
-      try{ const r=await api('/api/employees', { method:'POST', body: JSON.stringify({name, role})}); setMsg('emp-msg', r.message||'追加しました'); document.getElementById('emp-name').value=''; document.getElementById('emp-role').value=''; await loadEmployees(); }catch(err){ setMsg('emp-msg', err.message||'追加に失敗しました'); }
-    }
-
-    // skills
-    let allSkills=[]; let empSkillSet = new Set();
-    function renderSkillChecklist(){
-      const host=document.getElementById('skill-list'); host.innerHTML='';
-      allSkills.forEach(s=>{
-        const div=document.createElement('div');
-        const cb=document.createElement('input'); cb.type='checkbox'; cb.checked=empSkillSet.has(s.id);
-        cb.addEventListener('change', ()=>{ if(cb.checked) empSkillSet.add(s.id); else empSkillSet.delete(s.id); renderEmpAssigned(); });
-        const label=document.createElement('label'); label.textContent=`${s.code||''} ${s.name||''}`.trim(); label.style.marginLeft='6px';
-        div.appendChild(cb); div.appendChild(label); host.appendChild(div);
-      });
-      renderEmpAssigned();
-    }
-    function renderEmpAssigned(){ const ul=document.getElementById('emp-skill-list'); ul.innerHTML=''; allSkills.filter(s=>empSkillSet.has(s.id)).forEach(s=>{ const li=document.createElement('li'); li.textContent=`${s.code||''} ${s.name||''}`.trim(); ul.appendChild(li); }); }
-    async function loadSkills(){ const q=document.getElementById('skill-q').value.trim(); const j=await api('/api/skills'+(q?`?query=${encodeURIComponent(q)}`:'')); allSkills=j.data||[]; // no sort -> backend order
-      renderSkillChecklist(); }
-    async function loadEmpSkills(){ const id=document.getElementById('emp-select').value; const j=await api(`/api/employees/${id}/skills`); empSkillSet = new Set((j.data||[]).map(s=>s.id)); renderSkillChecklist(); setMsg('emp-skill-msg',''); }
-    async function saveEmpSkills(){ const id=document.getElementById('emp-select').value; await api(`/api/employees/${id}/skills`, { method:'PUT', body: JSON.stringify(Array.from(empSkillSet))}); setMsg('emp-skill-msg','保存しました'); }
-
-    // rules
-    async function loadRule(id){ const r=await api(`/api/employees/${id}/rule`); const d=r.data||{}; document.getElementById('weeklyMax').value=d.weeklyMaxHours??40; document.getElementById('dailyMax').value=d.dailyMaxHours??8; document.getElementById('maxConsecutive').value=d.maxConsecutiveDays??5; document.getElementById('minRest').value=d.minRestHours??11; document.getElementById('allowMulti').checked=!!d.allowMultipleShiftsPerDay; document.getElementById('allowHoliday').checked=(d.allowHolidayWork!==false); document.getElementById('weeklyRestDays').value=d.weeklyRestDays??2; }
-    async function saveRule(){ const id=document.getElementById('emp-select').value; const body={ weeklyMaxHours:Number(document.getElementById('weeklyMax').value||'0'), dailyMaxHours:Number(document.getElementById('dailyMax').value||'0'), maxConsecutiveDays:Number(document.getElementById('maxConsecutive').value||'0'), minRestHours:Number(document.getElementById('minRest').value||'0'), allowMultipleShiftsPerDay: document.getElementById('allowMulti').checked, allowHolidayWork: document.getElementById('allowHoliday').checked, weeklyRestDays: Number(document.getElementById('weeklyRestDays').value||'0') }; const r=await api(`/api/employees/${id}/rule`, { method:'PUT', body: JSON.stringify(body)}); setMsg('rule-msg', r.message||'保存しました'); }
-    let avItems=[];
-    function renderAv(){ const tb=document.getElementById('av-tbody'); tb.innerHTML=''; avItems.forEach((x,idx)=>{ const tr=document.createElement('tr'); tr.innerHTML=`<td>${x.dayOfWeek}</td><td>${x.startTime}</td><td>${x.endTime}</td><td><button data-i="${idx}">削除</button></td>`; tr.querySelector('button').addEventListener('click',()=>{ avItems.splice(idx,1); renderAv(); }); tb.appendChild(tr); }); }
-    async function loadAv(id){ const r=await api(`/api/employees/${id}/availability`); avItems=(r.data||[]).map(a=>({ dayOfWeek:a.dayOfWeek, startTime:(a.startTime||'').substring(0,5), endTime:(a.endTime||'').substring(0,5) })); renderAv(); }
-    async function saveAv(){ const id=document.getElementById('emp-select').value; const r=await api(`/api/employees/${id}/availability`, { method:'PUT', body: JSON.stringify(avItems)}); setMsg('av-msg', r.message||'保存しました'); }
-    function addAv(){ const day=document.getElementById('av-dow').value; const st=document.getElementById('av-start').value; const et=document.getElementById('av-end').value; if(!st||!et){ setMsg('av-msg','開始・終了は必須'); return;} avItems.push({ dayOfWeek:day, startTime:st, endTime:et }); renderAv(); }
-    function clearAv(){ avItems=[]; renderAv(); }
-
-    // leave (PTO)
-    async function loadLeaveBalance(id){
-      try{ const r=await api(`/api/leave/balance/${id}`); const d=r.data||{}; const el=document.getElementById('lv-balance'); if(el){ el.textContent = `残数: ${d.remaining} (付与=${d.annualGranted||0}, 繰越=${d.carriedOver||0}, 使用=${d.used||0})`; } }
-      catch(_){ const el=document.getElementById('lv-balance'); if(el){ el.textContent='残数: -'; } }
-    }
-    async function grantLeave(){ const id=document.getElementById('lv-emp').value||document.getElementById('emp-select').value; const days=Number(document.getElementById('lv-grant-days').value||'0'); if(!id||days<=0){ document.getElementById('lv-msg').textContent='従業員と日数を入力してください'; return; } try{ const r=await api('/api/leave/balance/grant', { method:'POST', body: JSON.stringify({ employeeId:Number(id), days }) }); document.getElementById('lv-msg').textContent=r.message||'付与しました'; await loadLeaveBalance(id); }catch(err){ document.getElementById('lv-msg').textContent=err.message||'付与に失敗しました'; }
-    }
-    async function requestLeave(){ const id=document.getElementById('lv-emp').value||document.getElementById('emp-select').value; const date=document.getElementById('lv-date').value; if(!id||!date){ document.getElementById('lv-msg').textContent='従業員と日付を入力してください'; return; } try{ const r=await api('/api/leave/requests', { method:'POST', body: JSON.stringify({ employeeId:Number(id), date }) }); document.getElementById('lv-msg').textContent=r.message||'登録しました'; await loadLeaveBalance(id); }catch(err){ document.getElementById('lv-msg').textContent=err.message||'登録に失敗しました'; }
-    }
-    async function onEmpChange(){ const id=document.getElementById('emp-select').value; const lvSel=document.getElementById('lv-emp'); if(lvSel){ lvSel.value=id; } await Promise.all([loadEmpSkills(), loadRule(id), loadAv(id), loadLeaveBalance(id)]); }
-
-    document.getElementById('emp-add').addEventListener('click', addEmployee);
-    document.getElementById('skill-save').addEventListener('click', saveEmpSkills);
-    document.getElementById('skill-search').addEventListener('click', loadSkills);
-    document.getElementById('rule-save').addEventListener('click', saveRule);
-    document.getElementById('av-add').addEventListener('click', addAv);
-    document.getElementById('av-clear').addEventListener('click', clearAv);
-    document.getElementById('av-save').addEventListener('click', saveAv);
-    document.getElementById('emp-select').addEventListener('change', onEmpChange);
-    document.getElementById('lv-grant-btn').addEventListener('click', grantLeave);
-    document.getElementById('lv-request-btn').addEventListener('click', requestLeave);
-
-    window.addEventListener('DOMContentLoaded', async ()=>{ await loadEmployees(); await loadSkills(); const cur=document.getElementById('emp-select').value; if(cur){ await loadLeaveBalance(cur); }});
-  </script>
 </body>
 </html>
-
-
-
